@@ -517,26 +517,10 @@ CScriptVal GetProfilerState(void* cbdata)
 	return g_ProfileViewer.SaveToJS(guiManager->GetScriptInterface());
 }
 
-
 bool IsUserReportEnabled(void* UNUSED(cbdata))
 {
 	return g_UserReporter.IsReportingEnabled();
 }
-
-bool IsSplashScreenEnabled(void* UNUSED(cbdata))
-{
-	bool splashScreenEnable = true;
-	CFG_GET_VAL("splashscreenenable", Bool, splashScreenEnable);
-	return splashScreenEnable;
-}
-
-void SetSplashScreenEnabled(void* UNUSED(cbdata), bool enabled)
-{
-	CStr val = (enabled ? "true" : "false");
-	g_ConfigDB.CreateValue(CFG_USER, "splashscreenenable")->m_String = val;
-	g_ConfigDB.WriteFile(CFG_USER);
-}
-
 
 void SetUserReportEnabled(void* UNUSED(cbdata), bool enabled)
 {
@@ -552,8 +536,6 @@ void SubmitUserReport(void* UNUSED(cbdata), std::string type, int version, std::
 {
 	g_UserReporter.SubmitReport(type.c_str(), version, utf8_from_wstring(data));
 }
-
-
 
 void SetSimRate(void* UNUSED(cbdata), float rate)
 {
@@ -646,6 +628,20 @@ void SetBoundingBoxDebugOverlay(void* UNUSED(cbdata), bool enabled)
 	ICmpSelectable::ms_EnableDebugOverlays = enabled;
 }
 
+// Config getter/setter functions
+void SetConfigValue(void* UNUSED(cbdata), std::string key, std::string value)
+{
+	g_ConfigDB.CreateValue(CFG_USER, key)->m_String = value;
+	g_ConfigDB.WriteFile(CFG_USER);
+}
+
+std::string GetConfigValue(void* UNUSED(cbdata), std::string key)
+{
+	std::string value;
+	CFG_GET_VAL(key, String, value);
+	return value;
+}
+
 } // namespace
 
 void GuiScriptingInit(ScriptInterface& scriptInterface)
@@ -734,4 +730,8 @@ void GuiScriptingInit(ScriptInterface& scriptInterface)
 	scriptInterface.RegisterFunction<void, unsigned int, &EnableTimeWarpRecording>("EnableTimeWarpRecording");
 	scriptInterface.RegisterFunction<void, &RewindTimeWarp>("RewindTimeWarp");
 	scriptInterface.RegisterFunction<void, bool, &SetBoundingBoxDebugOverlay>("SetBoundingBoxDebugOverlay");
+
+	// Config Functions
+	scriptInterface.RegisterFunction<void, std::string, std::string, &SetConfigValue>("SetConfigValue");
+	scriptInterface.RegisterFunction<std::string, std::string, &GetConfigValue>("GetConfigValue");
 }
