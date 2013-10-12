@@ -51,6 +51,8 @@ CInput::CInput()
 	AddSetting(GUIST_CStrW,					"caption");
 	AddSetting(GUIST_int,					"cell_id");
 	AddSetting(GUIST_CStrW,					"font");
+	AddSetting(GUIST_CStrW,					"mask_char");
+	AddSetting(GUIST_bool,					"mask");
 	AddSetting(GUIST_int,					"max_length");
 	AddSetting(GUIST_bool,					"multiline");
 	AddSetting(GUIST_bool,					"scrollbar");
@@ -1017,9 +1019,11 @@ void CInput::Draw()
 	bool scrollbar;
 	float buffer_zone;
 	bool multiline;
+	bool mask;
 	GUI<bool>::GetSetting(this, "scrollbar", scrollbar);
 	GUI<float>::GetSetting(this, "buffer_zone", buffer_zone);
 	GUI<bool>::GetSetting(this, "multiline", multiline);
+	GUI<bool>::GetSetting(this, "mask", mask);
 
 	if (scrollbar && multiline)
 	{
@@ -1038,7 +1042,17 @@ void CInput::Draw()
 		
 		// Get pointer of caption, it might be very large, and we don't
 		//  want to copy it continuously.
-		CStrW *pCaption = (CStrW*)m_Settings["caption"].m_pSetting;
+		CStrW *pCaption = NULL;
+		wchar_t mask_char = L'*';
+		if (mask)
+		{
+			CStrW maskStr;
+			GUI<CStrW>::GetSetting(this, "mask_char", maskStr);
+			if (maskStr.length() > 0)
+				mask_char = maskStr[0];
+		}
+		else
+			pCaption = (CStrW*)m_Settings["caption"].m_pSetting;
 
 		CGUISpriteInstance *sprite=NULL, *sprite_selectarea=NULL;
 		int cell_id;
@@ -1246,7 +1260,12 @@ void CInput::Draw()
 					}
 
 					if (i < (int)it->m_ListOfX.size())
-						x_pointer += (float)font.GetCharacterWidth((*pCaption)[it->m_ListStart + i]);
+					{
+						if (!mask)
+							x_pointer += (float)font.GetCharacterWidth((*pCaption)[it->m_ListStart + i]);
+						else
+							x_pointer += (float)font.GetCharacterWidth(mask_char);
+					}
 				}
 
 				if (done)
@@ -1337,7 +1356,12 @@ void CInput::Draw()
 					}
 
 					if (i != (int)it->m_ListOfX.size())
-						textRenderer.PrintfAdvance(L"%lc", (*pCaption)[it->m_ListStart + i]);
+					{
+						if (!mask)
+							textRenderer.PrintfAdvance(L"%lc", (*pCaption)[it->m_ListStart + i]);
+						else
+							textRenderer.PrintfAdvance(L"%lc", mask_char);
+					}
 
 					// check it's now outside a one-liner, then we'll break
 					if (!multiline && i < (int)it->m_ListOfX.size())				
@@ -1380,10 +1404,21 @@ void CInput::UpdateText(int from, int to_before, int to_after)
 	CStrW font_name;
 	float buffer_zone;
 	bool multiline;
+	bool mask;
 	GUI<CStrW>::GetSetting(this, "font", font_name);
 	GUI<CStrW>::GetSetting(this, "caption", caption);
 	GUI<float>::GetSetting(this, "buffer_zone", buffer_zone);
 	GUI<bool>::GetSetting(this, "multiline", multiline);
+	GUI<bool>::GetSetting(this, "mask", mask);
+
+	wchar_t mask_char = L'*';
+	if (mask)
+	{
+		CStrW maskStr;
+		GUI<CStrW>::GetSetting(this, "mask_char", maskStr);
+		if (maskStr.length() > 0)
+			mask_char = maskStr[0];
+	}
 
 	// Ensure positions are valid after caption changes
 	m_iBufferPos = std::min(m_iBufferPos, (int)caption.size());
@@ -1574,7 +1609,10 @@ void CInput::UpdateText(int from, int to_before, int to_after)
 				caption[i] == L'-'*/)
 				last_word_started = i+1;
 
-			x_pos += (float)font.GetCharacterWidth(caption[i]);
+			if (!mask)
+				x_pos += (float)font.GetCharacterWidth(caption[i]);
+			else
+				x_pos += (float)font.GetCharacterWidth(mask_char);
 
 			if (x_pos >= GetTextAreaWidth() && multiline)
 			{
