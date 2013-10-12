@@ -212,6 +212,15 @@ void XmppClient::onDisconnect(gloox::ConnectionError error)
 	if (m_mucRoom)
 		m_mucRoom->leave();
 
+	// Clear game, board and player lists.
+	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameList.begin(); it != m_GameList.end(); ++it)
+		glooxwrapper::Tag::free(*it);
+	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin(); it != m_BoardList.end(); ++it)
+		glooxwrapper::Tag::free(*it);
+	m_BoardList.clear();
+	m_GameList.clear();
+	m_PlayerMap.clear();
+
 	if(error == gloox::ConnAuthenticationFailed)
 		CreateSimpleMessage("system", "authentication failed", "error");
 	else
@@ -258,7 +267,7 @@ void XmppClient::SendIqGetGameList()
 
 	// Send IQ
 	glooxwrapper::IQ iq(gloox::IQ::Get, xpartamuppJid);
-	iq.addExtension( new GameListQuery() );
+	iq.addExtension(new GameListQuery());
 	DbgXMPP("SendIqGetGameList [" << tag_xml(iq) << "]");
 	m_client->send(iq);
 }
@@ -272,7 +281,7 @@ void XmppClient::SendIqGetBoardList()
 
 	// Send IQ
 	glooxwrapper::IQ iq(gloox::IQ::Get, xpartamuppJid);
-	iq.addExtension( new BoardListQuery() );
+	iq.addExtension(new BoardListQuery());
 	DbgXMPP("SendIqGetBoardList [" << tag_xml(iq) << "]");
 	m_client->send(iq);
 }
