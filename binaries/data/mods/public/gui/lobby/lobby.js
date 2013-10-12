@@ -461,8 +461,10 @@ function onTick()
 				{
 					// Clear the list of games and the list of players
 					updateGameList();
-					updateBoardList();
-					updatePlayerList();
+					var playersBox = getGUIObjectByName("playersBox");
+					playersBox.list_name = [];
+					playersBox.list_status = [];
+					playersBox.list = [];
 					// Disable the 'host' button
 					getGUIObjectByName("hostButton").enabled = false;
 				}
