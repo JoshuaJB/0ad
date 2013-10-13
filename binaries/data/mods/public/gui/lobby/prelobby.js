@@ -1,9 +1,11 @@
 var g_LobbyIsConnecting = false;
-var g_EncrytedPassword = "";
+var g_InitialUsername = "";
+var g_InitialPassword = "";
 
 function init()
 {
-	g_EncrytedPassword = Engine.ConfigDB_GetValue("user", "lobby.password");
+	g_InitialUsername = Engine.ConfigDB_GetValue("user", "lobby.login");
+	g_InitialPassword = Engine.ConfigDB_GetValue("user", "lobby.password");
 }
 
 function lobbyStop()
@@ -38,9 +40,7 @@ function lobbyStart()
 	}
 
 	feedback.caption = "Connecting..";
-	if (password != g_EncrytedPassword)
-		g_EncrytedPassword = Engine.EncryptPassword(password, username);
-	Engine.StartXmppClient(username, g_EncrytedPassword, "arena", nick);
+	Engine.StartXmppClient(username, Engine.EncryptPassword(password, username), "arena", nick);
 	g_LobbyIsConnecting = true;
 	Engine.ConnectXmppClient();
 }
@@ -70,9 +70,7 @@ function lobbyStartRegister()
 	}
 
 	feedback.caption = "Registering...";
-	if (password != g_EncrytedPassword)
-		g_EncrytedPassword = Engine.EncryptPassword(password, username);
-	Engine.StartRegisterXmppClient(account, g_EncrytedPassword);
+	Engine.StartRegisterXmppClient(account, Engine.EncryptPassword(password, account));
 	g_LobbyIsConnecting = true;
 	Engine.ConnectXmppClient();
 }
@@ -112,10 +110,7 @@ function onTick()
 			// Store nick, login, and password
 			Engine.ConfigDB_CreateValue("user", "playername", nick);
 			Engine.ConfigDB_CreateValue("user", "lobby.login", username);
-			// We only store the encrypted password, so make sure to re-encrypt it if changed before saving.
-			if (password != g_EncrytedPassword)
-				g_EncrytedPassword = Engine.EncryptPassword(password, username);
-			Engine.ConfigDB_CreateValue("user", "lobby.password", g_EncrytedPassword);
+			Engine.ConfigDB_CreateValue("user", "lobby.password", password);
 			Engine.ConfigDB_WriteFile("user", "config/user.cfg");
 
 			return;
