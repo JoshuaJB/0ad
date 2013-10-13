@@ -213,9 +213,9 @@ void XmppClient::onDisconnect(gloox::ConnectionError error)
 		m_mucRoom->leave();
 
 	// Clear game, board and player lists.
-	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameList.begin(); it != m_
+	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameList.begin(); it != m_GameList.end(); ++it)
 		glooxwrapper::Tag::free(*it);
-	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin(); it != m
+	for (std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin(); it != m_BoardList.end(); ++it)
 		glooxwrapper::Tag::free(*it);
 	m_BoardList.clear();
 	m_GameList.clear();
