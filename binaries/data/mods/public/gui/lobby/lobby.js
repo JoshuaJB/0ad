@@ -174,7 +174,6 @@ function updateGameList()
 	// Sort the list of games to that games 'waiting' are displayed at the top
 	g_GameList.sort(function (a,b) {
 		return a.state == 'waiting' ? -1 : b.state == 'waiting' ? +1 : 0;
-
 	});
 
 	var list_name = [];
@@ -207,7 +206,7 @@ function updateGameList()
 			list_name.push(name);
 			list_ip.push(g.ip);
 			list_mapName.push(g.mapName);
-			list_mapSize.push(tilesToMapSize(g.mapSize));
+			list_mapSize.push((g.mapType == "scenario") ? "Default" : tilesToMapSize(g.mapSize));
 			list_mapType.push(toTitleCase(g.mapType));
 			list_nPlayers.push(g.nbp + "/" +g.tnbp);
 			list.push(g.name);
@@ -356,9 +355,7 @@ function joinSelectedGame()
 function tilesToMapSize(tiles)
 {
 	var s = g_mapSizes.tiles.indexOf(Number(tiles));
-	if (s == 0 || s == -1)
-		return "Default";
-	return g_mapSizes.names[s].split(" ")[0];
+	return g_mapSizes.names[s].split("(")[0];
 }
 
 function twoDigits(n)
