@@ -1529,9 +1529,13 @@ function sendRegisterGameStanza()
 	var selectedMapSize = getGUIObjectByName("mapSize").selected;
 	var selectedVictoryCondition = getGUIObjectByName("victoryCondition").selected;
 
-	var mapSize = getGUIObjectByName("mapSize").list_data[selectedMapSize];
-	var victoryCondition = getGUIObjectByName("victoryCondition").list[selectedVictoryCondition];
+	// Map sizes only apply to random maps.
+	if (g_GameAttributes.mapType == "random")
+		var mapSize = getGUIObjectByName("mapSize").list[selectedMapSize];
+	else
+		var mapSize = "Default";
 
+	var victoryCondition = getGUIObjectByName("victoryCondition").list[selectedVictoryCondition];
 	var numberOfPlayers = Object.keys(g_PlayerAssignments).length;
 	var players = [ assignment.name for each (assignment in g_PlayerAssignments) ].join(", ");
 

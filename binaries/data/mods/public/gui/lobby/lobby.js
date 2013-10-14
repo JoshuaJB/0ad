@@ -206,7 +206,7 @@ function updateGameList()
 			list_name.push(name);
 			list_ip.push(g.ip);
 			list_mapName.push(g.mapName);
-			list_mapSize.push((g.mapType == "scenario") ? "Default" : tilesToMapSize(g.mapSize));
+			list_mapSize.push(g.mapSize);
 			list_mapType.push(toTitleCase(g.mapType));
 			list_nPlayers.push(g.nbp + "/" +g.tnbp);
 			list.push(g.name);
@@ -270,48 +270,34 @@ function selectGame(selected)
 {
 	if (selected == -1)
 	{
-		// Hide the game info panel if not game is selected
+		// Hide the game info panel if a game is not selected
 		getGUIObjectByName("gameInfo").hidden = true;
 		getGUIObjectByName("gameInfoEmpty").hidden = false;
 		getGUIObjectByName("joinGameButton").hidden = true;
 		return;
 	}
 
-	// Show the game info panel if a game is selected
+	var g = getGUIObjectByName("gamesBox").list_data[selected];
+
+	// Load map data
+	if (g_GameList[g].mapType == "random" && fileExists(g_GameList[g].mapName + ".json"))
+		var mapData = parseJSONData(g_GameList[g].mapName + ".json");
+	else if (false && fileExists(g_GameList[g].mapName + ".xml"))
+		var mapData = Engine.LoadMapSettings(g_GameList[g].mapName + ".xml");
+	else
+	{
+		// Return and warn the player if we can't find the map. 
+		warn("Map '"+ g_GameList[g].mapName +"'  not found");
+		return;
+	}
+
+	// Show the game info paneland join button.
 	getGUIObjectByName("gameInfo").hidden = false;
 	getGUIObjectByName("gameInfoEmpty").hidden = true;
 	getGUIObjectByName("joinGameButton").hidden = false;
 
-	var g = getGUIObjectByName("gamesBox").list_data[selected];
-	var mapData;
-
-	// Get the selected map's name
-	getGUIObjectByName("sgMapName").caption = g_GameList[g].mapName;
-
-	// TODO: Don't we already know if the game is a scenario or a random map?
-	// If not we should pass this info to prevent name clashes when hosting the random map
-
-	// Search the selected map in the scenarios
-	if (fileExists("maps/scenarios/" + g_GameList[g].mapName + ".xml"))
-	{
-		mapData = Engine.LoadMapSettings("maps/scenarios/" + g_GameList[g].mapName + ".xml");
-		mapType = "Scenario"
-	}
-
-	// Search for the selected map in the random maps
-	if(!mapData)
-		if (fileExists("maps/random/" + g_GameList[g].mapName + ".json"))
-		{
-			mapData = parseJSONData("maps/random/" + g_GameList[g].mapName + ".json");
-			mapType = "Random";
-		}
-
-	// Return and warn the player if we can't find the map. TODO: Tell the player.
-	if(!mapData)
-	{
-		warn("Map '"+ g_GameList[g].mapName +"'  not found");
-		return;
-	}
+	// Get and display the selected map's name
+	getGUIObjectByName("sgMapName").caption = mapData.settings.Name;
 
 	// Display map description if it exists, otherwise display a placeholder.
 	getGUIObjectByName("sgMapDescription").caption = description = mapData.settings.Description || "Sorry, no description available.";
@@ -319,8 +305,8 @@ function selectGame(selected)
 	// Set the number of players, the names of the players, the map size and the map type text boxes
 	getGUIObjectByName("sgNbPlayers").caption = g_GameList[g].nbp + "/" + g_GameList[g].tnbp;
 	getGUIObjectByName("sgPlayersNames").caption = g_GameList[g].players;
-	getGUIObjectByName("sgMapSize").caption = tilesToMapSize(g_GameList[g].mapSize);
-	getGUIObjectByName("sgMapType").caption = toTitleCase(mapType);
+	getGUIObjectByName("sgMapSize").caption = g_GameList[g].mapSize;
+	getGUIObjectByName("sgMapType").caption = toTitleCase(g_GameList[g].mapType);
 
 	// Set the map preview
 	var mapPreview = mapData.settings.Preview || "nopreview.png";
@@ -352,11 +338,6 @@ function joinSelectedGame()
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Utils
 ////////////////////////////////////////////////////////////////////////////////////////////////
-function tilesToMapSize(tiles)
-{
-	var s = g_mapSizes.tiles.indexOf(Number(tiles));
-	return g_mapSizes.names[s].split("(")[0];
-}
 
 function twoDigits(n)
 {
