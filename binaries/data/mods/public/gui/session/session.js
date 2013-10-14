@@ -284,6 +284,9 @@ function getSavedGameData()
 
 function restoreSavedGameData(data)
 {
+	// Clear selection when loading a game
+	g_Selection.reset();
+
 	// Restore control groups
 	for (var groupNumber in data.groups)
 	{
@@ -483,7 +486,7 @@ function updateHero()
 			g_Selection.reset();
 		g_Selection.addList([hero]);
 	};
-	heroButton.ondoublepress = function() { selectAndMoveTo(hero) };
+	heroButton.ondoublepress = function() { selectAndMoveTo(getEntityOrHolder(hero)); };
 	heroButton.hidden = false;
 
 	// Setup tooltip

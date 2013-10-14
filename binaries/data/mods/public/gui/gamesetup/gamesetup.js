@@ -127,8 +127,8 @@ function initMain()
 
 	// Init map types
 	var mapTypes = getGUIObjectByName("mapTypeSelection");
-	mapTypes.list = ["Scenario","Random"];
-	mapTypes.list_data = ["scenario","random"];
+	mapTypes.list = ["Scenario","Skirmish","Random"];
+	mapTypes.list_data = ["scenario","skirmish","random"];
 
 	// Setup map filters - will appear in order they are added
 	addFilter("Default", function(settings) { return settings && !keywordTestOR(settings.Keywords, ["naval", "demo", "hidden"]); });
@@ -505,6 +505,7 @@ function initMapNameList()
 	switch (g_GameAttributes.mapType)
 	{
 	case "scenario":
+	case "skirmish":
 		mapFiles = getXMLFileList(g_GameAttributes.mapPath);
 		break;
 
@@ -521,7 +522,7 @@ function initMapNameList()
 	var mapList = [];
 	for (var i = 0; i < mapFiles.length; ++i)
 	{
-		var file = mapFiles[i];
+		var file = g_GameAttributes.mapPath + mapFiles[i];
 		var mapData = loadMapData(file);
 
 		if (g_GameAttributes.mapFilter && mapData && testFilter(g_GameAttributes.mapFilter, mapData.settings))
@@ -555,22 +556,20 @@ function loadMapData(name)
 	if (!name)
 		return undefined;
 
-	if (name == "random")
-	{
-		g_MapData[name] = {settings : {"Name" : "Random", "Description" : "Randomly selects a map from the list"}};
-		return g_MapData[name];
-	}
-
 	if (!g_MapData[name])
 	{
 		switch (g_GameAttributes.mapType)
 		{
 		case "scenario":
-			g_MapData[name] = Engine.LoadMapSettings(g_GameAttributes.mapPath+name);
+		case "skirmish":
+			g_MapData[name] = Engine.LoadMapSettings(name);
 			break;
 
 		case "random":
-			g_MapData[name] = parseJSONData(g_GameAttributes.mapPath+name+".json");
+			if (name == "random")
+				g_MapData[name] = {settings : {"Name" : "Random", "Description" : "Randomly selects a map from the list"}};
+			else
+				g_MapData[name] = parseJSONData(name+".json");
 			break;
 
 		default:
@@ -695,8 +694,17 @@ function selectMapType(type)
 	case "scenario":
 		// Set a default map
 		// TODO: This should be remembered from the last session
-		g_GameAttributes.map = (g_IsNetworked ? DEFAULT_NETWORKED_MAP : DEFAULT_OFFLINE_MAP);
 		g_GameAttributes.mapPath = "maps/scenarios/";
+		g_GameAttributes.map = g_GameAttributes.mapPath + (g_IsNetworked ? DEFAULT_NETWORKED_MAP : DEFAULT_OFFLINE_MAP);
+		break;
+
+	case "skirmish":
+		g_GameAttributes.mapPath = "maps/skirmishes/";
+		g_GameAttributes.settings = {
+			PlayerData: g_DefaultPlayerData.slice(0, 4),
+			Seed: Math.floor(Math.random() * 65536),
+			CheatsEnabled: g_GameAttributes.settings.CheatsEnabled
+		};
 		break;
 
 	case "random":
@@ -843,7 +851,7 @@ function launchGame()
 			else
 				var chosenName = civAINames[Math.floor(Math.random() * civAINames.length)];
 			for (var j = 0; j < numPlayers; ++j)
-				if (g_GameAttributes.settings.PlayerData[j].Name.indexOf(chosenName) !== -1)
+				if (g_GameAttributes.settings.PlayerData[j].Name && g_GameAttributes.settings.PlayerData[j].Name.indexOf(chosenName) !== -1)
 					usedName++;
 
 			// Assign civ specific names to AI players
@@ -942,12 +950,16 @@ function onGameAttributesChange()
 	startingResources.selected = (STARTING_RESOURCES_DATA.indexOf(mapSettings.StartingResources) != -1 ? STARTING_RESOURCES_DATA.indexOf(mapSettings.StartingResources) : STARTING_RESOURCES_DEFAULTIDX);
 	startingResourcesText.caption = STARTING_RESOURCES[startingResources.selected];
 
+	// Update map preview
+	getGUIObjectByName("mapPreview").sprite = "cropped:(0.78125,0.5859375)session/icons/mappreview/" + getMapPreview(mapName);
+
 	// Handle map type specific logic
 	switch (g_GameAttributes.mapType)
 	{
 	case "random":
 		if (g_IsController)
-		{	//Host
+		{
+			//Host
 			numPlayersSelection.selected = numPlayers - 1;
 			numPlayersSelection.hidden = false;
 			mapSize.hidden = false;
@@ -964,9 +976,6 @@ function onGameAttributesChange()
 			lockTeamsText.hidden = true;
 			populationCapText.hidden = true;
 			startingResourcesText.hidden = true;
-
-			// Update map preview
-			getGUIObjectByName("mapPreview").sprite = "cropped:(0.78125,0.5859375)session/icons/mappreview/" + getMapPreview(mapName);
 
 			mapSizeText.caption = "Map size:";
 			mapSize.selected = sizeIdx;
@@ -990,8 +999,6 @@ function onGameAttributesChange()
 			populationCapText.hidden = false;
 			startingResources.hidden = true;
 			startingResourcesText.hidden = false;
-			// Update map preview
-			getGUIObjectByName("mapPreview").sprite = "cropped:(0.78125,0.5859375)session/icons/mappreview/" + getMapPreview(mapName);
 
 			numPlayersText.caption = numPlayers;
 			mapSizeText.caption = g_MapSizes.names[sizeIdx];
@@ -1001,6 +1008,57 @@ function onGameAttributesChange()
 		}
 
 		break;
+
+	case "skirmish":
+		mapSizeText.caption = "Default";
+		numPlayersText.caption = numPlayers;
+		numPlayersSelection.hidden = true;
+		mapSize.hidden = true;
+		if (g_IsController)
+		{
+			//Host
+			revealMap.hidden = false;
+			victoryCondition.hidden = false;
+			lockTeams.hidden = false;
+			populationCap.hidden = false;
+			startingResources.hidden = false;
+			
+			numPlayersText.hidden = false;
+			mapSizeText.hidden = false;
+			revealMapText.hidden = true;
+			victoryConditionText.hidden = true;
+			lockTeamsText.hidden = true;
+			populationCapText.hidden = true;
+			startingResourcesText.hidden = true;
+
+			revealMapText.caption = "Reveal map:";
+			revealMap.checked = (mapSettings.RevealMap ? true : false);
+
+			victoryConditionText.caption = "Victory condition:";
+			victoryCondition.selected = victoryIdx;
+			lockTeamsText.caption = "Teams locked:";
+			lockTeams.checked = (mapSettings.LockTeams ? true : false);
+		}
+		else
+		{
+			// Client
+			numPlayersText.hidden = false;
+			mapSizeText.hidden = false;
+			revealMapText.hidden = false;
+			victoryConditionText.hidden = false;
+			lockTeamsText.hidden = false;
+			populationCap.hidden = true;
+			populationCapText.hidden = false;
+			startingResources.hidden = true;
+			startingResourcesText.hidden = false;
+
+			revealMapText.caption = (mapSettings.RevealMap ? "Yes" : "No");
+			victoryConditionText.caption = VICTORY_TEXT[victoryIdx];
+			lockTeamsText.caption = (mapSettings.LockTeams ? "Yes" : "No");
+		}
+
+		break;
+
 
 	case "scenario":
 		// For scenario just reflect settings for the current map
@@ -1019,8 +1077,6 @@ function onGameAttributesChange()
 		startingResources.hidden = true;
 		startingResourcesText.hidden = false;
 
-		// Update map preview
-		getGUIObjectByName("mapPreview").sprite = "cropped:(0.78125,0.5859375)session/icons/mappreview/" + getMapPreview(mapName);
 		numPlayersText.caption = numPlayers;
 		mapSizeText.caption = "Default";
 		revealMapText.caption = (mapSettings.RevealMap ? "Yes" : "No");
@@ -1089,7 +1145,7 @@ function onGameAttributesChange()
 				pCivText.caption = g_CivData[civ].Name;
 			pTeamText.caption = (team !== undefined && team >= 0) ? team+1 : "-";
 		}
-		else if (g_GameAttributes.mapType == "random")
+		else if (g_GameAttributes.mapType != "scenario")
 		{
 			pCivText.hidden = true;
 			pCiv.hidden = false;

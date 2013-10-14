@@ -348,6 +348,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		ret.unitAI = {
 			"state": cmpUnitAI.GetCurrentState(),
 			"orders": cmpUnitAI.GetOrders(),
+			"lastWorkOrder": cmpUnitAI.GetLastWorkOrder(),
 		};
 		// Add some information needed for ungarrisoning
 		if (cmpUnitAI.isGarrisoned && ret.player !== undefined)
@@ -673,6 +674,13 @@ GuiInterface.prototype.GetBattleState = function(player)
 {
 	var cmpBattleDetection = QueryPlayerIDInterface(player, IID_BattleDetection);
 	return cmpBattleDetection.GetState();
+};
+
+// Returns a list of ongoing attacks against the player.
+GuiInterface.prototype.GetIncomingAttacks = function(player)
+{
+	var cmpAttackDetection = QueryPlayerIDInterface(player, IID_AttackDetection);
+	return cmpAttackDetection.GetIncomingAttacks();
 };
 
 // Used to show a red square over GUI elements you can't yet afford.
@@ -1776,6 +1784,7 @@ var exposedFunctions = {
 	"CheckTechnologyRequirements": 1,
 	"GetStartedResearch": 1,
 	"GetBattleState": 1,
+	"GetIncomingAttacks": 1,
 	"GetNeededResources": 1,
 	"GetNextNotification": 1,
 
