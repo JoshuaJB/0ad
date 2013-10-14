@@ -205,8 +205,8 @@ function updateGameList()
 			var name = (g.state != 'waiting') ? '[color="0 125 0"]' + g.name + '[/color]' : '[color="orange"]' + g.name + '[/color]';
 			list_name.push(name);
 			list_ip.push(g.ip);
-			list_mapName.push(g.mapName);
-			list_mapSize.push(g.mapSize);
+			list_mapName.push(g.niceMapName);
+			list_mapSize.push(g.mapSize.split("(")[0]);
 			list_mapType.push(toTitleCase(g.mapType));
 			list_nPlayers.push(g.nbp + "/" +g.tnbp);
 			list.push(g.name);
@@ -277,39 +277,43 @@ function selectGame(selected)
 		return;
 	}
 
+	var mapData;
 	var g = getGUIObjectByName("gamesBox").list_data[selected];
 
 	// Load map data
 	if (g_GameList[g].mapType == "random" && fileExists(g_GameList[g].mapName + ".json"))
-		var mapData = parseJSONData(g_GameList[g].mapName + ".json");
-	else if (false && fileExists(g_GameList[g].mapName + ".xml"))
-		var mapData = Engine.LoadMapSettings(g_GameList[g].mapName + ".xml");
+		mapData = parseJSONData(g_GameList[g].mapName + ".json");
+	else if (fileExists(g_GameList[g].mapName + ".xml"))
+		mapData = Engine.LoadMapSettings(g_GameList[g].mapName + ".xml");
 	else
-	{
-		// Return and warn the player if we can't find the map. 
+		// Warn the player if we can't find the map. 
 		warn("Map '"+ g_GameList[g].mapName +"'  not found");
-		return;
-	}
 
 	// Show the game info paneland join button.
 	getGUIObjectByName("gameInfo").hidden = false;
 	getGUIObjectByName("gameInfoEmpty").hidden = true;
 	getGUIObjectByName("joinGameButton").hidden = false;
 
-	// Get and display the selected map's name
-	getGUIObjectByName("sgMapName").caption = mapData.settings.Name;
-
-	// Display map description if it exists, otherwise display a placeholder.
-	getGUIObjectByName("sgMapDescription").caption = description = mapData.settings.Description || "Sorry, no description available.";
-
-	// Set the number of players, the names of the players, the map size and the map type text boxes
+	// Display the map name, number of players, the names of the players, the map size and the map type.
+	getGUIObjectByName("sgMapName").caption = g_GameList[g].niceMapName;
 	getGUIObjectByName("sgNbPlayers").caption = g_GameList[g].nbp + "/" + g_GameList[g].tnbp;
 	getGUIObjectByName("sgPlayersNames").caption = g_GameList[g].players;
-	getGUIObjectByName("sgMapSize").caption = g_GameList[g].mapSize;
+	getGUIObjectByName("sgMapSize").caption = g_GameList[g].mapSize.split("(")[0];
 	getGUIObjectByName("sgMapType").caption = toTitleCase(g_GameList[g].mapType);
 
-	// Set the map preview
-	var mapPreview = mapData.settings.Preview || "nopreview.png";
+	// Display map description if it exists, otherwise display a placeholder.
+	if (mapData && mapData.settings.Description)
+		var mapDescription = mapData.settings.Description;
+	else
+		var mapDescription = "Sorry, no description available.";
+	
+	// Display map preview if it exists, otherwise display a placeholder.
+	if (mapData && mapData.settings.Preview)
+		var mapPreview = mapData.settings.Preview;
+	else
+		var mapPreview = "nopreview.png";
+	
+	getGUIObjectByName("sgMapDescription").caption = mapDescription;
 	getGUIObjectByName("sgMapPreview").sprite = "cropped:(0.7812,0.5859)session/icons/mappreview/" + mapPreview;
 }
 

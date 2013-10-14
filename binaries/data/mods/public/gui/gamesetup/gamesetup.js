@@ -1545,6 +1545,7 @@ function sendRegisterGameStanza()
 	gameData = {
 		"name":g_ServerName,
 		"mapName":g_GameAttributes.map,
+		"niceMapName":getMapDisplayName(g_GameAttributes.map),
 		"mapSize":mapSize,
 		"mapType":g_GameAttributes.mapType,
 		"victoryCondition":victoryCondition,
