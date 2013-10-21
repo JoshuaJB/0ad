@@ -24,6 +24,7 @@ CInput
 #include "CInput.h"
 #include "CGUIScrollBarVertical.h"
 
+#include "graphics/FontMetrics.h"
 #include "graphics/ShaderManager.h"
 #include "graphics/TextRenderer.h"
 #include "lib/ogl.h"
@@ -31,7 +32,6 @@ CInput
 #include "lib/timer.h"
 #include "ps/CLogger.h"
 #include "ps/ConfigDB.h"
-#include "ps/Font.h"
 #include "ps/Globals.h"
 #include "ps/Hotkey.h"
 #include "renderer/Renderer.h"
@@ -1033,12 +1033,13 @@ void CInput::Draw()
 
 	if (GetGUI())
 	{	
-		CStrW font_name;
+		CStrW font_name_w;
 		CColor color, color_selected;
 		//CStrW caption;
-		GUI<CStrW>::GetSetting(this, "font", font_name);
+		GUI<CStrW>::GetSetting(this, "font", font_name_w);
 		GUI<CColor>::GetSetting(this, "textcolor", color);
 		GUI<CColor>::GetSetting(this, "textcolor_selected", color_selected);
+		CStrIntern font_name(font_name_w.ToUTF8());
 		
 		// Get pointer of caption, it might be very large, and we don't
 		//  want to copy it continuously.
@@ -1070,7 +1071,7 @@ void CInput::Draw()
 			scroll = GetScrollBar(0).GetPos();
 		}
 
-		CFont font(font_name);
+		CFontMetrics font(font_name);
 
 		// We'll have to setup clipping manually, since we're doing the rendering manually.
 		CRect cliparea(m_CachedActualSize);
@@ -1401,15 +1402,16 @@ void CInput::Draw()
 void CInput::UpdateText(int from, int to_before, int to_after)
 {
 	CStrW caption;
-	CStrW font_name;
+	CStrW font_name_w;
 	float buffer_zone;
 	bool multiline;
 	bool mask;
-	GUI<CStrW>::GetSetting(this, "font", font_name);
+	GUI<CStrW>::GetSetting(this, "font", font_name_w);
 	GUI<CStrW>::GetSetting(this, "caption", caption);
 	GUI<float>::GetSetting(this, "buffer_zone", buffer_zone);
 	GUI<bool>::GetSetting(this, "multiline", multiline);
 	GUI<bool>::GetSetting(this, "mask", mask);
+	CStrIntern font_name(font_name_w.ToUTF8());
 
 	wchar_t mask_char = L'*';
 	if (mask)
@@ -1440,7 +1442,7 @@ void CInput::UpdateText(int from, int to_before, int to_after)
 	if (to_before == -1)
 		to = (int)caption.length();
 
-	CFont font(font_name);
+	CFontMetrics font(font_name);
 
 	std::list<SRow>::iterator current_line;
 
@@ -1802,10 +1804,11 @@ int CInput::GetMouseHoveringTextPosition()
 
 	if (multiline)
 	{
-		CStrW font_name;
+		CStrW font_name_w;
 		bool scrollbar;
-		GUI<CStrW>::GetSetting(this, "font", font_name);
+		GUI<CStrW>::GetSetting(this, "font", font_name_w);
 		GUI<bool>::GetSetting(this, "scrollbar", scrollbar);
+		CStrIntern font_name(font_name_w.ToUTF8());
 		
 		float scroll=0.f;
 		if (scrollbar)
@@ -1819,7 +1822,7 @@ int CInput::GetMouseHoveringTextPosition()
 
 		// Now get the height of the font.
 						// TODO: Get the real font
-		CFont font(font_name);
+		CFontMetrics font(font_name);
 		float spacing = (float)font.GetLineSpacing();
 		//float height = (float)font.GetHeight();	// unused
 
@@ -1954,10 +1957,11 @@ void CInput::UpdateAutoScroll()
 	// Autoscrolling up and down
 	if (multiline)
 	{
-		CStrW font_name;
+		CStrW font_name_w;
 		bool scrollbar;
-		GUI<CStrW>::GetSetting(this, "font", font_name);
+		GUI<CStrW>::GetSetting(this, "font", font_name_w);
 		GUI<bool>::GetSetting(this, "scrollbar", scrollbar);
+		CStrIntern font_name(font_name_w.ToUTF8());
 		
 		float scroll=0.f;
 		if (!scrollbar)
@@ -1967,7 +1971,7 @@ void CInput::UpdateAutoScroll()
 		
 		// Now get the height of the font.
 						// TODO: Get the real font
-		CFont font(font_name);
+		CFontMetrics font(font_name);
 		float spacing = (float)font.GetLineSpacing();
 		//float height = font.GetHeight();
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2009 Wildfire Games.
+/* Copyright (C) 2013 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -15,4 +15,27 @@
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "precompiled.h"
+#ifndef INCLUDED_FONTMANAGER
+#define INCLUDED_FONTMANAGER
+
+#include <boost/unordered_map.hpp>
+
+class CFont;
+class CStrIntern;
+
+/**
+ * Font manager: loads and caches bitmap fonts.
+ */
+class CFontManager
+{
+public:
+	shared_ptr<CFont> LoadFont(CStrIntern fontName);
+
+private:
+	bool ReadFont(CFont* font, CStrIntern fontName);
+
+	typedef boost::unordered_map<CStrIntern, shared_ptr<CFont> > FontsMap;
+	FontsMap m_Fonts;
+};
+
+#endif // INCLUDED_FONTMANAGER
