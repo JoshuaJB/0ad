@@ -136,7 +136,7 @@ JSBool JSI_VFS::FileExists(JSContext* cx, uintN argc, jsval* vp)
 	JSU_REQUIRE_PARAMS(1);
 
 	CStrW filename;
-	if (!ToPrimitive<CStrW> (cx, JS_ARGV(cx, vp)[0], filename))
+	if (!ScriptInterface::FromJSVal<CStrW> (cx, JS_ARGV(cx, vp)[0], filename))
 		return JS_FALSE;
 
 	JS_SET_RVAL(cx, vp, g_VFS->GetFileInfo(filename, 0) == INFO::OK ? JSVAL_TRUE : JSVAL_FALSE);
