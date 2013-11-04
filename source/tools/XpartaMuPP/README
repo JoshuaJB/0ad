@@ -61,7 +61,7 @@ Go to to github and follow their instructions
 https://github.com/fritzy/SleekXMPP
 
 Then execute the following command to setup the database
-$ ./source/tools/LobbyRankings.py
+$ ./source/tools/XpartaMuPP/LobbyRankings.py
 
 Then execute the following command to run the script with default options
 $ ./source/tools/XpartaMuPP.py
