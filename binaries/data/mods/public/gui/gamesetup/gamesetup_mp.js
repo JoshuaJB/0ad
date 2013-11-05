@@ -172,6 +172,18 @@ function switchSetupPage(oldpage, newpage)
 
 function startHost(playername, servername)
 {
+	// Disallow identically named games in the multiplayer lobby
+	if (Engine.HasXmppClient())
+	{
+		for each (g in Engine.GetGameList())
+		{
+			if (g.name === servername)
+			{
+				getGUIObjectByName("hostFeedback").caption = "Game name already in use.";
+				return false;
+			}
+		}
+	}
 	try
 	{
 		Engine.StartNetworkHost(playername);
