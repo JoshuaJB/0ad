@@ -330,7 +330,8 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		ret.garrisonHolder = {
 			"entities": cmpGarrisonHolder.GetEntities(),
 			"allowedClasses": cmpGarrisonHolder.GetAllowedClassesList(),
-			"capacity": cmpGarrisonHolder.GetCapacity()
+			"capacity": cmpGarrisonHolder.GetCapacity(),
+			"garrisonedEntitiesCount": cmpGarrisonHolder.GetGarrisonedEntitiesCount()
 		};
 	}
 	
@@ -348,7 +349,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		ret.unitAI = {
 			"state": cmpUnitAI.GetCurrentState(),
 			"orders": cmpUnitAI.GetOrders(),
-			"lastWorkOrder": cmpUnitAI.GetLastWorkOrder(),
+			"hasWorkOrders": cmpUnitAI.HasWorkOrders(),
 		};
 		// Add some information needed for ungarrisoning
 		if (cmpUnitAI.isGarrisoned && ret.player !== undefined)
@@ -548,9 +549,9 @@ GuiInterface.prototype.GetTemplateData = function(player, extendedName)
 	if (template.UnitMotion)
 	{
 		ret.speed = {
-			"walk": +template.UnitMotion.WalkSpeed,
+			"walk": ApplyValueModificationsToTemplate("UnitMotion/WalkSpeed", +template.UnitMotion.WalkSpeed, player, template),
 		};
-		if (template.UnitMotion.Run) ret.speed.run = +template.UnitMotion.Run.Speed;
+		if (template.UnitMotion.Run) ret.speed.run = ApplyValueModificationsToTemplate("UnitMotion/Run/Speed", +template.UnitMotion.Run.Speed, player, template);
 	}
 
 	if (template.Trader)
