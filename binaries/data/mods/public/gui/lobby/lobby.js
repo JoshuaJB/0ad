@@ -533,6 +533,8 @@ function handleSpecialCommand(text)
 	case "nick":
 		if (g_spammers[g_Name] != undefined)
 			break;
+		// Strip invalid characters.
+		nick = sanitizePlayerName(nick, true, true);
 		Engine.LobbySetNick(nick);
 		g_Name = nick;
 		break;

@@ -25,12 +25,12 @@ function lobbyStart()
 
 	var username = getGUIObjectByName("connectUsername").caption;
 	var password = getGUIObjectByName("connectPassword").caption;
-	if (getGUIObjectByName("nickPanel").hidden == true)
-		var nick = sanitisePlayerName(username);
-	else
-		var nick = sanitisePlayerName(getGUIObjectByName("joinPlayerName").caption);
 	var feedback = getGUIObjectByName("connectFeedback");
-
+	// Use username as nick unless overridden.
+	if (getGUIObjectByName("nickPanel").hidden == true)
+		var nick = sanitizePlayerName(username, true, true);
+	else
+		var nick = sanitizePlayerName(getGUIObjectByName("joinPlayerName").caption, true, true);
 	if (!username || !password)
 	{
 		feedback.caption = "Username or password empty";
@@ -38,6 +38,7 @@ function lobbyStart()
 	}
 
 	feedback.caption = "Connecting..";
+	// If they enter a different password, re-encrypt.
 	if (password != g_EncrytedPassword)
 		g_EncrytedPassword = Engine.EncryptPassword(password, username);
 	Engine.StartXmppClient(username, g_EncrytedPassword, "arena", nick);
@@ -49,7 +50,6 @@ function lobbyStartRegister()
 {
 	if (g_LobbyIsConnecting != false)
 		return;
-
 	var account = getGUIObjectByName("connectUsername").caption;
 	var password = getGUIObjectByName("connectPassword").caption;
 	var passwordAgain = getGUIObjectByName("registerPasswordAgain").caption;
@@ -60,12 +60,18 @@ function lobbyStartRegister()
 		feedback.caption = "Login or password empty";
 		return;
 	}
-
 	if (password != passwordAgain)
 	{
 		feedback.caption = "Password mismatch";
 		getGUIObjectByName("connectPassword").caption = "";
 		getGUIObjectByName("registerPasswordAgain").caption = "";
+		return;
+	}
+	// Check they are using a valid account name.
+	sanitizedName = sanitizePlayerName(account, true, true)
+	if (sanitizedName != account)
+	{
+		feedback.caption = "Sorry, you can't use [, ], unicode, whitespace, or commas.";
 		return;
 	}
 
@@ -102,10 +108,11 @@ function onTick()
 			Engine.PopGuiPage();
 			var username = getGUIObjectByName("connectUsername").caption;
 			var password = getGUIObjectByName("connectPassword").caption;
+			// Use username as nick unless overridden.
 			if (getGUIObjectByName("nickPanel").hidden == true)
-				var nick = sanitisePlayerName(username);
+				var nick = sanitizePlayerName(username, true, true);
 			else
-				var nick = sanitisePlayerName(getGUIObjectByName("joinPlayerName").caption);
+				var nick = sanitizePlayerName(getGUIObjectByName("joinPlayerName").caption, true, true);
 
 			// Switch to lobby
 			Engine.SwitchGuiPage("page_lobby.xml");
@@ -138,11 +145,4 @@ function onTick()
 			g_LobbyIsConnecting = false;
 		}
 	}
-}
-
-function sanitisePlayerName(name)
-{
-	// We delete the '[', ']' (GUI tags) and ',' (players names separator) characters
-	// and limit the length to 20 characters
-	return name.replace(/[\[\],]+/g,"").substr(0,20);
 }
