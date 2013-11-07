@@ -208,12 +208,12 @@
 	-->
 	<sprite name = "ModernItemBackShadeLeft">
 		<image texture = "global/modern/item-shading-left.png"
-			real_texture_placement = "0 0 156 32"
+			real_texture_placement = "0 0 148 32"
 		/>
 	</sprite>
 	<sprite name = "ModernItemBackShadeRight">
 		<image texture = "global/modern/item-shading-right.png"
-			real_texture_placement = "0 0 156 32"
+			real_texture_placement = "0 0 148 32"
 		/>
 	</sprite>
 	<!-- A translucent black background for behind dialogs. -->
