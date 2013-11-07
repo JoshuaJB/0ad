@@ -44,28 +44,41 @@
 				<object size="50%-110 50%-50 50%+110 50%+50" type="image" sprite="productLogo"/>
 			</object>
 			<object name="gameInfo" size="0 0 100% 100%-90" type="image" sprite="ModernDarkBoxGold" hidden="true">
-				<object name="sgMapName" size="0 0 100% 4%" type="text" style="ModernCenteredLabelText"/>
+
+				<!-- Map Name -->
+				<object name="sgMapName" size="0 5 100% 20" type="text" style="ModernCenteredLabelText"/>
+
+				<!-- Map Preview -->
+				<object name="sgMapPreview" size="5 25 100%-5 235"  type="image" sprite=""/>
+
+				<object size="5 239 100%-5 240" type="image" sprite="ModernWhiteLine" z="25"/>
 
 				<!-- Map Type -->
-				<object size="10% 4% 49% 7%">
-					<object size="0 0 40% 100%" type="text" style="ModernCenteredLabelText">Type:</object>
-					<object name="sgMapType" size="40% 0 100% 100%" type="text" style="ModernCenteredLabelText"/>
+				<object size="5 240 50% 265" type="image" sprite="ModernItemBackShadeLeft">
+					<object size="0 0 100%-10 100%" type="text" style="ModernRightLabelText">Map Type:</object>
 				</object>
+				<object size="50% 240 100%-5 265" type="image" sprite="ModernItemBackShadeRight">
+					<object name="sgMapType" size="0 0 100% 100%" type="text" style="ModernLeftLabelText"/>
+				</object>
+
+				<object size="5 264 100%-5 265" type="image" sprite="ModernWhiteLine" z="25"/>
 
 				<!-- Map Size -->
-				<object size="51% 4% 100% 7%">
-					<object size="0 0 40% 100%" type="text" style="ModernCenteredLabelText">Size:</object>
-					<object name="sgMapSize" size="40% 0 75% 100%" type="text" style="ModernCenteredLabelText"/>
+				<object size="5 265 50% 290" type="image" sprite="ModernItemBackShadeLeft">
+					<object size="0 0 100%-10 100%" type="text" style="ModernRightLabelText">Map Size:</object>
+				</object>
+				<object size="50% 265 100%-5 290" type="image" sprite="ModernItemBackShadeRight">
+					<object name="sgMapSize" size="0 0 100% 100%" type="text" style="ModernLeftLabelText"/>
 				</object>
 
-				<object name="sgMapPreview" size="3% 8% 97% 43%"  type="image" sprite=""/>
+				<object size="5 289 100%-5 290" type="image" sprite="ModernWhiteLine" z="25"/>
 
 				<!-- Map Description -->
-				<object type="image" sprite="ModernDarkBoxWhite" size="3% 44% 97% 71%">
+				<object type="image" sprite="ModernDarkBoxWhite" size="3% 295 97% 75%">
 					<object name="sgMapDescription" size="0 0 100% 100%" type="text" style="MapDescription"/>
 				</object>
 
-				<object type="image" sprite="ModernDarkBoxWhite" size="3% 72% 97% 99%">
+				<object type="image" sprite="ModernDarkBoxWhite" size="3% 76% 97% 99%">
 					<!-- Number of Players -->
 					<object size="32% 3% 57% 12%" type="text" style="ModernLeftLabelText">Players:</object>
 					<object name="sgNbPlayers" size="52% 3% 62% 12%" type="text" style="ModernLeftLabelText"/>
