@@ -1,4 +1,4 @@
-/* Copyright (c) 2011 Wildfire Games
+/* Copyright (c) 2013 Wildfire Games
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -115,6 +115,7 @@ actually supported).
 
 #define GL_DEPTH_ATTACHMENT_EXT GL_DEPTH_ATTACHMENT
 #define GL_COLOR_ATTACHMENT0_EXT GL_COLOR_ATTACHMENT0
+#define GL_FRAMEBUFFER_BINDING_EXT GL_FRAMEBUFFER_BINDING
 #define GL_FRAMEBUFFER_COMPLETE_EXT GL_FRAMEBUFFER_COMPLETE
 #define GL_FRAMEBUFFER_EXT GL_FRAMEBUFFER
 
@@ -395,3 +396,12 @@ FUNC(int, wglGetPixelFormatAttribivARB, (HDC, int, int, unsigned int, const int*
 FUNC(int, wglGetPixelFormatAttribfvARB, (HDC, int, int, unsigned int, const int*, float*))
 FUNC(int, wglChoosePixelFormatARB, (HDC, const int *, const float*, unsigned int, int*, unsigned int*))
 #endif // OS_WIN
+
+
+#if OS_LINUX
+// GLX_MESA_query_renderer
+FUNC(int /*Bool*/, glXQueryRendererIntegerMESA, (void /*Display*/ *dpy, int screen, int renderer, int attribute, unsigned int *value))
+FUNC(int /*Bool*/, glXQueryCurrentRendererIntegerMESA, (int attribute, unsigned int *value))
+FUNC(const char *, glXQueryRendererStringMESA, (void /*Display*/ *dpy, int screen, int renderer, int attribute))
+FUNC(const char *, glXQueryCurrentRendererStringMESA, (int attribute))
+#endif // OS_LINUX

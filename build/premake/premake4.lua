@@ -320,6 +320,8 @@ function project_set_build_flags()
 			-- On OS X, sometimes we need to specify the minimum API version to use
 			if _OPTIONS["macosx-version-min"] then
 				buildoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
+				-- clang and llvm-gcc look at mmacosx-version-min to determine link target
+				-- and CRT version, and use it to set the macosx_version_min linker flag
 				linkoptions { "-mmacosx-version-min=" .. _OPTIONS["macosx-version-min"] }
 			end
 
@@ -574,10 +576,11 @@ function setup_all_libs ()
 	}
 	setup_static_lib_project("network", source_dirs, extern_libs, {})
 
-<<<<<<< HEAD
+
 	if not _OPTIONS["without-lobby"] then
 		source_dirs = {
 			"lobby",
+			"lobby/scripting",
 		}
 
 		extern_libs = {
@@ -586,27 +589,36 @@ function setup_all_libs ()
 			"gloox",
 		}
 		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
-	end
 
-=======
->>>>>>> 1a7a32ad84f645a7a907472ab2d3fd9be00d50c2
-	if _OPTIONS["use-shared-glooxwrapper"] and not _OPTIONS["build-shared-glooxwrapper"] then
-		table.insert(static_lib_names_debug, "glooxwrapper_dbg")
-		table.insert(static_lib_names_release, "glooxwrapper")
+		if _OPTIONS["use-shared-glooxwrapper"] and not _OPTIONS["build-shared-glooxwrapper"] then
+			table.insert(static_lib_names_debug, "glooxwrapper_dbg")
+			table.insert(static_lib_names_release, "glooxwrapper")
+		else
+			source_dirs = {
+				"lobby/glooxwrapper",
+			}
+			extern_libs = {
+				"boost",
+				"gloox",
+			}
+			if _OPTIONS["build-shared-glooxwrapper"] then
+				setup_shared_lib_project("glooxwrapper", source_dirs, extern_libs, {})
+			else
+				setup_static_lib_project("glooxwrapper", source_dirs, extern_libs, {})
+			end
+		end
 	else
 		source_dirs = {
-			"lobby/glooxwrapper",
+			"lobby/scripting",
 		}
 		extern_libs = {
-			"boost",
-			"gloox",
+			"spidermonkey",
+			"boost"
 		}
-		if _OPTIONS["build-shared-glooxwrapper"] then
-			setup_shared_lib_project("glooxwrapper", source_dirs, extern_libs, {})
-		else
-			setup_static_lib_project("glooxwrapper", source_dirs, extern_libs, {})
-		end
+		setup_static_lib_project("lobby", source_dirs, extern_libs, {})
+		files { source_root.."lobby/Globals.cpp" }
 	end
+
 
 	source_dirs = {
 		"simulation2",
@@ -687,6 +699,7 @@ function setup_all_libs ()
 		table.insert(extern_libs, "nvtt")
 	end
 	setup_static_lib_project("graphics", source_dirs, extern_libs, {})
+
 
 	source_dirs = {
 		"tools/atlas/GameInterface",
@@ -775,7 +788,7 @@ function setup_all_libs ()
 	end
 
 	-- runtime-library-specific
-	if _ACTION == "vs2005" or _ACTION == "vs2008" or _ACTION == "vs2010" or _ACTION == "vs2012" then
+	if _ACTION == "vs2005" or _ACTION == "vs2008" or _ACTION == "vs2010" or _ACTION == "vs2012" or _ACTION == "vs2013" then
 		table.insert(source_dirs, "lib/sysdep/rtl/msc");
 	else
 		table.insert(source_dirs, "lib/sysdep/rtl/gcc");
@@ -1261,7 +1274,7 @@ function configure_cxxtestgen()
 		lcxxtestpath = path.translate(lcxxtestpath, "\\")
 	end
 
-	if _ACTION ~= "gmake" and _ACTION ~= "vs2010" and _ACTION ~= "vs2012" then
+	if _ACTION ~= "gmake" and _ACTION ~= "vs2010" and _ACTION ~= "vs2012" and _ACTION ~= "vs2013" then
 		prebuildcommands { lcxxtestpath.." --root "..lcxxtestrootoptions.." -o "..lcxxtestrootfile }
 	end
 
@@ -1279,7 +1292,7 @@ function configure_cxxtestgen()
 			files { src_file }
 			cxxtesthdrfiles { v }
 
-			if _ACTION ~= "gmake" and _ACTION ~= "vs2010" and _ACTION ~= "vs2012" then
+			if _ACTION ~= "gmake" and _ACTION ~= "vs2010" and _ACTION ~= "vs2012" and _ACTION ~= "vs2013" then
 				-- see detailed comment above.
 				src_file = path.rebase(src_file, path.getabsolute("."), _OPTIONS["outpath"])
 				v = path.rebase(v, path.getabsolute("."), _OPTIONS["outpath"])

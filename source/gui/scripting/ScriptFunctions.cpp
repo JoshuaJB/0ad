@@ -27,6 +27,7 @@
 #include "lib/timer.h"
 #include "lib/utf8.h"
 #include "lib/sysdep/sysdep.h"
+#include "lobby/scripting/JSInterface_Lobby.h"
 #include "maths/FixedVector3D.h"
 #include "network/NetClient.h"
 #include "network/NetServer.h"
@@ -964,34 +965,34 @@ void GuiScriptingInit(ScriptInterface& scriptInterface)
 	scriptInterface.RegisterFunction<void, &RewindTimeWarp>("RewindTimeWarp");
 	scriptInterface.RegisterFunction<void, bool, &SetBoundingBoxDebugOverlay>("SetBoundingBoxDebugOverlay");
 
-#if CONFIG2_LOBBY // Allow the lobby to be disabled
 	// Lobby functions
-	scriptInterface.RegisterFunction<void, std::string, std::string, std::string, std::string, &StartXmppClient>("StartXmppClient");
-	scriptInterface.RegisterFunction<void, std::string, std::string, &StartRegisterXmppClient>("StartRegisterXmppClient");
-	scriptInterface.RegisterFunction<bool, &HasXmppClient>("HasXmppClient");
-	scriptInterface.RegisterFunction<void, &StopXmppClient>("StopXmppClient");
-	scriptInterface.RegisterFunction<void, &ConnectXmppClient>("ConnectXmppClient");
-	scriptInterface.RegisterFunction<void, &DisconnectXmppClient>("DisconnectXmppClient");
-	scriptInterface.RegisterFunction<void, &RecvXmppClient>("RecvXmppClient");
-	scriptInterface.RegisterFunction<void, &SendGetGameList>("SendGetGameList");
-	scriptInterface.RegisterFunction<void, &SendGetBoardList>("SendGetBoardList");
-	scriptInterface.RegisterFunction<void, CScriptVal, &SendRegisterGame>("SendRegisterGame");
-	scriptInterface.RegisterFunction<void, CScriptVal, &SendGameReport>("SendGameReport");
-	scriptInterface.RegisterFunction<void, &SendUnregisterGame>("SendUnregisterGame");
-	scriptInterface.RegisterFunction<void, std::string, std::string, &SendChangeStateGame>("SendChangeStateGame");
-	scriptInterface.RegisterFunction<CScriptVal, &GetPlayerList>("GetPlayerList");
-	scriptInterface.RegisterFunction<CScriptVal, &GetGameList>("GetGameList");
-	scriptInterface.RegisterFunction<CScriptVal, &GetBoardList>("GetBoardList");
-	scriptInterface.RegisterFunction<CScriptVal, &LobbyGuiPollMessage>("LobbyGuiPollMessage");
-	scriptInterface.RegisterFunction<void, std::string, &LobbySendMessage>("LobbySendMessage");
-	scriptInterface.RegisterFunction<void, std::string, &LobbySetPlayerPresence>("LobbySetPlayerPresence");
-	scriptInterface.RegisterFunction<void, std::string, &LobbySetNick>("LobbySetNick");
-	scriptInterface.RegisterFunction<std::string, &LobbyGetNick>("LobbyGetNick");
-	scriptInterface.RegisterFunction<void, std::string, std::string, &LobbyKick>("LobbyKick");
-	scriptInterface.RegisterFunction<void, std::string, std::string, &LobbyBan>("LobbyBan");
-	scriptInterface.RegisterFunction<std::string, std::string, &LobbyGetPlayerPresence>("LobbyGetPlayerPresence");
-	scriptInterface.RegisterFunction<std::string, std::string, std::string, &EncryptPassword>("EncryptPassword");
-	scriptInterface.RegisterFunction<bool, &IsRankedGame>("IsRankedGame");
-	scriptInterface.RegisterFunction<void, bool, &SetRankedGame>("SetRankedGame");
+	scriptInterface.RegisterFunction<bool, &JSI_Lobby::HasXmppClient>("HasXmppClient");
+#if CONFIG2_LOBBY // Allow the lobby to be disabled
+	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, std::wstring, std::wstring, &JSI_Lobby::StartXmppClient>("StartXmppClient");
+	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::StartRegisterXmppClient>("StartRegisterXmppClient");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::StopXmppClient>("StopXmppClient");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::ConnectXmppClient>("ConnectXmppClient");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::DisconnectXmppClient>("DisconnectXmppClient");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::RecvXmppClient>("RecvXmppClient");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::SendGetGameList>("SendGetGameList");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::SendGetBoardList>("SendGetBoardList");
+	scriptInterface.RegisterFunction<void, CScriptVal, &JSI_Lobby::SendRegisterGame>("SendRegisterGame");
+	scriptInterface.RegisterFunction<void, CScriptVal, &JSI_Lobby::SendGameReport>("SendGameReport");
+	scriptInterface.RegisterFunction<void, &JSI_Lobby::SendUnregisterGame>("SendUnregisterGame");
+	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::SendChangeStateGame>("SendChangeStateGame");
+	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetPlayerList>("GetPlayerList");
+	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetGameList>("GetGameList");
+	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetBoardList>("GetBoardList");
+	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::LobbyGuiPollMessage>("LobbyGuiPollMessage");
+	scriptInterface.RegisterFunction<void, std::wstring, &JSI_Lobby::LobbySendMessage>("LobbySendMessage");
+	scriptInterface.RegisterFunction<void, std::wstring, &JSI_Lobby::LobbySetPlayerPresence>("LobbySetPlayerPresence");
+	scriptInterface.RegisterFunction<void, std::wstring, &JSI_Lobby::LobbySetNick>("LobbySetNick");
+	scriptInterface.RegisterFunction<std::wstring, &JSI_Lobby::LobbyGetNick>("LobbyGetNick");
+	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::LobbyKick>("LobbyKick");
+	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::LobbyBan>("LobbyBan");
+	scriptInterface.RegisterFunction<std::wstring, std::wstring, &JSI_Lobby::LobbyGetPlayerPresence>("LobbyGetPlayerPresence");
+	scriptInterface.RegisterFunction<std::wstring, std::wstring, std::wstring, &JSI_Lobby::EncryptPassword>("EncryptPassword");
+	scriptInterface.RegisterFunction<bool, &JSI_Lobby::IsRankedGame>("IsRankedGame");
+	scriptInterface.RegisterFunction<void, bool, &JSI_Lobby::SetRankedGame>("SetRankedGame");
 #endif // CONFIG2_LOBBY
 }

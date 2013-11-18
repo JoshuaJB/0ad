@@ -12,6 +12,7 @@ var g_mapSizes = {};
 function init(attribs)
 {
 	// Play menu music
+	initMusic();
 	global.music.setState(global.music.states.MENU);
 
 	g_Name = Engine.LobbyGetNick();
@@ -29,8 +30,8 @@ function init(attribs)
 	playersNumberFilter.list_data = [2,3,4,5,6,7,8,""];
 
 	var mapTypeFilter = getGUIObjectByName("mapTypeFilter");
-	mapTypeFilter.list = ["Random", "Scenario", "Any"];
-	mapTypeFilter.list_data = ["conquest", "scenario", ""];
+	mapTypeFilter.list = ["Skirmish", "Random", "Scenario", "Any"];
+	mapTypeFilter.list_data = ["skirmish", "random", "scenario", ""];
 
 	Engine.LobbySetPlayerPresence("available");
 	Engine.SendGetGameList();
@@ -38,8 +39,8 @@ function init(attribs)
 	updatePlayerList();
 
 	resetFilters();
-	var spamMonitorTimer = setTimeout(clearSpamMonitor, 5000);
-	var spammerTimer = setTimeout(clearSpammers, 30000);
+	setTimeout(clearSpamMonitor, 5000);
+	setTimeout(clearSpammers, 30000);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -281,7 +282,9 @@ function selectGame(selected)
 	var g = getGUIObjectByName("gamesBox").list_data[selected];
 
 	// Load map data
-	if (g_GameList[g].mapType == "random" && fileExists(g_GameList[g].mapName + ".json"))
+	if (g_GameList[g].mapType == "random" && g_GameList[g].mapName == "random")
+		mapData = {"settings": {"Description": "A randomly selected map."}};
+	else if (g_GameList[g].mapType == "random" && fileExists(g_GameList[g].mapName + ".json"))
 		mapData = parseJSONData(g_GameList[g].mapName + ".json");
 	else if (fileExists(g_GameList[g].mapName + ".xml"))
 		mapData = Engine.LoadMapSettings(g_GameList[g].mapName + ".xml");
@@ -410,6 +413,11 @@ function onTick()
 			case "nick":
 				if (nickIndex == -1) // This shouldn't ever happen
 					break;
+				if (!isValidNick(message.data))
+				{
+					addChatMessage({ "from": "system", "text": "Invalid nickname: " + message.data });
+					break;
+				}
 				var [name, status] = formatPlayerListEntry(message.data, presence); // TODO: actually we don't want to change the presence here, so use what was used before
 				playerList[nickIndex] = name;
 				// presence stays the same
@@ -514,6 +522,12 @@ function completeNick()
 	}
 }
 
+function isValidNick(nick)
+{
+	var prohibitedNicks = ["system"];
+	return prohibitedNicks.indexOf(nick) == -1;
+}
+
 function handleSpecialCommand(text)
 {
 	if (text[0] != '/')
@@ -557,12 +571,6 @@ function handleSpecialCommand(text)
 
 function addChatMessage(msg)
 {
-	// Set sender color
-	if (msg.color)
-		msg.from = '[color="' + msg.color + '"]' + msg.from + '[/color]';
-	else if (msg.from)
-		msg.from = colorPlayerName(msg.from);
-
 	// Highlight local user's nick
 	if (msg.text.indexOf(g_Name) != -1 && g_Name != msg.from)
 		msg.text = msg.text.replace(new RegExp('\\b' + '\\' + g_Name + '\\b', "g"), colorPlayerName(g_Name));
@@ -572,7 +580,7 @@ function addChatMessage(msg)
 		return;
 
 	// Format Text
-	var formatted = ircFormat(msg.text, msg.from, msg.key);
+	var formatted = ircFormat(msg.text, msg.from, msg.color, msg.key);
 
 	// If there is text, add it to the chat box.
 	if (formatted)
@@ -591,21 +599,29 @@ function ircSplit(string)
 }
 
 // The following formats text in an IRC-like way
-function ircFormat(text, from, key)
+function ircFormat(text, from, color, key)
 {
-	time = new Date(Date.now());
 	function warnUnsupportedCommand(command, from) // Function to warn only local player
 	{
 		if (from === g_Name)
-			addChatMessage({ "from": "system", "text": "We're sorry, the '" + command + "' command is not supported." });
+			addChatMessage({ "from":"system", "text":"We're sorry, the '" + command + "' command is not supported." });
 		return;
 	}
 
+	// Generate and apply color to uncolored names,
+	if (!color && from)
+		var coloredFrom = colorPlayerName(from);
+	else if (from)
+		var coloredFrom = "[color='" + color + "']" + from + "[/color]";
+
+	// Time for optional time header
+	var time = new Date(Date.now());
+
 	// Build time header if enabled
 	if (g_timestamp)
-		formatted = '[font="serif-bold-13"]\x5B' + twoDigits(time.getHours() % 12) + ":" + twoDigits(time.getMinutes()) + '\x5D[/font] '
+		var formatted = '[font="serif-bold-13"]\x5B' + twoDigits(time.getHours() % 12) + ":" + twoDigits(time.getMinutes()) + '\x5D[/font] '
 	else
-		formatted = "";
+		var formatted = "";
 
 	// Handle commands
 	if (text[0] == '/')
@@ -614,18 +630,18 @@ function ircFormat(text, from, key)
 		switch (command)
 		{
 			case "me":
-				return formatted + '[font="serif-bold-13"]* ' + from + '[/font] ' + message;
+				return formatted + '[font="serif-bold-13"]* ' + coloredFrom + '[/font] ' + message;
 			case "say":
-				return formatted + '[font="serif-bold-13"]<' + from + '>[/font] ' + message;
+				return formatted + '[font="serif-bold-13"]<' + coloredFrom + '>[/font] ' + message;
 			case "special":
 				if (key === g_specialKey)
 					return formatted + '[font="serif-bold-13"] == ' + message + '[/font]';
 				break;
 			default:
-				return warnUnsupportedCommand(command, from)
+				return warnUnsupportedCommand(command, from);
 		}
 	}
-	return formatted + '[font="serif-bold-13"]<' + from + '>[/font] ' + text;
+	return formatted + '[font="serif-bold-13"]<' + coloredFrom + '>[/font] ' + text;
 }
 
 // The following function tracks message stats and returns true if the input text is spam.
@@ -645,9 +661,7 @@ function updateSpamandDetect(text, from)
 	if(from in g_spammers)
 	{
 		if (from == g_Name)
-		{
 			addChatMessage({ "from": "system", "text": "Please do not spam. You have been blocked for thirty seconds." });
-		}
 		return true;
 	}
 	// Return false if everything is clear.
@@ -658,13 +672,13 @@ function updateSpamandDetect(text, from)
 function clearSpamMonitor()
 {
 	g_spamMonitor = {};
-	spamTimer = setTimeout(clearSpamMonitor, 5000);
+	setTimeout(clearSpamMonitor, 5000);
 }
 
 function clearSpammers()
 {
 	g_spammers = {};
-	spammerTimer = setTimeout(clearSpammers, 30000);
+	setTimeout(clearSpammers, 30000);
 }
 
 /* Utilities */
@@ -739,22 +753,22 @@ function rgbToHsl(r, g, b)
 
 function hslToRgb(h, s, l)
 {
+	function hue2rgb(p, q, t)
+	{
+		if (t < 0) t += 1;
+		if (t > 1) t -= 1;
+		if (t < 1/6) return p + (q - p) * 6 * t;
+		if (t < 1/2) return q;
+		if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+		return p;
+	}
+
 	[h, s, l] = [h, s, l].map(clampColorValue);
 	var r, g, b;
 
 	if (s == 0)
 		r = g = b = l; // achromatic
 	else {
-		function hue2rgb(p, q, t)
-		{
-			if (t < 0) t += 1;
-			if (t > 1) t -= 1;
-			if (t < 1/6) return p + (q - p) * 6 * t;
-			if (t < 1/2) return q;
-			if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-			return p;
-		}
-
 		var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
 		var p = 2 * l - q;
 		r = hue2rgb(p, q, h + 1/3);
@@ -773,21 +787,21 @@ function r(times, hex) {
 	return repeatString(times, hexToRgb(hex));
 }
 
-fixedColors["Twilight Sparkle"] = r(2, "d19fe3") + r(2, "b689c8") + r(2, "a76bc2") +
+fixedColors["Twilight_Sparkle"] = r(2, "d19fe3") + r(2, "b689c8") + r(2, "a76bc2") +
 	r(4, "263773") + r(2, "131f46") + r(2, "662d8a") + r(2, "ed438a");
 fixedColors["Applejack"] = r(3, "ffc261") + r(3, "efb05d") + r(3, "f26f31");
 fixedColors["Rarity"] = r(1, "ebeff1") + r(1, "dee3e4") + r(1, "bec2c3") +
 	r(1, "83509f") + r(1, "4b2568") + r(1, "4917d6");
-fixedColors["Rainbow Dash"] = r(2, "ee4144") + r(1, "f37033") + r(1, "fdf6af") +
+fixedColors["Rainbow_Dash"] = r(2, "ee4144") + r(1, "f37033") + r(1, "fdf6af") +
 	r(1, "62bc4d") + r(1, "1e98d3") + r(2, "672f89") + r(1, "9edbf9") +
 	r(1, "88c4eb") + r(1, "77b0e0") + r(1, "1e98d3");
-fixedColors["Pinkie Pie"] = r(2, "f3b6cf") + r(2, "ec9dc4") + r(4, "eb81b4") +
+fixedColors["Pinkie_Pie"] = r(2, "f3b6cf") + r(2, "ec9dc4") + r(4, "eb81b4") +
 	r(1, "ed458b") + r(1, "be1d77");
 fixedColors["Fluttershy"] = r(2, "fdf6af") + r(2, "fee78f") + r(2, "ead463") +
 	r(2, "f3b6cf") + r(2, "eb81b4");
-fixedColors["Sweetie Belle"] = r(2, "efedee") + r(3, "e2dee3") + r(3, "cfc8d1") +
+fixedColors["Sweetie_Belle"] = r(2, "efedee") + r(3, "e2dee3") + r(3, "cfc8d1") +
 	r(2, "b28dc0") + r(2, "f6b8d2") + r(1, "795b8a");
-fixedColors["Apple Bloom"] = r(2, "f4f49b") + r(2, "e7e793") + r(2, "dac582") +
+fixedColors["Apple_Bloom"] = r(2, "f4f49b") + r(2, "e7e793") + r(2, "dac582") +
 	r(2, "f46091") + r(2, "f8415f") + r(1, "c52451");
 fixedColors["Scootaloo"] = r(2, "fbba64") + r(2, "f2ab56") + r(2, "f37003") +
 	r(2, "bf5d95") + r(1, "bf1f79");
