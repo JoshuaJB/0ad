@@ -37,6 +37,7 @@ public:
 	virtual void SendIqRegisterGame(ScriptInterface& scriptInterface, CScriptVal data) = 0;
 	virtual void SendIqUnregisterGame() = 0;
 	virtual void SendIqChangeStateGame(const std::string& nbp, const std::string& players) = 0;
+	virtual void SendIqIP(const std::string& ip, const std::string& jid) = 0;
 	virtual void SetNick(const std::string& nick) = 0;
 	virtual void GetNick(std::string& nick) = 0;
 	virtual void kick(const std::string& nick, const std::string& reason) = 0;

@@ -33,8 +33,8 @@ GameReport::GameReport( const glooxwrapper::Tag* tag ):StanzaExtension( ExtGameR
  */
 glooxwrapper::Tag* GameReport::tag() const
 {
-	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate( "report" );
-	t->setXmlns( XMLNS_GAMEREPORT );
+	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate("report");
+	t->setXmlns(XMLNS_GAMEREPORT);
 
 	std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameReport.begin();
 	for( ; it != m_GameReport.end(); ++it )
@@ -87,8 +87,8 @@ const glooxwrapper::string& BoardListQuery::filterString() const
  */
 glooxwrapper::Tag* BoardListQuery::tag() const
 {
-	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate( "query" );
-	t->setXmlns( XMLNS_BOARDLIST );
+	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate("query");
+	t->setXmlns(XMLNS_BOARDLIST);
 
 	std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin();
 	for( ; it != m_BoardList.end(); ++it )
@@ -146,8 +146,8 @@ const glooxwrapper::string& GameListQuery::filterString() const
  */
 glooxwrapper::Tag* GameListQuery::tag() const
 {
-	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate( "query" );
-	t->setXmlns( XMLNS_GAMELIST );
+	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate("query");
+	t->setXmlns(XMLNS_GAMELIST);
 
 	// Check for register / unregister command
 	if(!m_Command.empty())
@@ -172,4 +172,51 @@ GameListQuery::~GameListQuery()
 	for( ; it != m_GameList.end(); ++it )
 		glooxwrapper::Tag::free(*it);
 	m_GameList.clear();
+}
+
+/******************************************************
+ * IPBroadcast, custom IQ Stanza, used to receive
+ * the IP from a joining player or to send your
+ * IP to another host.
+ */
+IPBroadcast::IPBroadcast(const glooxwrapper::Tag* tag):StanzaExtension(ExtIP)
+{
+	if(!tag || tag->name() != "ip" || tag->xmlns() != XMLNS_IP)
+		return;
+
+	const glooxwrapper::Tag* c = tag->findTag_clone("ip");
+	if (c)
+		m_IP = c->cdata();
+	glooxwrapper::Tag::free(c);
+}
+
+/**
+ * Required by gloox, used to find the GameList element in a recived IQ.
+ */
+const glooxwrapper::string& IPBroadcast::filterString() const
+{
+	static const glooxwrapper::string filter = "/iq/ip[@xmlns='" XMLNS_IP "']";
+	return filter;
+}
+
+/**
+ * Required by gloox, used to serialize the game object into XML for sending.
+ */
+glooxwrapper::Tag* IPBroadcast::tag() const
+{
+	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate("ip", m_IP);
+	t->setXmlns(XMLNS_GAMELIST);
+
+	return t;
+}
+
+glooxwrapper::StanzaExtension* IPBroadcast::clone() const
+{
+	IPBroadcast* b = new IPBroadcast();
+	return b;
+}
+
+IPBroadcast::~IPBroadcast()
+{
+	return;
 }

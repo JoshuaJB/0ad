@@ -27,9 +27,13 @@
 #define ExtBoardListQuery 1404
 #define XMLNS_BOARDLIST "jabber:iq:boardlist"
 
-/// Global Boardlist Extension
+/// Global GameReport Extension
 #define ExtGameReport 1405
 #define XMLNS_GAMEREPORT "jabber:iq:gamereport"
+
+/// Global IPBroadcast Extension
+#define ExtIP 1406
+#define XMLNS_IP "jabber:iq:ip"
 
 class GameReport : public glooxwrapper::StanzaExtension
 {
@@ -86,4 +90,24 @@ public:
 
 	std::vector<const glooxwrapper::Tag*> m_BoardList;
 };
+
+class IPBroadcast : public glooxwrapper::StanzaExtension
+{
+public:
+	IPBroadcast(const glooxwrapper::Tag* tag = 0);
+
+	// Following four methods are all required by gloox
+	virtual StanzaExtension* newInstance(const glooxwrapper::Tag* tag) const
+	{
+		return new IPBroadcast(tag);
+	}
+	virtual const glooxwrapper::string& filterString() const;
+	virtual glooxwrapper::Tag* tag() const;
+	virtual glooxwrapper::StanzaExtension* clone() const;
+
+	~IPBroadcast();
+
+	glooxwrapper::string m_IP;
+};
+
 #endif

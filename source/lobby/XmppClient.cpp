@@ -359,7 +359,7 @@ void XmppClient::SendIqUnregisterGame()
 	// Send IQ
 	GameListQuery* g = new GameListQuery();
 	g->m_Command = "unregister";
-	g->m_GameList.push_back(glooxwrapper::Tag::allocate( "game" ));
+	g->m_GameList.push_back(glooxwrapper::Tag::allocate("game"));
 
 	glooxwrapper::IQ iq( gloox::IQ::Set, xpartamuppJid );
 	iq.addExtension( g );
@@ -389,6 +389,21 @@ void XmppClient::SendIqChangeStateGame(const std::string& nbp, const std::string
 	glooxwrapper::IQ iq(gloox::IQ::Set, xpartamuppJid);
 	iq.addExtension( g );
 	DbgXMPP("SendIqChangeStateGame [" << tag_xml(iq) << "]");
+	m_client->send(iq);
+}
+
+void XmppClient::SendIqIP(const std::string& ip, const std::string& jid)
+{
+	// Convert JID string to gloox JID.
+	glooxwrapper::JID destination(jid);
+
+	// Compose IQ.
+	IPBroadcast* b = new IPBroadcast();
+	b->m_IP = ip;
+	glooxwrapper::IQ iq(gloox::IQ::Set, destination);
+	iq.addExtension(b);
+
+	// Send IQ.
 	m_client->send(iq);
 }
 
@@ -612,11 +627,12 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 
 	if(iq.subtype() == gloox::IQ::Result)
 	{
-		const GameListQuery* gq = iq.findExtension<GameListQuery>( ExtGameListQuery );
-		const BoardListQuery* bq = iq.findExtension<BoardListQuery>( ExtBoardListQuery );
+		const GameListQuery* gq = iq.findExtension<GameListQuery>(ExtGameListQuery);
+		const BoardListQuery* bq = iq.findExtension<BoardListQuery>(ExtBoardListQuery);
+		const IPBroadcast* ip = iq.findExtension<IPBroadcast>(ExtIP);
 		if(gq)
 		{
-			for(std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameList.begin(); it != m_GameList.end(); ++it )
+			for(std::vector<const glooxwrapper::Tag*>::const_iterator it = m_GameList.begin(); it != m_GameList.end(); ++it)
 				glooxwrapper::Tag::free(*it);
 			m_GameList.clear();
 
@@ -625,9 +641,9 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 
 			CreateSimpleMessage("system", "gamelist updated", "internal");
 		}
-		if(bq)
+		else if(bq)
 		{
-			for(std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin(); it != m_BoardList.end(); ++it )
+			for(std::vector<const glooxwrapper::Tag*>::const_iterator it = m_BoardList.begin(); it != m_BoardList.end(); ++it)
 				glooxwrapper::Tag::free(*it);
 			m_BoardList.clear();
 
@@ -635,6 +651,10 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 				m_BoardList.push_back( (*it)->clone() );
 
 			CreateSimpleMessage("system", "boardlist updated", "internal");
+		}
+		else if(ip)
+		{
+			CreateSimpleMessage("system", "game join", "internal", (*ip).m_IP.c_str());
 		}
 	}
 	else if(iq.subtype() == gloox::IQ::Error)
