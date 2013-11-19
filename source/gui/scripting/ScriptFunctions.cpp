@@ -734,7 +734,7 @@ void GuiScriptingInit(ScriptInterface& scriptInterface)
 	scriptInterface.RegisterFunction<void, CScriptVal, &JSI_Lobby::SendGameReport>("SendGameReport");
 	scriptInterface.RegisterFunction<void, &JSI_Lobby::SendUnregisterGame>("SendUnregisterGame");
 	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::SendChangeStateGame>("SendChangeStateGame");
-	scriptInterface.RegisterFunction<void, std::wstring, std::wstring, &JSI_Lobby::SendIP>("SendIP");
+	scriptInterface.RegisterFunction<void, std::wstring, &JSI_Lobby::SendIP>("SendIP");
 	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetPlayerList>("GetPlayerList");
 	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetGameList>("GetGameList");
 	scriptInterface.RegisterFunction<CScriptVal, &JSI_Lobby::GetBoardList>("GetBoardList");

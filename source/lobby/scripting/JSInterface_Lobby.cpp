@@ -272,13 +272,13 @@ void JSI_Lobby::SetRankedGame(void* UNUSED(cbdata), bool isRanked)
 	g_rankedGame = isRanked;
 }
 
-void JSI_Lobby::SendIP(void* UNUSED(cbdata), std::wstring ip, std::wstring jid)
+void JSI_Lobby::SendIP(void* UNUSED(cbdata), std::wstring jid)
 {
 	// Silently fail if the lobby doesn't exist.
 	if (!g_XmppClient)
 		return;
 
-	g_XmppClient->SendIqIP(utf8_from_wstring(ip), utf8_from_wstring(jid));
+	g_XmppClient->SendIqIP(utf8_from_wstring(jid));
 }
 #endif
 

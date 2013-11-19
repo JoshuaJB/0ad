@@ -40,7 +40,7 @@ namespace JSI_Lobby
 	void SendRegisterGame(void* cbdata, CScriptVal data);
 	void SendUnregisterGame(void* cbdata);
 	void SendChangeStateGame(void* cbdata, std::wstring nbp, std::wstring players);
-	void SendIP(void* cbdata, std::wstring ip, std::wstring jid);
+	void SendIP(void* cbdata, std::wstring jid);
 	CScriptVal GetPlayerList(void* cbdata);
 	CScriptVal GetGameList(void* cbdata);
 	CScriptVal GetBoardList(void* cbdata);

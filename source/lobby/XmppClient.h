@@ -64,7 +64,7 @@ public:
 	void SendIqRegisterGame(ScriptInterface& scriptInterface, CScriptVal data);
 	void SendIqUnregisterGame();
 	void SendIqChangeStateGame(const std::string& nbp, const std::string& players);
-	void SendIqIP(const std::string& ip, const std::string& jid);
+	void SendIqIP(const std::string& ip);
 	void SetNick(const std::string& nick);
 	void GetNick(std::string& nick);
 	void kick(const std::string& nick, const std::string& reason);

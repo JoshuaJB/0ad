@@ -392,10 +392,13 @@ void XmppClient::SendIqChangeStateGame(const std::string& nbp, const std::string
 	m_client->send(iq);
 }
 
-void XmppClient::SendIqIP(const std::string& ip, const std::string& jid)
+void XmppClient::SendIqIP(const std::string& jid)
 {
 	// Convert JID string to gloox JID.
 	glooxwrapper::JID destination(jid);
+
+	// Placeholder IP replaced by server.
+	std::string ip = "x";
 
 	// Compose IQ.
 	IPBroadcast* b = new IPBroadcast();
