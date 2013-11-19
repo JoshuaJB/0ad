@@ -205,7 +205,7 @@ const glooxwrapper::string& IPBroadcast::filterString() const
 glooxwrapper::Tag* IPBroadcast::tag() const
 {
 	glooxwrapper::Tag* t = glooxwrapper::Tag::allocate("ip", m_IP);
-	t->setXmlns(XMLNS_GAMELIST);
+	t->setXmlns(XMLNS_IP);
 
 	return t;
 }

@@ -109,6 +109,9 @@ XmppClient::XmppClient(const std::string& sUsername, const std::string& sPasswor
 	m_client->registerStanzaExtension( new BoardListQuery() );
 	m_client->registerIqHandler( this, ExtBoardListQuery);
 
+	m_client->registerStanzaExtension( new IPBroadcast() );
+	m_client->registerIqHandler( this, ExtIP );
+
 	m_client->registerMessageHandler( this );
 
 	// Uncomment to see the raw stanzas
@@ -406,6 +409,8 @@ void XmppClient::SendIqIP(const std::string& jid)
 	glooxwrapper::IQ iq(gloox::IQ::Set, destination);
 	iq.addExtension(b);
 
+	DbgXMPP("SendIqIP [" << tag_xml(iq) << "]");
+
 	// Send IQ.
 	m_client->send(iq);
 }
@@ -628,7 +633,7 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 {
 	DbgXMPP("handleIq [" << tag_xml(iq) << "]");
 
-	if(iq.subtype() == gloox::IQ::Result)
+	if(iq.subtype() == gloox::IQ::Result || iq.subtype() == gloox::IQ::Set)
 	{
 		const GameListQuery* gq = iq.findExtension<GameListQuery>(ExtGameListQuery);
 		const BoardListQuery* bq = iq.findExtension<BoardListQuery>(ExtBoardListQuery);
@@ -657,7 +662,7 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 		}
 		else if(ip)
 		{
-			CreateSimpleMessage("system", "game join", "internal", (*ip).m_IP.c_str());
+			CreateSimpleMessage("system", "port request", "internal", (*ip).m_IP.c_str());
 		}
 	}
 	else if(iq.subtype() == gloox::IQ::Error)

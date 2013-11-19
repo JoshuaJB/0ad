@@ -217,7 +217,7 @@ function updateGameList()
 	}
 
 	gamesBox.list_name = list_name;
-	// gamesBox.list_ip = list_ip;
+	//gamesBox.list_ip = list_ip;
 	gamesBox.list_mapName = list_mapName;
 	gamesBox.list_mapSize = list_mapSize;
 	gamesBox.list_mapType = list_mapType;
@@ -446,7 +446,7 @@ function onTick()
 			switch (message.level)
 			{
 			case "standard":
-				addChatMessage({ "from": "system", "text": message.text, "color": "0 150 0" });
+				addChatMessage({ "from": "system", "text": message.text, "color": "150 0 0" });
 				if (message.text == "disconnected")
 				{
 					// Clear the list of games and the list of players
@@ -473,6 +473,8 @@ function onTick()
 				case "boardlist updated":
 					updateBoardList();
 					break;
+				case "port request":
+					addChatMessage({ "from": "system", "text": message.data + " is requesting a UDP hole punch.", "color": "150 150 0" });
 				}
 				break
 			}
@@ -604,15 +606,15 @@ function ircFormat(text, from, color, key)
 	function warnUnsupportedCommand(command, from) // Function to warn only local player
 	{
 		if (from === g_Name)
-			addChatMessage({ "from":"system", "text":"We're sorry, the '" + command + "' command is not supported." });
+			addChatMessage({ "from":"system", "text":"We're sorry, the '" + command + "' command is not supported."});
 		return;
 	}
 
 	// Generate and apply color to uncolored names,
 	if (!color && from)
 		var coloredFrom = colorPlayerName(from);
-	else if (from)
-		var coloredFrom = "[color='" + color + "']" + from + "[/color]";
+	else if (color && from)
+		var coloredFrom = '[color="' + color + '"]' + from + "[/color]";
 
 	// Time for optional time header
 	var time = new Date(Date.now());

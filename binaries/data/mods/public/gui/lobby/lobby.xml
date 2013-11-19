@@ -116,7 +116,7 @@
 			<object name="gamesBox" style="ModernList" type="olist" size="0 25 100% 48%">
 				<action on="SelectionChange">selectGame(this.selected);</action>
 				<def id="name" heading="Name" color="0 60 0" width="25%"/>
-				<!--<def id="ip" heading="IP" color="0 128 128" width="170"/>-->
+				<!--<def id="ip" heading="IP" color="0 128 128" width="0"/>-->
 				<def id="mapName" heading="Map Name" color="128 128 128" width="25%"/>
 				<def id="mapSize" heading="Map Size" color="128 128 128" width="20%"/>
 				<def id="mapType" heading="Map Type" color="0 128 128" width="20%"/>
