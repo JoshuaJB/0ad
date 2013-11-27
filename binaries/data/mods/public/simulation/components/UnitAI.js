@@ -357,8 +357,8 @@ var UnitFsmSpec = {
 	"Order.Flee": function(msg) {
 		// We use the distance between the enities to account for ranged attacks
 		var distance = DistanceBetweenEntities(this.entity, this.order.data.target) + (+this.template.FleeDistance);
-		var ok = this.MoveToTargetRangeExplicit(this.order.data.target, distance, -1);
-		if (ok)
+		var cmpUnitMotion = Engine.QueryInterface(this.entity, IID_UnitMotion);
+		if (cmpUnitMotion.MoveToTargetRange(this.order.data.target, distance, -1))
 		{
 			// We've started fleeing from the given target
 			if (this.IsAnimal())
@@ -1346,6 +1346,9 @@ var UnitFsmSpec = {
 
 		"WALKINGANDFIGHTING": {
 			"enter": function () {
+				// Show weapons rather than carried resources.
+				this.SetGathererAnimationOverride(true);
+
 				this.StartTimer(0, 1000);
 				this.SelectAnimation("move");
 			},
@@ -3037,7 +3040,7 @@ UnitAI.prototype.FinishOrder = function()
 	}
 
 	// Remove the order from the queue
-	var finishedOrder = this.orderQueue.shift();
+	this.orderQueue.shift();
 	this.order = this.orderQueue[0];
 
 	if (this.orderQueue.length)
