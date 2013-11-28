@@ -184,6 +184,7 @@ class GameList():
     data['players-init'] = data['players']
     data['nbp-init'] = data['nbp']
     data['state'] = 'init'
+    data['host'] = str(JID)
     self.gameList[str(JID)] = data
   def removeGame(self, JID):
     """

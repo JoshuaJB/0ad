@@ -337,6 +337,8 @@ function joinSelectedGame()
 			return;
 		}
 
+		// Send IP to host so they can try hole punching to our IP.
+		Engine.SendIP(g_GameList[g].host);
 		// Open Multiplayer connection window with join option.
 		Engine.PushGuiPage("page_gamesetup_mp.xml", { multiplayerGameType: "join", name: sname, ip: sip });
 	}
