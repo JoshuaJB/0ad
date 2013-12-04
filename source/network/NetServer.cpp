@@ -185,6 +185,21 @@ bool CNetServerWorker::SetupConnection()
 	return true;
 }
 
+bool CNetServerWorker::PunchHole(const char * ipAddress)
+{
+	ENSURE(m_Host);
+	
+	// Resolve address.
+	ENetAddress address;
+	address.port = PS_DEFAULT_PORT;
+	if(enet_address_set_host(&address, ipAddress) != 0)
+		return false;
+		
+	// Attempt to punch hole by faking on outgoing connection attempt.
+	enet_host_connect(m_Host, &address, 2, 0);
+	return true;
+}
+
 bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
 {
 	ENSURE(m_Host);
@@ -928,6 +943,11 @@ CNetServer::~CNetServer()
 bool CNetServer::SetupConnection()
 {
 	return m_Worker->SetupConnection();
+}
+
+bool CNetServer::PunchHole(const char * ipAddress)
+{
+	return m_Worker->PunchHole(ipAddress);
 }
 
 void CNetServer::AssignPlayer(int playerID, const CStr& guid)

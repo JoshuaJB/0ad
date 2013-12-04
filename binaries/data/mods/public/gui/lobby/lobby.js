@@ -477,6 +477,7 @@ function onTick()
 					break;
 				case "port request":
 					addChatMessage({ "from": "system", "text": message.data + " is requesting a UDP hole punch.", "color": "150 150 0" });
+					Engine.PunchNAT(message.data);
 				}
 				break
 			}

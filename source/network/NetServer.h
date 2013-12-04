@@ -115,6 +115,13 @@ public:
 	bool SetupConnection();
 
 	/**
+	 * Attempt to open a hole in the NAT to allow for incoming packets.
+	 * @param ipAddress Address to punch through towards.
+	 * @return true on success, false on error (e.g. invalid address).
+	 */
+	bool PunchHole(const char * ipAddress);
+
+	/**
 	 * Call from the GUI to update the player assignments.
 	 * The given GUID will be (re)assigned to the given player ID.
 	 * Any player currently using that ID will be unassigned.
@@ -187,6 +194,13 @@ private:
 	 * @return true on success, false on error (e.g. port already in use)
 	 */
 	bool SetupConnection();
+
+	/**
+	 * Attempt to open a hole in the NAT to allow for incoming packets.
+	 * @param ipAddress Address to punch through towards.
+	 * @return true on success, false on error (e.g. invalid address).
+	 */
+	bool PunchHole(const char * ipAddress);
 
 	/**
 	 * Call from the GUI to update the player assignments.
