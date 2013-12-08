@@ -618,6 +618,10 @@ function onTick()
 	}
 	else if (g_LoadingState == 2)
 	{
+		// Wake up XmppClient (if it exists) so we're notified of hole-punch requests.
+		if (Engine.HasXmppClient())
+			Engine.RecvXmppClient();
+
 		while (true)
 		{
 			var message = Engine.PollNetworkClient();

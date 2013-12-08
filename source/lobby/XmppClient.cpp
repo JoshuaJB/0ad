@@ -25,6 +25,8 @@
 // TODO: Use builtin error/warning/logging functions.
 #include <iostream>
 #include "ps/CLogger.h"
+/// Solely for NAT-punching function.
+#include "network/NetServer.h"
 
 // Gloox
 #include "glooxwrapper/glooxwrapper.h"
@@ -662,6 +664,24 @@ bool XmppClient::handleIq(const glooxwrapper::IQ& iq)
 		}
 		else if(ip)
 		{
+			/* Request outgoing bytestream to given IP with the intent to *
+			 * allow incoming connections through the NAT.                */
+			LOGMESSAGE(L"IP Received.");
+			if(!g_NetServer)
+			{
+				LOGWARNING(L"NAT punching is unavalible.");
+				return false;
+			}
+			if(!g_NetServer->PunchHole((*ip).m_IP.c_str()))
+			{
+				LOGWARNING(L"Unable to open hole in NAT to %s, port forwarding will be required.", (*ip).m_IP.c_str());
+				return false;
+			}
+			else
+			{
+				LOGMESSAGE(L"NAT Successfully punched to %s.", (*ip).m_IP.c_str());
+			}
+			/// For debugging.
 			CreateSimpleMessage("system", "port request", "internal", (*ip).m_IP.c_str());
 		}
 	}

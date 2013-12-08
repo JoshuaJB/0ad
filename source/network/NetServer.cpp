@@ -187,16 +187,35 @@ bool CNetServerWorker::SetupConnection()
 
 bool CNetServerWorker::PunchHole(const char * ipAddress)
 {
+	// Make sure Enet is already running.
 	ENSURE(m_Host);
-	
+	LOGMESSAGE(L"Attempting hole punch to %s.", ipAddress);
 	// Resolve address.
 	ENetAddress address;
 	address.port = PS_DEFAULT_PORT;
 	if(enet_address_set_host(&address, ipAddress) != 0)
 		return false;
-		
-	// Attempt to punch hole by faking on outgoing connection attempt.
-	enet_host_connect(m_Host, &address, 2, 0);
+	// Try hole-punching.
+	ENetEvent event;
+	// Attempt to punch hole by faking an outgoing connection attempt.
+	ENetPeer * natpeer;
+	natpeer = enet_host_connect(m_Host, &address, 2, 0);
+	if (natpeer == NULL)
+		LOGERROR(L"Failed to create peer.");
+	// Wait up to 5 seconds for the connection attempt to succeed.
+	if (enet_host_service(m_Host, & event, 5000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT)
+	{
+		LOGWARNING(L"Connection to natpeer succeeded.");
+		ENetPacket * packet = enet_packet_create ("packet", strlen ("packet") + 1, ENET_PACKET_FLAG_RELIABLE);
+		enet_peer_send(natpeer, 0, packet);
+	}
+	else
+	{
+		enet_peer_reset(natpeer);
+		LOGERROR(L"Connection to natpeer failed.");
+		natpeer = 0;
+		return false;
+	}
 	return true;
 }
 

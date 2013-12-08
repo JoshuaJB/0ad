@@ -627,9 +627,16 @@ void SetBoundingBoxDebugOverlay(void* UNUSED(cbdata), bool enabled)
 	ICmpSelectable::ms_EnableDebugOverlays = enabled;
 }
 
+/**
+ * Just for debugging NAT punching.
+ */
 void PunchNAT(void* UNUSED(cbdata), std::string ipAddress)
 {
-	ENSURE(g_NetServer);
+	if(!g_NetServer)
+	{
+		LOGWARNING(L"NAT punching is unavalible.");
+		return;
+	}
 	if(!g_NetServer->PunchHole(ipAddress.c_str()))
 		LOGWARNING(L"Unable to open hole in NAT to %s, port forwarding will be required.", ipAddress.c_str());
 }
@@ -671,7 +678,6 @@ void GuiScriptingInit(ScriptInterface& scriptInterface)
 	scriptInterface.RegisterFunction<void, int, std::string, &AssignNetworkPlayer>("AssignNetworkPlayer");
 	scriptInterface.RegisterFunction<void, std::wstring, &SendNetworkChat>("SendNetworkChat");
 	scriptInterface.RegisterFunction<std::vector<CScriptValRooted>, &GetAIs>("GetAIs");
-	scriptInterface.RegisterFunction<void, std::string, &PunchNAT>("PunchNAT");
 
 	// Saved games
 	scriptInterface.RegisterFunction<CScriptVal, std::wstring, &StartSavedGame>("StartSavedGame");
@@ -726,6 +732,7 @@ void GuiScriptingInit(ScriptInterface& scriptInterface)
 	scriptInterface.RegisterFunction<void, unsigned int, &EnableTimeWarpRecording>("EnableTimeWarpRecording");
 	scriptInterface.RegisterFunction<void, &RewindTimeWarp>("RewindTimeWarp");
 	scriptInterface.RegisterFunction<void, bool, &SetBoundingBoxDebugOverlay>("SetBoundingBoxDebugOverlay");
+	scriptInterface.RegisterFunction<void, std::string, &PunchNAT>("PunchNAT");
 
 	// Lobby functions
 	scriptInterface.RegisterFunction<bool, &JSI_Lobby::HasXmppClient>("HasXmppClient");
