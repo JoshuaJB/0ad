@@ -16,11 +16,14 @@
   </Health>
   <Identity>
     <Civ>ptol</Civ>
-	<GenericName>Juggernaut Warship</GenericName>
-    <SpecificName>Tessarakontḗrēs</SpecificName>
+	<GenericName>Juggernaut</GenericName>
+    <SpecificName>Tessarakonterēs</SpecificName>
     <Classes datatype="tokens">Juggernaut</Classes>
     <Icon>units/rome_ship_quinquereme.png</Icon>
   </Identity>
+  <TrainingRestrictions>
+    <Category>Juggernaut</Category>
+  </TrainingRestrictions>
   <VisualActor>
     <Actor>structures/romans/quinquereme.xml</Actor>
   </VisualActor>

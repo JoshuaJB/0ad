@@ -314,3 +314,4 @@ Math.intPow = function(x, y)
 	return result;
 
 };
+

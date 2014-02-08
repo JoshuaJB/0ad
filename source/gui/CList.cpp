@@ -239,26 +239,9 @@ void CList::HandleMessage(SGUIMessage &Message)
 			if (g_SoundManager && GUI<CStrW>::GetSetting(this, "sound_selected", soundPath) == PSRETURN_OK && !soundPath.empty())
 				g_SoundManager->PlayAsUI(soundPath.c_str(), false);
 		}
-	}	break;
+		break;
+	}
 
-	case GUIM_MOUSE_WHEEL_DOWN:
-		{
-		GetScrollBar(0).ScrollPlus();
-		// Since the scroll was changed, let's simulate a mouse movement
-		//  to check if scrollbar now is hovered
-		SGUIMessage msg(GUIM_MOUSE_MOTION);
-		HandleMessage(msg);
-		break;
-		}
-	case GUIM_MOUSE_WHEEL_UP:
-		{
-		GetScrollBar(0).ScrollMinus();
-		// Since the scroll was changed, let's simulate a mouse movement
-		//  to check if scrollbar now is hovered
-		SGUIMessage msg(GUIM_MOUSE_MOTION);
-		HandleMessage(msg);
-		break;
-		}
 	case GUIM_LOAD:
 		{
 		CStr scrollbar_style;
@@ -479,7 +462,7 @@ void CList::SelectPrevElement()
 	int selected;
 	GUI<int>::GetSetting(this, "selected", selected);
 
-	if (selected != 0)
+	if (selected >= 0)
 	{
 		--selected;
 		GUI<int>::SetSetting(this, "selected", selected);
@@ -495,7 +478,7 @@ void CList::SelectFirstElement()
 	int selected;
 	GUI<int>::GetSetting(this, "selected", selected);
 
-	if (selected != 0)
+	if (selected >= 0)
 	{
 		GUI<int>::SetSetting(this, "selected", 0);
 	}

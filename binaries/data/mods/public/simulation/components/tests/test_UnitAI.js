@@ -46,6 +46,10 @@ function TestFormationExiting(mode)
 		GetEntityFlagMask: function(identifier) { },
 	});
 
+	AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
+		GetCurrentTemplateName: function(ent) { return "formations/line_closed"},
+	});
+
 	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 		GetPlayerByID: function(id) { return playerEntity; },
 		GetNumPlayers: function() { return 2; },
@@ -68,7 +72,9 @@ function TestFormationExiting(mode)
 	});
 
 	AddMock(unit, IID_Position, {
-		GetPosition: function() { return { "x": 0, "z": 0 }; },
+		GetPosition: function() { return new Vector3D(); },
+		GetPosition2D: function() { return new Vector2D(); },
+		GetRotation: function() { return { "y": 0 }; },
 		IsInWorld: function() { return true; },
 	});
 
@@ -98,21 +104,28 @@ function TestFormationExiting(mode)
 	unitAI.SetupRangeQuery(1);
 
 
-	if (mode == 1)
+	if (mode == 1) 
+	{
 		AddMock(enemy, IID_Health, {
 			GetHitpoints: function() { return 10; },
 		});
+		AddMock(enemy, IID_UnitAI, {
+			IsAnimal: function() { return false; }
+		});
+	}			
 	else if (mode == 2)
 		AddMock(enemy, IID_Health, {
 			GetHitpoints: function() { return 0; },
 		});
 
-	var controllerFormation = ConstructComponent(controller, "Formation");
+	var controllerFormation = ConstructComponent(controller, "Formation", {"FormationName": "Line Closed", "FormationShape": "square", "ShiftRows": "false", "SortingClasses": "", "WidthDepthRatio": 1, "UnitSeparationWidthMultiplier": 1, "UnitSeparationDepthMultiplier": 1, "SpeedMultiplier": 1});
 	var controllerAI = ConstructComponent(controller, "UnitAI", { "FormationController": "true", "DefaultStance": "aggressive" });
 
 	AddMock(controller, IID_Position, {
 		JumpTo: function(x, z) { this.x = x; this.z = z; },
-		GetPosition: function() { return { "x": this.x, "z": this.z }; },
+		GetPosition: function() { return new Vector3D(this.x, 0, this.z); },
+		GetPosition2D: function() { return new Vector2D(this.x, this.z); },
+		GetRotation: function() { return { "y": 0 }; },
 		IsInWorld: function() { return true; },
 	});
 
@@ -175,6 +188,10 @@ function TestMoveIntoFormationWhileAttacking()
 		GetEntityFlagMask: function(identifier) { },
 	});;
 
+	AddMock(SYSTEM_ENTITY, IID_TemplateManager, {
+		GetCurrentTemplateName: function(ent) { return "formations/line_closed"},
+	});
+
 	AddMock(SYSTEM_ENTITY, IID_PlayerManager, {
 		GetPlayerByID: function(id) { return playerEntity; },
 		GetNumPlayers: function() { return 2; },
@@ -201,7 +218,9 @@ function TestMoveIntoFormationWhileAttacking()
 		});
 	
 		AddMock(unit + i, IID_Position, {
-			GetPosition: function() { return { "x": 0, "z": 0 }; },
+			GetPosition: function() { return new Vector3D(); },
+			GetPosition2D: function() { return new Vector2D(); },
+			GetRotation: function() { return { "y": 0 }; },
 			IsInWorld: function() { return true; },
 		});
 	
@@ -218,7 +237,7 @@ function TestMoveIntoFormationWhileAttacking()
 		});
 	
 		AddMock(unit + i, IID_Attack, {
-			GetRange: function() { return 10; },
+			GetRange: function() { return {"max":10, "min": 0}; },
 			GetBestAttack: function() { return "melee"; },
 			GetBestAttackAgainst: function(t) { return "melee"; },
 			GetTimers: function() { return { "prepare": 500, "repeat": 1000 }; },
@@ -238,12 +257,14 @@ function TestMoveIntoFormationWhileAttacking()
 		GetHitpoints: function() { return 40; },
 	});
 
-	var controllerFormation = ConstructComponent(controller, "Formation");
+	var controllerFormation = ConstructComponent(controller, "Formation", {"FormationName": "Line Closed", "FormationShape": "square", "ShiftRows": "false", "SortingClasses": "", "WidthDepthRatio": 1, "UnitSeparationWidthMultiplier": 1, "UnitSeparationDepthMultiplier": 1, "SpeedMultiplier": 1});
 	var controllerAI = ConstructComponent(controller, "UnitAI", { "FormationController": "true", "DefaultStance": "aggressive" });
 
 	AddMock(controller, IID_Position, {
 		JumpTo: function(x, z) { this.x = x; this.z = z; },
-		GetPosition: function() { return { "x": this.x, "z": this.z }; },
+		GetPosition: function() { return new Vector3D(this.x, 0, this.z); },
+		GetPosition2D: function() { return new Vector2D(this.x, this.z); },
+		GetRotation: function() { return { "y": 0 }; },
 		IsInWorld: function() { return true; },
 	});
 
@@ -252,6 +273,11 @@ function TestMoveIntoFormationWhileAttacking()
 		SetSpeed: function(speed) { },
 		MoveToPointRange: function(x, z, minRange, maxRange) { },
 		IsInTargetRange: function(target, min, max) { return true; },
+	});
+
+	AddMock(controller, IID_Attack, {
+		GetRange: function() { return {"max":10, "min": 0}; },
+		CanAttackAsFormation: function() { return false },
 	});
 
 	controllerAI.OnCreate();

@@ -23,9 +23,12 @@
     </Resources>
   </Cost>
   <Footprint>
-    <Circle radius="4.0"/>
+    <Circle radius="3.0"/>
     <Height>9.0</Height>
   </Footprint>
+  <Health>
+    <Max>2000</Max>
+  </Health>
   <Identity>
     <Classes datatype="tokens">Hero -Champion</Classes>
     <Tooltip>Classes: Hero Melee Elephant.

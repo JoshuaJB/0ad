@@ -49,8 +49,6 @@ TechnologyManager.prototype.Init = function ()
 		if (this.allTechs[key].autoResearch || this.allTechs[key].top)
 			this.autoResearchTech[key] = this.allTechs[key];
 	}
-	
-	this.UpdateAutoResearch();
 };
 
 TechnologyManager.prototype.OnUpdate = function () 
@@ -76,6 +74,9 @@ TechnologyManager.prototype.UpdateAutoResearch = function ()
 
 TechnologyManager.prototype.GetTechnologyTemplate = function (tech)
 {
+	if (!(tech in this.allTechs))
+		return undefined;
+
 	return this.allTechs[tech];
 };
 
@@ -226,13 +227,17 @@ TechnologyManager.prototype.OnGlobalOwnershipChanged = function (msg)
 				var modifications = this.modifications[name];
 				var component = name.split("/")[0];
 				for (var i in modifications)
-					if (!modifiedComponents[component] && DoesModificationApply(modifications[i], classes))
-						modifiedComponents[component] = true;
+ 					if (DoesModificationApply(modifications[i], classes))
+					{
+						if (!modifiedComponents[component])
+							modifiedComponents[component] = [];
+						modifiedComponents[component].push(name);
+					}
 			}
 
 			// Send mesage(s) to the entity so it knows about researched techs
 			for (var component in modifiedComponents)
-				Engine.PostMessage(msg.entity, MT_ValueModification, { "component": component });
+				Engine.PostMessage(msg.entity, MT_ValueModification, { "entities": [msg.entity], "component": component, "valueNames": modifiedComponents[component] });
 		}
 	}
 	if (msg.from == playerID)
@@ -322,16 +327,28 @@ TechnologyManager.prototype.ResearchTechnology = function (tech)
 					mod[j] = modification[j];
 			
 			this.modifications[modification.value].push(mod);
-			modifiedComponents[modification.value.split("/")[0]] = true;
+			var component = modification.value.split("/")[0];
+			if (!modifiedComponents[component])
+				modifiedComponents[component] = [];
+			modifiedComponents[component].push(modification.value);
 			this.modificationCache[modification.value] = {};
 		}
 	}
 	
 	this.UpdateAutoResearch();
 	
-	// TODO: Handle technology broadcasting for autoresearch properly (some components might not be initialized currently)
+	var cmpPlayer = Engine.QueryInterface(this.entity, IID_Player);
+	if (!cmpPlayer || cmpPlayer.GetPlayerID() === undefined)
+		return;
+	var playerID = cmpPlayer.GetPlayerID();
+	var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	var ents = cmpRangeManager.GetEntitiesByPlayer(playerID);
+
 	for (var component in modifiedComponents)
-		Engine.BroadcastMessage(MT_ValueModification, { "component": component });
+	{
+		Engine.PostMessage(SYSTEM_ENTITY, MT_TemplateModification, { "player": playerID, "component": component, "valueNames": modifiedComponents[component]});
+		Engine.BroadcastMessage(MT_ValueModification, { "entities": ents, "component": component, "valueNames": modifiedComponents[component]});
+	}
 };
 
 // Clears the cached data for an entity from the modifications cache

@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@ class CScriptValRooted;
 class IXmppClient
 {
 public:
-	static IXmppClient* create(const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, bool regOpt = false);
+	static IXmppClient* create(const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize = 0, bool regOpt = false);
 	virtual ~IXmppClient() {}
 
 	virtual void connect() = 0;
@@ -33,6 +33,7 @@ public:
 	virtual void recv() = 0;
 	virtual void SendIqGetGameList() = 0;
 	virtual void SendIqGetBoardList() = 0;
+	virtual void SendIqGetRatingList() = 0;
 	virtual void SendIqGameReport(ScriptInterface& scriptInterface, CScriptVal data) = 0;
 	virtual void SendIqRegisterGame(ScriptInterface& scriptInterface, CScriptVal data) = 0;
 	virtual void SendIqUnregisterGame() = 0;
@@ -44,6 +45,7 @@ public:
 	virtual void ban(const std::string& nick, const std::string& reason) = 0;
 	virtual void SetPresence(const std::string& presence) = 0;
 	virtual void GetPresence(const std::string& nickname, std::string& presence) = 0;
+	virtual void GetSubject(std::string& subject) = 0;
 
 	virtual CScriptValRooted GUIGetPlayerList(ScriptInterface& scriptInterface) = 0;
 	virtual CScriptValRooted GUIGetGameList(ScriptInterface& scriptInterface) = 0;

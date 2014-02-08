@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -88,7 +88,8 @@ public:
 
 	~BoardListQuery();
 
-	std::vector<const glooxwrapper::Tag*> m_BoardList;
+	glooxwrapper::string m_Command;
+	std::vector<const glooxwrapper::Tag*> m_StanzaBoardList;
 };
 
 class IPBroadcast : public glooxwrapper::StanzaExtension

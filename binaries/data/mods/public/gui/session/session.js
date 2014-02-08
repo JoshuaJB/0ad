@@ -51,12 +51,15 @@ var g_ShowGuarding = false;
 var g_ShowGuarded = false;
 var g_AdditionalHighlight = [];
 
+// for saving the hitpoins of the hero (is there a better way to do that?) 
+// Should be possible with AttackDetection but might be an overkill because it would have to loop
+// always through the list of all ongoing attacks...
+var g_previousHeroHitPoints = undefined;
+
 function GetSimState()
 {
 	if (!g_SimState)
-	{
 		g_SimState = Engine.GuiInterfaceCall("GetSimulationState");
-	}
 
 	return g_SimState;
 }
@@ -66,10 +69,31 @@ function GetEntityState(entId)
 	if (!(entId in g_EntityStates))
 	{
 		var entState = Engine.GuiInterfaceCall("GetEntityState", entId);
+		if (entState)
+			entState.extended = false;
 		g_EntityStates[entId] = entState;
 	}
 
 	return g_EntityStates[entId];
+}
+
+function GetExtendedEntityState(entId)
+{
+	if (entId in g_EntityStates)
+		var entState = g_EntityStates[entId];
+	else
+		var entState = Engine.GuiInterfaceCall("GetEntityState", entId);
+
+	if (!entState || entState.extended)
+		return entState;
+
+	var extension = Engine.GuiInterfaceCall("GetExtendedEntityState", entId);
+	for (var prop in extension)
+		entState[prop] = extension[prop];
+	entState.extended = true;
+	g_EntityStates[entId] = entState;
+
+	return entState;
 }
 
 // Cache TemplateData
@@ -118,7 +142,7 @@ function init(initData, hotloadData)
 		if (initData.savedGUIData)
 			restoreSavedGameData(initData.savedGUIData);
 
-		getGUIObjectByName("gameSpeedButton").hidden = g_IsNetworked;
+		Engine.GetGUIObjectByName("gameSpeedButton").hidden = g_IsNetworked;
 	}
 	else // Needed for autostart loading option
 	{
@@ -131,15 +155,15 @@ function init(initData, hotloadData)
 
 	g_GameSpeeds = initGameSpeeds();
 	g_CurrentSpeed = Engine.GetSimRate();
-	var gameSpeed = getGUIObjectByName("gameSpeed");
+	var gameSpeed = Engine.GetGUIObjectByName("gameSpeed");
 	gameSpeed.list = g_GameSpeeds.names;
 	gameSpeed.list_data = g_GameSpeeds.speeds;
 	var idx = g_GameSpeeds.speeds.indexOf(g_CurrentSpeed);
 	gameSpeed.selected = idx != -1 ? idx : g_GameSpeeds["default"];
 	gameSpeed.onSelectionChange = function() { changeGameSpeed(+this.list_data[this.selected]); }
 
-	getGUIObjectByName("civIcon").sprite = "stretched:" + g_CivData[g_Players[Engine.GetPlayerID()].civ].Emblem;
-	getGUIObjectByName("civIcon").tooltip = g_CivData[g_Players[Engine.GetPlayerID()].civ].Name;
+	Engine.GetGUIObjectByName("civIcon").sprite = "stretched:" + g_CivData[g_Players[Engine.GetPlayerID()].civ].Emblem;
+	Engine.GetGUIObjectByName("civIcon").tooltip = g_CivData[g_Players[Engine.GetPlayerID()].civ].Name;
 	initMenuPosition(); // set initial position
 
 	// Populate player selection dropdown
@@ -151,14 +175,14 @@ function init(initData, hotloadData)
 		playerIDs.push(player);
 	}
 
-	var viewPlayerDropdown = getGUIObjectByName("viewPlayer");
+	var viewPlayerDropdown = Engine.GetGUIObjectByName("viewPlayer");
 	viewPlayerDropdown.list = playerNames;
 	viewPlayerDropdown.list_data = playerIDs;
 	viewPlayerDropdown.selected = Engine.GetPlayerID();
 
 	// If in Atlas editor, disable the exit button
 	if (Engine.IsAtlasRunning())
-		getGUIObjectByName("menuExitButton").enabled = false;
+		Engine.GetGUIObjectByName("menuExitButton").enabled = false;
 
 	if (hotloadData)
 	{
@@ -175,7 +199,7 @@ function init(initData, hotloadData)
 	}
 
 	if (Engine.ConfigDB_GetValue("user", "gui.session.timeelapsedcounter") === "true")
-		getGUIObjectByName("timeElapsedCounter").hidden = false;
+		Engine.GetGUIObjectByName("timeElapsedCounter").hidden = false;
 
 	onSimulationUpdate();
 
@@ -191,8 +215,8 @@ function selectViewPlayer(playerID)
 {
 	Engine.SetPlayerID(playerID);
 	if (playerID != 0) {
-		getGUIObjectByName("civIcon").sprite = "stretched:" + g_CivData[g_Players[playerID].civ].Emblem;
-		getGUIObjectByName("civIcon").tooltip = g_CivData[g_Players[playerID].civ].Name;
+		Engine.GetGUIObjectByName("civIcon").sprite = "stretched:" + g_CivData[g_Players[playerID].civ].Emblem;
+		Engine.GetGUIObjectByName("civIcon").tooltip = g_CivData[g_Players[playerID].civ].Name;
 	}
 }
 
@@ -261,7 +285,7 @@ function leaveGame()
 	}
 
 	stopAmbient();
-	endGame();
+	Engine.EndGame();
 
 	if (g_IsController && Engine.HasXmppClient())
 		Engine.SendUnregisterGame();
@@ -306,6 +330,7 @@ function restoreSavedGameData(data)
 }
 
 var lastTickTime = new Date;
+var lastXmppClientPoll = Date.now();
 
 /**
  * Called every frame.
@@ -332,6 +357,8 @@ function onTick()
 	// simulation state and the current selection).
 	if (g_Selection.dirty)
 	{
+		g_Selection.dirty = false;
+
 		onSimulationUpdate();
 
 		// Display rally points for selected buildings
@@ -346,12 +373,19 @@ function onTick()
 
 	// When training is blocked, flash population (alternates colour every 500msec)
 	if (g_IsTrainingBlocked && (Date.now() % 1000) < 500)
-		getGUIObjectByName("resourcePop").textcolor = POPULATION_ALERT_COLOR;
+		Engine.GetGUIObjectByName("resourcePop").textcolor = POPULATION_ALERT_COLOR;
 	else
-		getGUIObjectByName("resourcePop").textcolor = DEFAULT_POPULATION_COLOR;
+		Engine.GetGUIObjectByName("resourcePop").textcolor = DEFAULT_POPULATION_COLOR;
 
 	// Clear renamed entities list
 	Engine.GuiInterfaceCall("ClearRenamedEntities");
+
+	// If the lobby is running, wake it up every 10 seconds so we stay connected.
+	if (Engine.HasXmppClient() && (Date.now() - lastXmppClientPoll) > 10000)
+	{
+		Engine.RecvXmppClient();
+		lastXmppClientPoll = Date.now();
+	}
 }
 
 function checkPlayerState()
@@ -377,7 +411,7 @@ function checkPlayerState()
 		return;
 
 	// We can't resign once the game is over.
-	getGUIObjectByName("menuResignButton").enabled = false;
+	Engine.GetGUIObjectByName("menuResignButton").enabled = false;
 
 	// Make sure nothing is open to avoid stacking.
 	closeMenu();
@@ -409,8 +443,8 @@ function checkPlayerState()
 	{
 		global.music.setState(global.music.states.VICTORY);
 		// TODO: Reveal map directly instead of this silly proxy.
-		if (!getGUIObjectByName("devCommandsRevealMap").checked)
-			getGUIObjectByName("devCommandsRevealMap").checked = true;
+		if (!Engine.GetGUIObjectByName("devCommandsRevealMap").checked)
+			Engine.GetGUIObjectByName("devCommandsRevealMap").checked = true;
 		messageBox(400, 200, message, "VICTORIOUS!", 0, btCaptions, btCode);
 	}
 
@@ -432,7 +466,6 @@ function changeGameSpeed(speed)
  */
 function onSimulationUpdate()
 {
-	g_Selection.dirty = false;
 	g_EntityStates = {};
 	g_TemplateData = {};
 	g_TechnologyData = {};
@@ -459,27 +492,70 @@ function onSimulationUpdate()
 	updateResearchDisplay();
 	updateBuildingPlacementPreview();
 	updateTimeElapsedCounter();
+	updateTimeNotifications();	
 
 	// Update music state on basis of battle state.
 	var battleState = Engine.GuiInterfaceCall("GetBattleState", Engine.GetPlayerID());
 	if (battleState)
 		global.music.setState(global.music.states[battleState]);
+	
 }
+
+/**
+* updates a status bar on the GUI
+* nameOfBar: name of the bar
+* points: points to show
+* maxPoints: max points 
+* direction: gets less from (right to left) 0; (top to bottom) 1; (left to right) 2; (bottom to top) 3;
+*/
+function updateGUIStatusBar(nameOfBar, points, maxPoints, direction) 
+{
+	// check, if optional direction parameter is valid.
+	if (!direction || !(direction >= 0 && direction < 4))
+		direction = 0;
+
+	// get the bar and update it
+	var statusBar = Engine.GetGUIObjectByName(nameOfBar);
+	if (!statusBar) 
+		return;
+		
+	var healthSize = statusBar.size;
+	var value = 100*Math.max(0, Math.min(1, points / maxPoints));
+	
+	// inverse bar
+	if(direction == 2 || direction == 3) 
+		value = 100 - value;
+
+	if(direction == 0)
+		healthSize.rright = value;
+	else if(direction == 1)
+		healthSize.rbottom = value;
+	else if(direction == 2)
+		healthSize.rleft = value;
+	else if(direction == 3)
+		healthSize.rtop = value;
+	
+	// update bar
+	statusBar.size = healthSize;
+}
+
 
 function updateHero()
 {
 	var simState = GetSimState();
 	var playerState = simState.players[Engine.GetPlayerID()];
-	var heroButton = getGUIObjectByName("unitHeroButton");
+	var unitHeroPanel = Engine.GetGUIObjectByName("unitHeroPanel");
+	var heroButton = Engine.GetGUIObjectByName("unitHeroButton");
 
 	if (!playerState || playerState.heroes.length <= 0)
 	{
-		heroButton.hidden = true;
+		g_previousHeroHitPoints = undefined;
+		unitHeroPanel.hidden = true;
 		return;
 	}
 
-	var heroImage = getGUIObjectByName("unitHeroImage");
-	var heroState = GetEntityState(playerState.heroes[0]);
+	var heroImage = Engine.GetGUIObjectByName("unitHeroImage");
+	var heroState = GetExtendedEntityState(playerState.heroes[0]);
 	var template = GetTemplateData(heroState.template);
 	heroImage.sprite = "stretched:session/portraits/" + template.icon;
 	var hero = playerState.heroes[0];
@@ -491,7 +567,7 @@ function updateHero()
 		g_Selection.addList([hero]);
 	};
 	heroButton.ondoublepress = function() { selectAndMoveTo(getEntityOrHolder(hero)); };
-	heroButton.hidden = false;
+	unitHeroPanel.hidden = false;
 
 	// Setup tooltip
 	var tooltip = "[font=\"serif-bold-16\"]" + template.name.specific + "[/font]";
@@ -506,7 +582,24 @@ function updateHero()
 	tooltip += "\n" + template.tooltip;
 
 	heroButton.tooltip = tooltip;
-};
+	
+	// update heros health bar
+	updateGUIStatusBar("heroHealthBar", heroState.hitpoints, heroState.maxHitpoints);
+	
+	// define the hit points if not defined
+	if (!g_previousHeroHitPoints)
+		g_previousHeroHitPoints = heroState.hitpoints;
+	
+	// check, if the health of the hero changed since the last update
+	if (heroState.hitpoints < g_previousHeroHitPoints)
+	{	
+		g_previousHeroHitPoints = heroState.hitpoints;
+		// trigger the animation
+		startColorFade("heroHitOverlay", 100, 0, colorFade_attackUnit, true, smoothColorFadeRestart_attackUnit);
+		return;
+	}
+}
+
 
 function updateGroups()
 {
@@ -514,19 +607,20 @@ function updateGroups()
 	g_Groups.update();
 	for (var i = 0; i < 10; i++)
 	{
-		var button = getGUIObjectByName("unit"+guiName+"Button["+i+"]");
-		var label = getGUIObjectByName("unit"+guiName+"Label["+i+"]").caption = i;
+		var button = Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]");
+		var label = Engine.GetGUIObjectByName("unit"+guiName+"Label["+i+"]").caption = i;
 		if (g_Groups.groups[i].getTotalCount() == 0)
 			button.hidden = true;
 		else
 			button.hidden = false;
 		button.onpress = (function(i) { return function() { performGroup((Engine.HotkeyIsPressed("selection.add") ? "add" : "select"), i); } })(i);
 		button.ondoublepress = (function(i) { return function() { performGroup("snap", i); } })(i);
+		button.onpressright = (function(i) { return function() { performGroup("breakUp", i); } })(i);
 	}
 	var numButtons = i;
 	var rowLength = 1;
 	var numRows = Math.ceil(numButtons / rowLength);
-	var buttonSideLength = getGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
+	var buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
 	var buttonSpacer = buttonSideLength+1;
 	for (var i = 0; i < numRows; i++)
 		layoutButtonRow(i, guiName, buttonSideLength, buttonSpacer, rowLength*i, rowLength*(i+1) );
@@ -535,9 +629,9 @@ function updateGroups()
 function updateDebug()
 {
 	var simState = GetSimState();
-	var debug = getGUIObjectByName("debug");
+	var debug = Engine.GetGUIObjectByName("debug");
 
-	if (getGUIObjectByName("devDisplayState").checked)
+	if (Engine.GetGUIObjectByName("devDisplayState").checked)
 	{
 		debug.hidden = false;
 	}
@@ -554,7 +648,7 @@ function updateDebug()
 	var selection = g_Selection.toList();
 	if (selection.length)
 	{
-		var entState = GetEntityState(selection[0]);
+		var entState = GetExtendedEntityState(selection[0]);
 		if (entState)
 		{
 			var template = GetTemplateData(entState.template);
@@ -575,11 +669,11 @@ function updatePlayerDisplay()
 	if (!playerState)
 		return;
 
-	getGUIObjectByName("resourceFood").caption = playerState.resourceCounts.food;
-	getGUIObjectByName("resourceWood").caption = playerState.resourceCounts.wood;
-	getGUIObjectByName("resourceStone").caption = playerState.resourceCounts.stone;
-	getGUIObjectByName("resourceMetal").caption = playerState.resourceCounts.metal;
-	getGUIObjectByName("resourcePop").caption = playerState.popCount + "/" + playerState.popLimit;
+	Engine.GetGUIObjectByName("resourceFood").caption = Math.floor(playerState.resourceCounts.food);
+	Engine.GetGUIObjectByName("resourceWood").caption = Math.floor(playerState.resourceCounts.wood);
+	Engine.GetGUIObjectByName("resourceStone").caption = Math.floor(playerState.resourceCounts.stone);
+	Engine.GetGUIObjectByName("resourceMetal").caption = Math.floor(playerState.resourceCounts.metal);
+	Engine.GetGUIObjectByName("resourcePop").caption = playerState.popCount + "/" + playerState.popLimit;
 
 	g_IsTrainingBlocked = playerState.trainingBlocked;
 }
@@ -604,10 +698,10 @@ function updateResearchDisplay()
 		return;
 
 	// Set up initial positioning.
-	var buttonSideLength = getGUIObjectByName("researchStartedButton[0]").size.right;
+	var buttonSideLength = Engine.GetGUIObjectByName("researchStartedButton[0]").size.right;
 	for (var i = 0; i < 10; ++i)
 	{
-		var button = getGUIObjectByName("researchStartedButton[" + i + "]");
+		var button = Engine.GetGUIObjectByName("researchStartedButton[" + i + "]");
 		var size = button.size;
 		size.top = (4 + buttonSideLength) * i;
 		size.bottom = size.top + buttonSideLength;
@@ -622,34 +716,34 @@ function updateResearchDisplay()
 			break;
 
 		var template = GetTechnologyData(tech);
-		var button = getGUIObjectByName("researchStartedButton[" + numButtons + "]");
+		var button = Engine.GetGUIObjectByName("researchStartedButton[" + numButtons + "]");
 		button.hidden = false;
 		button.tooltip = getEntityNames(template);
 		button.onpress = (function(e) { return function() { selectAndMoveTo(e) } })(researchStarted[tech].researcher);
 
 		var icon = "stretched:session/portraits/" + template.icon;
-		getGUIObjectByName("researchStartedIcon[" + numButtons + "]").sprite = icon;
+		Engine.GetGUIObjectByName("researchStartedIcon[" + numButtons + "]").sprite = icon;
 
 		// Scale the progress indicator.
-		var size = getGUIObjectByName("researchStartedProgressSlider[" + numButtons + "]").size;
+		var size = Engine.GetGUIObjectByName("researchStartedProgressSlider[" + numButtons + "]").size;
 
 		// Buttons are assumed to be square, so left/right offsets can be used for top/bottom.
 		size.top = size.left + Math.round(researchStarted[tech].progress * (size.right - size.left));
-		getGUIObjectByName("researchStartedProgressSlider[" + numButtons + "]").size = size;
+		Engine.GetGUIObjectByName("researchStartedProgressSlider[" + numButtons + "]").size = size;
 
 		++numButtons;
 	}
 
 	// Hide unused buttons.
 	for (var i = numButtons; i < 10; ++i)
-		getGUIObjectByName("researchStartedButton[" + i + "]").hidden = true;
+		Engine.GetGUIObjectByName("researchStartedButton[" + i + "]").hidden = true;
 }
 
 function updateTimeElapsedCounter()
 {
 	var simState = GetSimState();
 	var speed = g_CurrentSpeed != 1.0 ? " (" + g_CurrentSpeed + "x)" : "";
-	var timeElapsedCounter = getGUIObjectByName("timeElapsedCounter");
+	var timeElapsedCounter = Engine.GetGUIObjectByName("timeElapsedCounter");
 	timeElapsedCounter.caption = timeToString(simState.timeElapsed) + speed;
 }
 
@@ -756,118 +850,163 @@ function reportGame(extendedSimState)
 {
 	if (!Engine.HasXmppClient())
 		return;
+	// units
+	var unitsClasses = [
+		"total",
+		"Infantry",
+		"Worker",
+		"Female",
+		"Cavalry",
+		"Champion",
+		"Hero",
+		"Ship"
+	];
+	var unitsCountersTypes = [
+		"unitsTrained",
+		"unitsLost",
+		"enemyUnitsKilled"
+	];
+	// buildings
+	var buildingsClasses = [
+		"total",
+		"CivCentre",
+		"House",
+		"Economic",
+		"Outpost",
+		"Military",
+		"Fortress",
+		"Wonder"
+	];
+	var buildingsCountersTypes = [
+		"buildingsConstructed",
+		"buildingsLost",
+		"enemyBuildingsDestroyed"
+	];
+	// resources
+	var resourcesTypes = [
+		"wood",
+		"food",
+		"stone",
+		"metal"
+	];
+	var resourcesCounterTypes = [
+		"resourcesGathered",
+		"resourcesUsed",
+		"resourcesSold",
+		"resourcesBought"
+	];
 
-	// Resources gathered and used
-	var playerFoodGatheredString = "";
-	var playerWoodGatheredString  = "";
-	var playerStoneGatheredString = "";
-	var playerMetalGatheredString = "";
-	var playerFoodUsedString = "";
-	var playerWoodUsedString  = "";
-	var playerStoneUsedString = "";
-	var playerMetalUsedString = "";
-	// Resources exchanged
-	var playerFoodBoughtString = "";
-	var playerWoodBoughtString = "";
-	var playerStoneBoughtString = "";
-	var playerMetalBoughtString = "";
-	var playerFoodSoldString = "";
-	var playerWoodSoldString = "";
-	var playerStoneSoldString = "";
-	var playerMetalSoldString = "";
-	var playerTradeIncomeString = "";
+	var playerStatistics = { };
+
 	// Unit Stats
-	var playerUnitsLostString = "";
-	var playerUnitsTrainedString = "";
-	var playerEnemyUnitsKilledString = "";
+	for each (var unitCounterType in unitsCountersTypes)
+	{
+		if (!playerStatistics[unitCounterType])
+			playerStatistics[unitCounterType] = { };
+		for each (var unitsClass in unitsClasses)
+			playerStatistics[unitCounterType][unitsClass] = "";
+	}
+
+	playerStatistics.unitsLostValue = "";
+	playerStatistics.unitsKilledValue = "";
 	// Building stats
-	var playerBuildingsConstructedString = "";
-	var playerBuildingsLostString = "";
-	var playerEnemyBuildingsDestroyedString = "";
-	var playerCivCentersBuiltString = "";
-	var playerEnemyCivCentersDestroyedString = "";
+	for each (var buildingCounterType in buildingsCountersTypes)
+	{
+		if (!playerStatistics[buildingCounterType])
+			playerStatistics[buildingCounterType] = { };
+		for each (var buildingsClass in buildingsClasses)
+			playerStatistics[buildingCounterType][buildingsClass] = "";
+	}
+
+	playerStatistics.buildingsLostValue = "";
+	playerStatistics.enemyBuildingsDestroyedValue = "";
+	// Resources
+	for each (var resourcesCounterType in resourcesCounterTypes)
+	{
+		if (!playerStatistics[resourcesCounterType])
+			playerStatistics[resourcesCounterType] = { };
+		for each (var resourcesType in resourcesTypes)
+			playerStatistics[resourcesCounterType][resourcesType] = "";
+	}
+	playerStatistics.resourcesGathered.vegetarianFood = "";
+
+	playerStatistics.tradeIncome = "";
 	// Tribute
-	var playerTributeSentString = "";
-	var playerTributeReceivedString = "";
+	playerStatistics.tributesSent = "";
+	playerStatistics.tributesReceived = "";
 	// Various
+	playerStatistics.treasuresCollected = "";
+	playerStatistics.feminisation = "";
+	playerStatistics.percentMapExplored = "";
 	var mapName = Engine.GetMapSettings().Name;
-	var playerStatesString = "";
-	var playerCivsString = "";
-	var playerPercentMapExploredString = "";
-	var playerTreasuresCollectedString = "";
+	var playerStates = "";
+	var playerCivs = "";
+	var teams = "";
+	var teamsLocked = true;
 
 	// Serialize the statistics for each player into a comma-separated list.
 	for each (var player in extendedSimState.players)
 	{
-		playerStatesString += player.state + ",";
-		playerCivsString += player.civ + ",";
-		playerFoodGatheredString += player.statistics.resourcesGathered.food + ",";
-		playerWoodGatheredString += player.statistics.resourcesGathered.wood + ",";
-		playerStoneGatheredString += player.statistics.resourcesGathered.stone + ",";
-		playerMetalGatheredString += player.statistics.resourcesGathered.metal + ",";
-		playerFoodUsedString += player.statistics.resourcesUsed.food + ",";
-		playerWoodUsedString += player.statistics.resourcesUsed.wood + ",";
-		playerStoneUsedString += player.statistics.resourcesUsed.stone + ",";
-		playerMetalUsedString += player.statistics.resourcesUsed.metal + ",";
-		playerUnitsLostString += player.statistics.unitsLost + ",";
-		playerUnitsTrainedString += player.statistics.unitsTrained + ",";
-		playerEnemyUnitsKilledString += player.statistics.enemyUnitsKilled + ",";
-		playerBuildingsConstructedString += player.statistics.buildingsConstructed + ",";
-		playerBuildingsLostString += player.statistics.buildingsLost + ",";
-		playerEnemyBuildingsDestroyedString += player.statistics.enemyBuildingsDestroyed + ",";
-		playerFoodBoughtString += player.statistics.resourcesBought.food + ",";
-		playerWoodBoughtString += player.statistics.resourcesBought.wood + ",";
-		playerStoneBoughtString += player.statistics.resourcesBought.stone + ",";
-		playerMetalBoughtString += player.statistics.resourcesBought.metal + ",";
-		playerFoodSoldString += player.statistics.resourcesSold.food + ",";
-		playerWoodSoldString += player.statistics.resourcesSold.wood + ",";
-		playerStoneSoldString += player.statistics.resourcesSold.stone + ",";
-		playerMetalSoldString += player.statistics.resourcesSold.metal + ",";
-		playerTributeSentString += player.statistics.tributesSent + ",";
-		playerTributeReceivedString += player.statistics.tributesReceived + ",";
-		playerPercentMapExploredString += player.statistics.precentMapExplored = ",";
-		playerCivCentersBuiltString += player.statistics.civCentresBuilt + ",";
-		playerEnemyCivCentersDestroyedString += player.statistics.enemyCivCentresDestroyed + ",";
-		playerTreasuresCollectedString += player.statistics.treasuresCollected + ",";
-		playerTradeIncomeString += player.statistics.tradeIncome + ",";
+		playerStates += player.state + ",";
+		playerCivs += player.civ + ",";
+		teams += player.team + ",";
+		teamsLocked = teamsLocked && player.teamsLocked;
+		for each (var resourcesCounterType in resourcesCounterTypes)
+			for each (var resourcesType in resourcesTypes)
+				playerStatistics[resourcesCounterType][resourcesType] += player.statistics[resourcesCounterType][resourcesType] + ",";
+		playerStatistics.resourcesGathered.vegetarianFood += player.statistics.resourcesGathered.vegetarianFood + ",";
+
+		for each (var unitCounterType in unitsCountersTypes)
+			for each (var unitsClass in unitsClasses)
+				playerStatistics[unitCounterType][unitsClass] += player.statistics[unitCounterType][unitsClass] + ",";
+
+		for each (var buildingCounterType in buildingsCountersTypes)
+			for each (var buildingsClass in buildingsClasses)
+				playerStatistics[buildingCounterType][buildingsClass] += player.statistics[buildingCounterType][buildingsClass] + ",";
+
+		playerStatistics.tradeIncome += player.statistics.tradeIncome + ",";
+		playerStatistics.tributesSent += player.statistics.tributesSent + ",";
+		playerStatistics.tributesReceived += player.statistics.tributesReceived + ",";
+		playerStatistics.percentMapExplored += player.statistics.percentMapExplored + ",";
+		playerStatistics.treasuresCollected += player.statistics.treasuresCollected + ",";
 	}
 
 	// Send the report with serialized data
-	Engine.SendGameReport({
-			"timeElapsed" : extendedSimState.timeElapsed,
-			"playerStates" : playerStatesString,
-			"playerID": Engine.GetPlayerID(),
-			"matchID": g_MatchID,
-			"civs" : playerCivsString,
-			"mapName" : mapName,
-			"foodGathered": playerFoodGatheredString,
-			"woodGathered": playerWoodGatheredString,
-			"stoneGathered": playerStoneGatheredString,
-			"metalGathered": playerMetalGatheredString,
-			"foodUsed": playerFoodUsedString,
-			"woodUsed": playerWoodUsedString,
-			"stoneUsed": playerStoneUsedString,
-			"metalUsed": playerMetalUsedString,
-			"unitsLost": playerUnitsLostString,
-			"unitsTrained": playerUnitsTrainedString,
-			"enemyUnitsKilled": playerEnemyUnitsKilledString,
-			"buildingsLost": playerBuildingsLostString,
-			"buildingsConstructed": playerBuildingsConstructedString,
-			"enemyBuildingsDestroyed": playerEnemyBuildingsDestroyedString,
-			"foodBought": playerFoodBoughtString,
-			"woodBought": playerWoodBoughtString,
-			"stoneBought": playerStoneBoughtString,
-			"metalBought": playerMetalBoughtString,
-			"foodSold": playerFoodSoldString,
-			"woodSold": playerWoodSoldString,
-			"stoneSold": playerStoneSoldString,
-			"metalSold": playerMetalSoldString,
-			"tributeSent": playerTributeSentString,
-			"tributeReceived": playerTributeReceivedString,
-			"precentMapExplored": playerPercentMapExploredString,
-			"civCentersBuilt": playerCivCentersBuiltString,
-			"enemyCivCentersDestroyed": playerEnemyCivCentersDestroyedString,
-			"treasuresCollected": playerTreasuresCollectedString,
-			"tradeIncome": playerTradeIncomeString
-		});
+	var reportObject = { };
+	reportObject.timeElapsed = extendedSimState.timeElapsed;
+	reportObject.playerStates = playerStates;
+	reportObject.playerID = Engine.GetPlayerID();
+	reportObject.matchID = g_MatchID;
+	reportObject.civs = playerCivs;
+	reportObject.teams = teams;
+	reportObject.teamsLocked = String(teamsLocked);
+	reportObject.mapName = mapName;
+	for each (var rct in resourcesCounterTypes)
+	{
+		for each (var rt in resourcesTypes)
+			reportObject[rt+rct.substr(9)] = playerStatistics[rct][rt];
+			// eg. rt = food rct.substr = Gathered rct = resourcesGathered
+	}
+	reportObject.vegetarianFoodGathered = playerStatistics.resourcesGathered.vegetarianFood;
+	for each (var type in unitsClasses)
+	{
+		// eg. type = Infantry (type.substr(0,1)).toLowerCase()+type.substr(1) = infantry
+		reportObject[(type.substr(0,1)).toLowerCase()+type.substr(1)+"UnitsTrained"] = playerStatistics.unitsTrained[type];
+		reportObject[(type.substr(0,1)).toLowerCase()+type.substr(1)+"UnitsLost"] = playerStatistics.unitsLost[type];
+		reportObject["enemy"+type+"UnitsKilled"] = playerStatistics.enemyUnitsKilled[type];
+	}
+	for each (var type in buildingsClasses)
+	{
+		reportObject[(type.substr(0,1)).toLowerCase()+type.substr(1)+"BuildingsConstructed"] = playerStatistics.buildingsConstructed[type];
+		reportObject[(type.substr(0,1)).toLowerCase()+type.substr(1)+"BuildingsLost"] = playerStatistics.buildingsLost[type];
+		reportObject["enemy"+type+"BuildingsDestroyed"] = playerStatistics.enemyBuildingsDestroyed[type];
+	}
+	reportObject.tributesSent = playerStatistics.tributesSent;
+	reportObject.tributesReceived = playerStatistics.tributesReceived;
+	reportObject.percentMapExplored = playerStatistics.percentMapExplored;
+	reportObject.treasuresCollected = playerStatistics.treasuresCollected;
+	reportObject.tradeIncome = playerStatistics.tradeIncome;
+
+	Engine.SendGameReport(reportObject);
 }
+

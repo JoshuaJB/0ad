@@ -30,16 +30,19 @@
     </Resources>
   </Cost>
   <Footprint>
-    <Circle radius="3.0"/>
+    <Circle radius="2.5"/>
     <Height>3.0</Height>
   </Footprint>
   <Health>
-    <Max>800</Max>
+    <Max>1500</Max>
   </Health>
   <Identity>
     <GenericName>Hero Cavalry</GenericName>
     <Classes datatype="tokens">Hero -Champion</Classes>
     <RequiredTechnology>phase_city</RequiredTechnology>
+    <Formations datatype="tokens">
+      formations/wedge
+    </Formations>
   </Identity>
   <Loot>
     <xp>500</xp>

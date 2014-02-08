@@ -34,9 +34,20 @@ AIProxy.prototype.Init = function()
 {
 	this.changes = null;
 	this.needsFullGet = true;
+	// cache some data across turns
+	this.owner = -1;
+	
+	this.cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
 
 	// Let the AIInterface know that we exist and that it should query us
 	this.NotifyChange();
+};
+
+AIProxy.prototype.Serialize = null; // we have no dynamic state to save
+
+AIProxy.prototype.Deserialize = function ()
+{
+	this.cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
 };
 
 AIProxy.prototype.GetRepresentation = function()
@@ -66,9 +77,7 @@ AIProxy.prototype.NotifyChange = function()
 	if (!this.changes)
 	{
 		this.changes = {};
-
-		var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-		cmpAIInterface.ChangedEntity(this.entity);
+		this.cmpAIInterface.ChangedEntity(this.entity);
 	}
 };
 
@@ -89,13 +98,6 @@ AIProxy.prototype.OnHealthChanged = function(msg)
 	this.NotifyChange();
 
 	this.changes.hitpoints = msg.to;
-};
-
-AIProxy.prototype.OnOwnershipChanged = function(msg)
-{
-	this.NotifyChange();
-
-	this.changes.owner = msg.to;
 };
 
 AIProxy.prototype.OnUnitIdleChanged = function(msg)
@@ -133,6 +135,15 @@ AIProxy.prototype.OnGarrisonedUnitsChanged = function(msg)
 	
 	var cmpGarrisonHolder = Engine.QueryInterface(this.entity, IID_GarrisonHolder);
 	this.changes.garrisoned = cmpGarrisonHolder.GetEntities();
+
+	// Send a message telling a unit garrisoned or ungarrisoned.
+	// I won't check if the unit is still alive so it'll be up to the AI.
+	var added = msg.added;
+	var removed = msg.removed;
+	for each (var ent in added)
+		this.cmpAIInterface.PushEvent("Garrison", {"entity" : ent, "holder": this.entity});
+	for each (var ent in removed)
+		this.cmpAIInterface.PushEvent("UnGarrison", {"entity" : ent, "holder": this.entity});
 };
 
 AIProxy.prototype.OnResourceSupplyChanged = function(msg)
@@ -157,6 +168,12 @@ AIProxy.prototype.OnFoundationProgressChanged = function(msg)
 {
 	this.NotifyChange();
 	this.changes.foundationProgress = msg.to;
+};
+
+AIProxy.prototype.OnFoundationBuildersChanged = function(msg)
+{
+	this.NotifyChange();
+	this.changes.foundationBuilders = msg.to;
 };
 
 // TODO: event handlers for all the other things
@@ -199,6 +216,8 @@ AIProxy.prototype.GetFullRepresentation = function()
 	{
 		// Updated by OnOwnershipChanged
 		ret.owner = cmpOwnership.GetOwner();
+		if (!this.owner)
+			this.owner = ret.owner;
 	}
 
 	var cmpUnitAI = Engine.QueryInterface(this.entity, IID_UnitAI);
@@ -258,40 +277,54 @@ AIProxy.prototype.GetFullRepresentation = function()
 // because that would be very expensive and AI will rarely care about all those
 // events.)
 
-AIProxy.prototype.OnCreate = function(msg)
+// special case: this changes the state and sends an event.
+AIProxy.prototype.OnOwnershipChanged = function(msg)
 {
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("Create", msg);
-};
-
-AIProxy.prototype.OnDestroy = function(msg)
-{
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("Destroy", msg);
+	this.NotifyChange();
+	
+	if (msg.from === -1)
+	{
+		this.cmpAIInterface.PushEvent("Create", {"entity" : msg.entity});
+		return;
+	} else if (msg.to === -1)
+	{
+		this.cmpAIInterface.PushEvent("Destroy", {"entity" : msg.entity});
+		return;
+	}
+	
+	this.owner = msg.to;
+	this.changes.owner = msg.to;
+	
+	this.cmpAIInterface.PushEvent("OwnershipChanged", msg);
 };
 
 AIProxy.prototype.OnAttacked = function(msg)
 {
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("Attacked", msg);
+	this.cmpAIInterface.PushEvent("Attacked", msg);
 };
+
+/*
+ Deactivated for actually not really being practical for most uses.
+ AIProxy.prototype.OnRangeUpdate = function(msg)
+{
+	msg.owner = this.owner;
+	this.cmpAIInterface.PushEvent("RangeUpdate", msg);
+	warn(uneval(msg));
+};*/
 
 AIProxy.prototype.OnConstructionFinished = function(msg)
 {
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("ConstructionFinished", msg);
+	this.cmpAIInterface.PushEvent("ConstructionFinished", msg);
 };
 
 AIProxy.prototype.OnTrainingFinished = function(msg)
 {
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("TrainingFinished", msg);
+	this.cmpAIInterface.PushEvent("TrainingFinished", msg);
 };
 
 AIProxy.prototype.OnAIMetadata = function(msg)
 {
-	var cmpAIInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIInterface);
-	cmpAIInterface.PushEvent("AIMetadata", msg);
+	this.cmpAIInterface.PushEvent("AIMetadata", msg);
 };
 
 Engine.RegisterComponentType(IID_AIProxy, "AIProxy", AIProxy);

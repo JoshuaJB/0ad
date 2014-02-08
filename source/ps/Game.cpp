@@ -24,6 +24,7 @@
 #include "graphics/ParticleManager.h"
 #include "graphics/UnitManager.h"
 #include "gui/GUIManager.h"
+#include "gui/CGUI.h"
 #include "lib/config2.h"
 #include "lib/timer.h"
 #include "network/NetClient.h"
@@ -41,14 +42,16 @@
 #include "ps/GameSetup/GameSetup.h"
 #include "renderer/Renderer.h"
 #include "renderer/TimeManager.h"
-#include "scripting/ScriptingHost.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "simulation2/Simulation2.h"
 #include "simulation2/components/ICmpPlayer.h"
 #include "simulation2/components/ICmpPlayerManager.h"
 #include "soundmanager/ISoundManager.h"
 
+#include "tools/atlas/GameInterface/GameLoop.h"
+
 extern bool g_GameRestarted;
+extern GameLoopState* g_AtlasGameLoop;
 
 /**
  * Globally accessible pointer to the CGame object.
@@ -61,7 +64,7 @@ CGame *g_Game=NULL;
  **/
 CGame::CGame(bool disableGraphics):
 	m_World(new CWorld(this)),
-	m_Simulation2(new CSimulation2(&m_World->GetUnitManager(), m_World->GetTerrain())),
+	m_Simulation2(new CSimulation2(&m_World->GetUnitManager(), g_ScriptRuntime, m_World->GetTerrain())),
 	m_GameView(disableGraphics ? NULL : new CGameView(this)),
 	m_GameStarted(false),
 	m_Paused(false),
@@ -200,6 +203,16 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the script function InitGame only for new games, not saved games
 	if (!m_IsSavedGame)
 	{
+		if (!g_AtlasGameLoop->running)
+		{
+			// We need to replace skirmish "default" entities with real ones.
+			// This needs to happen before AI initialization (in InitGame).
+			// And we need to flush destroyed entities otherwise the AI
+			// gets the wrong game state in the beginning and a bunch of
+			// "destroy" messages on turn 0, which just shouldn't happen.
+			m_Simulation2->ReplaceSkirmishGlobals();
+			m_Simulation2->FlushDestroyedEntities();
+		}
 		CScriptVal settings;
 		m_Simulation2->GetScriptInterface().GetProperty(m_Simulation2->GetInitAttributes().get(), "settings", settings);
 		m_Simulation2->InitGame(settings);
@@ -220,11 +233,8 @@ PSRETURN CGame::ReallyStartGame()
 	// Call the reallyStartGame GUI function, but only if it exists
 	if (g_GUI && g_GUI->HasPages())
 	{
-		jsval fval, rval;
-		JSBool ok = JS_GetProperty(g_ScriptingHost.getContext(), g_GUI->GetScriptObject(), "reallyStartGame", &fval);
-		ENSURE(ok);
-		if (ok && !JSVAL_IS_VOID(fval))
-			JS_CallFunctionValue(g_ScriptingHost.getContext(), g_GUI->GetScriptObject(), fval, 0, NULL, &rval);
+		if (g_GUI->GetActiveGUI()->GetScriptInterface()->HasProperty(g_GUI->GetActiveGUI()->GetGlobalObject(), "reallyStartGame"))
+			g_GUI->GetActiveGUI()->GetScriptInterface()->CallFunctionVoid(g_GUI->GetActiveGUI()->GetGlobalObject(), "reallyStartGame");
 	}
 
 	if (g_NetClient)

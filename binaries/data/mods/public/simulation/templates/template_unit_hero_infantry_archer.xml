@@ -29,11 +29,11 @@
     </Resources>
   </Cost>
   <Footprint>
-    <Circle radius="2.0"/>
+    <Circle radius="1.5"/>
     <Height>2.5</Height>
   </Footprint>
   <Health>
-    <Max>600</Max>
+    <Max>1000</Max>
   </Health>
   <Identity>
     <GenericName>Hero Archer</GenericName>
@@ -42,6 +42,9 @@
 Counters: 2x vs. Swordsmen, 1.25x vs. Cavalry Spearmen. 
 Countered by: Cavalry Swordsmen, Cavalry Skirmishers.</Tooltip>
     <RequiredTechnology>phase_city</RequiredTechnology>
+    <Formations datatype="tokens">
+      formations/skirmish
+    </Formations>
   </Identity>
   <Loot>
     <xp>350</xp>

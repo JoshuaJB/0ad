@@ -82,6 +82,16 @@ public:
 			memset(m_Data, 0, m_W*m_H*sizeof(T));
 	}
 
+	// Add two grids of the same size
+	void add(const Grid& g)
+	{
+#if GRID_BOUNDS_DEBUG
+		ENSURE(g.m_W == m_W && g.m_H == m_H);
+#endif
+		for (int i=0; i < m_H*m_W; ++i)
+			m_Data[i] += g.m_Data[i];
+	}
+
 	void set(int i, int j, const T& value)
 	{
 #if GRID_BOUNDS_DEBUG

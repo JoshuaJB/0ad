@@ -14,7 +14,7 @@
   </Health>
   <Identity>
     <Civ>ptol</Civ>
-    <SpecificName>?</SpecificName>
+    <SpecificName>ḥwt-n-mš'</SpecificName>
     <History>?</History>
     <Tooltip>Train Egyptian and Middle-Eastern citizen-soldiers. Research training improvements. Garrison: 10.</Tooltip>
   </Identity>
@@ -24,7 +24,6 @@
   <ProductionQueue>
     <Entities datatype="tokens">
       units/ptol_infantry_spearman_b
-      units/ptol_infantry_javelinist_b
       units/ptol_infantry_archer_b
       units/ptol_infantry_slinger_b
       units/ptol_cavalry_archer_b

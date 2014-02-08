@@ -22,6 +22,8 @@ GuiInterface.prototype.Init = function()
 	this.placementWallLastAngle = 0;
 	this.notifications = [];
 	this.renamedEntities = [];
+	this.timeNotificationID = 1;
+	this.timeNotifications = [];
 };
 
 /*
@@ -94,7 +96,7 @@ GuiInterface.prototype.GetSimulationState = function(player)
 			"isEnemy": enemies,
 			"entityLimits": cmpPlayerEntityLimits.GetLimits(),
 			"entityCounts": cmpPlayerEntityLimits.GetCounts(),
-			"techModifications": cmpTechnologyManager.GetTechModifications(),
+			"entityLimitChangers": cmpPlayerEntityLimits.GetLimitChangers(),
 			"researchQueued": cmpTechnologyManager.GetQueuedResearch(),
 			"researchStarted": cmpTechnologyManager.GetStartedResearch(),
 			"researchedTechs": cmpTechnologyManager.GetResearchedTechs(),
@@ -132,6 +134,10 @@ GuiInterface.prototype.GetExtendedSimulationState = function(player)
 		ret.players[i].statistics = cmpPlayerStatisticsTracker.GetStatistics();
 	}
 
+	// Add bartering prices
+	var cmpBarter = Engine.QueryInterface(SYSTEM_ENTITY, IID_Barter);
+	ret.barterPrices = cmpBarter.GetPrices();
+
 	return ret;
 };
 
@@ -145,6 +151,9 @@ GuiInterface.prototype.ClearRenamedEntities = function(player)
 	this.renamedEntities = [];
 };
 
+/**
+ * Get common entity info, often used in the gui
+ */
 GuiInterface.prototype.GetEntityState = function(player, ent)
 {
 	var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
@@ -185,52 +194,6 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		ret.needsHeal = !cmpHealth.IsUnhealable();
 	}
 
-	var cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
-	var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
-	var cmpAttack = Engine.QueryInterface(ent, IID_Attack);
-
-	if (cmpAttack)
-	{
-		var type = cmpAttack.GetBestAttack(); // TODO: how should we decide which attack to show? show all?
-		ret.attack = cmpAttack.GetAttackStrengths(type);
-		var range = cmpAttack.GetRange(type);
-		ret.attack.type = type;
-		ret.attack.minRange = range.min;
-		ret.attack.maxRange = range.max;
-		if (type == "Ranged")
-		{
-			ret.attack.elevationBonus = range.elevationBonus;
-			if (cmpUnitAI && cmpPosition && cmpPosition.IsInWorld())
-			{
-				// For units, take the rage in front of it, no spread. So angle = 0
-				ret.attack.elevationAdaptedRange = cmpRangeManager.GetElevationAdaptedRange(ret.position, ret.rotation, range.max, range.elevationBonus, 0);
-			}
-			else if(cmpPosition && cmpPosition.IsInWorld())
-			{
-				// For buildings, take the average elevation around it. So angle = 2*pi
-				ret.attack.elevationAdaptedRange = cmpRangeManager.GetElevationAdaptedRange(ret.position, ret.rotation, range.max, range.elevationBonus, 2*Math.PI);
-			}
-			else
-			{
-				// not in world, set a default?
-				ret.attack.elevationAdaptedRange = ret.attack.maxRange;
-			}
-			
-		}
-		else
-		{
-			// not a ranged attack, set some defaults
-			ret.attack.elevationBonus = 0;
-			ret.attack.elevationAdaptedRange = ret.attack.maxRange;
-		}
-	}
-
-	var cmpArmour = Engine.QueryInterface(ent, IID_DamageReceiver);
-	if (cmpArmour)
-	{
-		ret.armour = cmpArmour.GetArmourStrengths();
-	}
-
 	var cmpBuilder = Engine.QueryInterface(ent, IID_Builder);
 	if (cmpBuilder)
 	{
@@ -261,7 +224,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	{
 		ret.trader = {
 			"goods": cmpTrader.GetGoods(),
-			"preferredGoods": cmpTrader.GetPreferredGoods()
+			"requiredGoods": cmpTrader.GetRequiredGoods()
 		};
 	}
 
@@ -274,48 +237,10 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		};
 	}
 
-	var cmpObstruction = Engine.QueryInterface(ent, IID_Obstruction);
-	if (cmpObstruction)
-	{
-		ret.obstruction = {
-			"controlGroup": cmpObstruction.GetControlGroup(),
-			"controlGroup2": cmpObstruction.GetControlGroup2(),
-		};
-	}
-
 	var cmpOwnership = Engine.QueryInterface(ent, IID_Ownership);
 	if (cmpOwnership)
 	{
 		ret.player = cmpOwnership.GetOwner();
-	}
-
-	var cmpResourceSupply = Engine.QueryInterface(ent, IID_ResourceSupply);
-	if (cmpResourceSupply)
-	{
-		ret.resourceSupply = {
-			"isInfinite": cmpResourceSupply.IsInfinite(),
-			"max": cmpResourceSupply.GetMaxAmount(),
-			"amount": cmpResourceSupply.GetCurrentAmount(),
-			"type": cmpResourceSupply.GetType(),
-			"killBeforeGather": cmpResourceSupply.GetKillBeforeGather(),
-			"maxGatherers": cmpResourceSupply.GetMaxGatherers(),
-			"gatherers": cmpResourceSupply.GetGatherers()
-		};
-	}
-
-	var cmpResourceGatherer = Engine.QueryInterface(ent, IID_ResourceGatherer);
-	if (cmpResourceGatherer)
-	{
-		ret.resourceGatherRates = cmpResourceGatherer.GetGatherRates();
-		ret.resourceCarrying = cmpResourceGatherer.GetCarryingStatus();
-	}
-
-	var cmpResourceDropsite = Engine.QueryInterface(ent, IID_ResourceDropsite);
-	if (cmpResourceDropsite)
-	{
-		ret.resourceDropsite = {
-			"types": cmpResourceDropsite.GetTypes()
-		};
 	}
 
 	var cmpRallyPoint = Engine.QueryInterface(ent, IID_RallyPoint);
@@ -335,15 +260,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		};
 	}
 	
-	var cmpPromotion = Engine.QueryInterface(ent, IID_Promotion);
-	if (cmpPromotion)
-	{
-		ret.promotion = {
-			"curr": cmpPromotion.GetCurrentXp(),
-			"req": cmpPromotion.GetRequiredXp()
-		};
-	}
-
+	var cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
 	if (cmpUnitAI)
 	{
 		ret.unitAI = {
@@ -365,15 +282,148 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 			"entities": cmpGuard.GetEntities(),
 		};
 	}
-	
+
 	var cmpGate = Engine.QueryInterface(ent, IID_Gate);
 	if (cmpGate)
 	{
 		ret.gate = {
 			"locked": cmpGate.IsLocked(),
 		};
+	}
+
+	var cmpAlertRaiser = Engine.QueryInterface(ent, IID_AlertRaiser);
+	if (cmpAlertRaiser)
+	{
+		ret.alertRaiser = {
+			"level": cmpAlertRaiser.GetLevel(),
+			"canIncreaseLevel": cmpAlertRaiser.CanIncreaseLevel(),
+			"hasRaisedAlert": cmpAlertRaiser.HasRaisedAlert(),
+		};
+	}
+
+	var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	ret.visibility = cmpRangeManager.GetLosVisibility(ent, player, false);
+
+	return ret;
+};
+
+/**
+ * Get additionnal entity info, rarely used in the gui
+ */
+GuiInterface.prototype.GetExtendedEntityState = function(player, ent)
+{
+	var ret = {};
+
+	var cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
+
+	var cmpAttack = Engine.QueryInterface(ent, IID_Attack);
+	if (cmpAttack)
+	{
+		var type = cmpAttack.GetBestAttack(); // TODO: how should we decide which attack to show? show all?
+		ret.attack = cmpAttack.GetAttackStrengths(type);
+		var range = cmpAttack.GetRange(type);
+		ret.attack.type = type;
+		ret.attack.minRange = range.min;
+		ret.attack.maxRange = range.max;
+		var timers = cmpAttack.GetTimers(type);
+		ret.attack.prepareTime = timers.prepare;
+		ret.attack.repeatTime = timers.repeat;
+		if (type == "Ranged")
+		{
+			ret.attack.elevationBonus = range.elevationBonus;
+			var cmpPosition = Engine.QueryInterface(ent, IID_Position);
+			var cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
+			var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+			if (cmpUnitAI && cmpPosition && cmpPosition.IsInWorld())
+			{
+				// For units, take the rage in front of it, no spread. So angle = 0
+				ret.attack.elevationAdaptedRange = cmpRangeManager.GetElevationAdaptedRange(cmpPosition.GetPosition(), cmpPosition.GetRotation(), range.max, range.elevationBonus, 0);
+			}
+			else if(cmpPosition && cmpPosition.IsInWorld())
+			{
+				// For buildings, take the average elevation around it. So angle = 2*pi
+				ret.attack.elevationAdaptedRange = cmpRangeManager.GetElevationAdaptedRange(cmpPosition.GetPosition(), cmpPosition.GetRotation(), range.max, range.elevationBonus, 2*Math.PI);
+			}
+			else
+			{
+				// not in world, set a default?
+				ret.attack.elevationAdaptedRange = ret.attack.maxRange;
+			}
+			
+		}
+		else
+		{
+			// not a ranged attack, set some defaults
+			ret.attack.elevationBonus = 0;
+			ret.attack.elevationAdaptedRange = ret.attack.maxRange;
+		}
+	}
+
+	var cmpArmour = Engine.QueryInterface(ent, IID_DamageReceiver);
+	if (cmpArmour)
+	{
+		ret.armour = cmpArmour.GetArmourStrengths();
+	}
+
+	var cmpBuildingAI = Engine.QueryInterface(ent, IID_BuildingAI);
+	if (cmpBuildingAI)
+	{
+		ret.buildingAI = {
+			"defaultArrowCount": cmpBuildingAI.GetDefaultArrowCount(),
+			"garrisonArrowMultiplier": cmpBuildingAI.GetGarrisonArrowMultiplier(),
+			"garrisonArrowClasses": cmpBuildingAI.GetGarrisonArrowClasses(),
+			"arrowCount": cmpBuildingAI.GetArrowCount()
+		};
+	}
+
+	var cmpObstruction = Engine.QueryInterface(ent, IID_Obstruction);
+	if (cmpObstruction)
+	{
+		ret.obstruction = {
+			"controlGroup": cmpObstruction.GetControlGroup(),
+			"controlGroup2": cmpObstruction.GetControlGroup2(),
+		};
+	}
+
+	var cmpResourceSupply = Engine.QueryInterface(ent, IID_ResourceSupply);
+	if (cmpResourceSupply)
+	{
+		ret.resourceSupply = {
+			"isInfinite": cmpResourceSupply.IsInfinite(),
+			"max": cmpResourceSupply.GetMaxAmount(),
+			"amount": cmpResourceSupply.GetCurrentAmount(),
+			"type": cmpResourceSupply.GetType(),
+			"killBeforeGather": cmpResourceSupply.GetKillBeforeGather(),
+			"maxGatherers": cmpResourceSupply.GetMaxGatherers(),
+			"gatherers": cmpResourceSupply.GetGatherers(player)
+		};
+	}
+
+	var cmpResourceGatherer = Engine.QueryInterface(ent, IID_ResourceGatherer);
+	if (cmpResourceGatherer)
+	{
+		ret.resourceGatherRates = cmpResourceGatherer.GetGatherRates();
+		ret.resourceCarrying = cmpResourceGatherer.GetCarryingStatus();
+	}
+	
+	var cmpResourceDropsite = Engine.QueryInterface(ent, IID_ResourceDropsite);
+	if (cmpResourceDropsite)
+	{
+		ret.resourceDropsite = {
+			"types": cmpResourceDropsite.GetTypes()
+		};
+	}
+	
+	var cmpPromotion = Engine.QueryInterface(ent, IID_Promotion);
+	if (cmpPromotion)
+	{
+		ret.promotion = {
+			"curr": cmpPromotion.GetCurrentXp(),
+			"req": cmpPromotion.GetRequiredXp()
+		};
 	}	
 
+	var cmpFoundation = Engine.QueryInterface(ent, IID_Foundation);
 	if (!cmpFoundation && cmpIdentity && cmpIdentity.HasClass("BarterMarket"))
 	{
 		var cmpBarter = Engine.QueryInterface(SYSTEM_ENTITY, IID_Barter);
@@ -383,13 +433,11 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 	var cmpHeal = Engine.QueryInterface(ent, IID_Heal);
 	if (cmpHeal)
 	{
-		ret.Healer = { 
+		ret.healer = { 
 			"unhealableClasses": cmpHeal.GetUnhealableClasses(),
 			"healableClasses": cmpHeal.GetHealableClasses(),
 		};
 	}
-
-	ret.visibility = cmpRangeManager.GetLosVisibility(ent, player, false);
 
 	return ret;
 };
@@ -406,8 +454,6 @@ GuiInterface.prototype.GetAverageRangeForBuildings = function(player, cmd)
 
 	return cmpRangeManager.GetElevationAdaptedRange(pos, rot, range, elevationBonus, 2*Math.PI);
 };
-
-
 
 GuiInterface.prototype.GetTemplateData = function(player, extendedName)
 {
@@ -428,8 +474,8 @@ GuiInterface.prototype.GetTemplateData = function(player, extendedName)
 	{
 		ret.armour = {
 			"hack": ApplyValueModificationsToTemplate("Armour/Hack", +template.Armour.Hack, player, template),
-			"pierce": ApplyValueModificationsToTemplate("Armour/Pierce", +template.Armour.Hack, player, template),
-			"crush": ApplyValueModificationsToTemplate("Armour/Crush", +template.Armour.Hack, player, template),
+			"pierce": ApplyValueModificationsToTemplate("Armour/Pierce", +template.Armour.Pierce, player, template),
+			"crush": ApplyValueModificationsToTemplate("Armour/Crush", +template.Armour.Crush, player, template),
 		};
 	}
 	
@@ -678,7 +724,7 @@ GuiInterface.prototype.GetStartedResearch = function(player)
 			ret[tech].progress = 0;
 	}
 	return ret;
-}
+};
 
 // Returns the battle state of the player.
 GuiInterface.prototype.GetBattleState = function(player)
@@ -701,6 +747,55 @@ GuiInterface.prototype.GetNeededResources = function(player, amounts)
 	return cmpPlayer.GetNeededResources(amounts);
 };
 
+GuiInterface.prototype.AddTimeNotification = function(notification)
+{
+	var time = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
+	notification.endTime = notification.time + time;
+	notification.id = ++this.timeNotificationID;
+	this.timeNotifications.push(notification);
+	this.timeNotifications.sort(function (n1, n2){return n2.endTime - n1.endTime});
+	return this.timeNotificationID;
+};
+
+GuiInterface.prototype.DeleteTimeNotification = function(notificationID)
+{
+	for (var i in this.timeNotifications)
+	{
+		if (this.timeNotifications[i].id == notificationID)
+		{
+			this.timeNotifications.splice(i);
+			return;
+		}
+	}
+};
+
+GuiInterface.prototype.GetTimeNotificationText = function(playerID)
+{	
+	var formatTime = function(time)
+		{
+			// add 1000 ms to get ceiled instead of floored millisecons
+			// displaying 00:00 for a full second isn't nice
+			time += 1000;
+			var hours   = Math.floor(time / 1000 / 60 / 60);
+			var minutes = Math.floor(time / 1000 / 60) % 60;
+			var seconds = Math.floor(time / 1000) % 60;
+			return (hours ? hours + ':' : "") + (minutes < 10 ? '0' + minutes : minutes) + ':' + (seconds < 10 ? '0' + seconds : seconds);
+		};
+	var time = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer).GetTime();
+	var text = "";
+	for each (var n in this.timeNotifications)
+	{
+		if (time >= n.endTime)
+		{
+			// delete the notification and start over 
+			this.DeleteTimeNotification(n.id);
+			return this.GetTimeNotificationText(playerID);
+		}
+		if (n.players.indexOf(playerID) >= 0)
+			text += n.message.replace("%T",formatTime(n.endTime - time))+"\n";
+	}
+	return text;
+};
 
 GuiInterface.prototype.PushNotification = function(notification)
 {
@@ -724,12 +819,24 @@ GuiInterface.prototype.GetAvailableFormations = function(player, data)
 
 GuiInterface.prototype.GetFormationRequirements = function(player, data)
 {
-	return GetFormationRequirements(data.formationName);
+	return GetFormationRequirements(data.formationTemplate);
 };
 
 GuiInterface.prototype.CanMoveEntsIntoFormation = function(player, data)
 {
-	return CanMoveEntsIntoFormation(data.ents, data.formationName);
+	return CanMoveEntsIntoFormation(data.ents, data.formationTemplate);
+};
+
+GuiInterface.prototype.GetFormationInfoFromTemplate = function(player, data)
+{
+	var r = {};
+	var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+	var template = cmpTemplateManager.GetTemplate(data.templateName);
+	if (!template || !template.Formation)
+		return r;
+	r.name = template.Formation.FormationName;
+	r.tooltip = template.Formation.DisabledTooltip;
+	return r;
 };
 
 GuiInterface.prototype.IsFormationSelected = function(player, data)
@@ -741,7 +848,7 @@ GuiInterface.prototype.IsFormationSelected = function(player, data)
 		{
 			// GetLastFormationName is named in a strange way as it (also) is
 			// the value of the current formation (see Formation.js LoadFormation)
-			if (cmpUnitAI.GetLastFormationName() == data.formationName)
+			if (cmpUnitAI.GetLastFormationTemplate() == data.formationTemplate)
 				return true;
 		}
 	}
@@ -1638,7 +1745,7 @@ function isIdleUnit(ent, idleClass)
 	
 	// TODO: Do something with garrisoned idle units
 	return (cmpUnitAI && cmpIdentity && cmpUnitAI.IsIdle() && !cmpUnitAI.IsGarrisoned() && idleClass && cmpIdentity.HasClass(idleClass));
-}
+};
 
 GuiInterface.prototype.FindIdleUnits = function(player, data)
 {
@@ -1671,7 +1778,7 @@ GuiInterface.prototype.FindIdleUnits = function(player, data)
 	}
 
 	return idleUnits;
-}
+};
 
 GuiInterface.prototype.GetTradingRouteGain = function(player, data)
 {
@@ -1679,7 +1786,7 @@ GuiInterface.prototype.GetTradingRouteGain = function(player, data)
 		return null;
 
 	return CalculateTraderGain(data.firstMarket, data.secondMarket, data.template);
-}
+};
 
 GuiInterface.prototype.GetTradingDetails = function(player, data)
 {
@@ -1693,7 +1800,6 @@ GuiInterface.prototype.GetTradingDetails = function(player, data)
 	{
 		result = {
 			"type": "is first",
-			"goods": cmpEntityTrader.GetPreferredGoods(),
 			"hasBothMarkets": cmpEntityTrader.HasBothMarkets()
 		};
 		if (cmpEntityTrader.HasBothMarkets())
@@ -1704,7 +1810,6 @@ GuiInterface.prototype.GetTradingDetails = function(player, data)
 		result = {
 			"type": "is second",
 			"gain": cmpEntityTrader.GetGain(),
-			"goods": cmpEntityTrader.GetPreferredGoods()
 		};
 	}
 	else if (!firstMarket)
@@ -1716,7 +1821,6 @@ GuiInterface.prototype.GetTradingDetails = function(player, data)
 		result = {
 			"type": "set second",
 			"gain": cmpEntityTrader.CalculateGain(firstMarket, data.target),
-			"goods": cmpEntityTrader.GetPreferredGoods()
 		};
 	}
 	else
@@ -1782,10 +1886,55 @@ GuiInterface.prototype.SetRangeDebugOverlay = function(player, enabled)
 	cmpRangeManager.SetDebugOverlay(enabled);
 };
 
+GuiInterface.prototype.GetTraderNumber = function(player)
+{
+	var cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
+	var traders = cmpRangeManager.GetEntitiesByPlayer(player).filter( function(e) {
+		return Engine.QueryInterface(e, IID_Trader);
+	});
+
+	var landTrader = { "total": 0, "trading": 0, "garrisoned": 0 };
+	var shipTrader = { "total": 0, "trading": 0 };
+	for each (var ent in traders)
+	{
+		var cmpIdentity =  Engine.QueryInterface(ent, IID_Identity);
+		var cmpUnitAI =  Engine.QueryInterface(ent, IID_UnitAI);
+		if (!cmpIdentity || !cmpUnitAI)
+			continue;
+		if (cmpIdentity.HasClass("Ship"))
+		{
+			++shipTrader.total;
+			if (cmpUnitAI.order && cmpUnitAI.order.type == "Trade")
+				++shipTrader.trading;
+		}
+		else
+		{
+			++landTrader.total;
+			if (cmpUnitAI.order && cmpUnitAI.order.type == "Trade")
+				++landTrader.trading;
+			if (cmpUnitAI.order && cmpUnitAI.order.type == "Garrison")
+			{
+				var holder = cmpUnitAI.order.data.target;
+				var cmpHolderUnitAI = Engine.QueryInterface(holder, IID_UnitAI);
+				if (cmpHolderUnitAI && cmpHolderUnitAI.order && cmpHolderUnitAI.order.type == "Trade")
+					++landTrader.garrisoned;
+			}
+		}
+	}
+
+	return { "landTrader": landTrader, "shipTrader": shipTrader };
+};
+
+GuiInterface.prototype.GetTradingGoods = function(player, tradingGoods)
+{
+	var cmpPlayer = QueryPlayerIDInterface(player, IID_Player);
+	return cmpPlayer.GetTradingGoods();
+};
+
 GuiInterface.prototype.OnGlobalEntityRenamed = function(msg)
 {
 	this.renamedEntities.push(msg);
-}
+};
 
 // List the GuiInterface functions that can be safely called by GUI scripts.
 // (GUI scripts are non-deterministic and untrusted, so these functions must be
@@ -1799,6 +1948,7 @@ var exposedFunctions = {
 	"GetRenamedEntities": 1,
 	"ClearRenamedEntities": 1,
 	"GetEntityState": 1,
+	"GetExtendedEntityState": 1,
 	"GetAverageRangeForBuildings": 1,
 	"GetTemplateData": 1,
 	"GetTechnologyData": 1,
@@ -1809,11 +1959,13 @@ var exposedFunctions = {
 	"GetIncomingAttacks": 1,
 	"GetNeededResources": 1,
 	"GetNextNotification": 1,
+	"GetTimeNotificationText": 1,
 
 	"GetAvailableFormations": 1,
 	"GetFormationRequirements": 1,
 	"CanMoveEntsIntoFormation": 1,
 	"IsFormationSelected": 1,
+	"GetFormationInfoFromTemplate": 1,
 	"IsStanceSelected": 1,
 
 	"SetSelectionHighlight": 1,
@@ -1835,6 +1987,9 @@ var exposedFunctions = {
 	"SetObstructionDebugOverlay": 1,
 	"SetMotionDebugOverlay": 1,
 	"SetRangeDebugOverlay": 1,
+
+	"GetTraderNumber": 1,
+	"GetTradingGoods": 1,
 };
 
 GuiInterface.prototype.ScriptCall = function(player, name, args)

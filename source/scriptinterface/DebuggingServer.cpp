@@ -14,8 +14,10 @@
  * You should have received a copy of the GNU General Public License
  * along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include "precompiled.h"
+ 
+// JS debugger temporarily disabled during the SpiderMonkey upgrade (check trac ticket #2348 for details)
+#include "precompiled.h" // needs to be here for Windows builds
+/* 
 
 #include "DebuggingServer.h"
 #include "ThreadDebugger.h"
@@ -566,3 +568,4 @@ void CDebuggingServer::ReleaseBreakPointAccess(double breakPointsLockID)
 	ENSURE(m_BreakPointsLockID == breakPointsLockID); 
 	SDL_SemPost(m_BreakPointsSem);
 }
+*/

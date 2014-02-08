@@ -7,6 +7,7 @@
     <script file="gui/common/functions_global_object.js" />
     <script file="gui/common/music.js"/>
     <script file="gui/common/timer.js"/>
+	<script file="gui/common/colorFades.js"/>
     <script file="gui/session/session.js"/>
     <script file="gui/session/selection.js"/>
     <script file="gui/session/placement.js"/>
@@ -66,7 +67,7 @@
 	    <action on="Press">
 		var newSetting = !Engine.Renderer_GetSilhouettesEnabled();
 		Engine.Renderer_SetSilhouettesEnabled(newSetting);
-		getGUIObjectByName("silhouettesCheckbox").checked = newSetting;
+		Engine.GetGUIObjectByName("silhouettesCheckbox").checked = newSetting;
 	    </action>
 	</object>
 
@@ -259,7 +260,7 @@
 
 	    <object size="0 16 100%-18 32" type="text" style="devCommandsText">Change perspective</object>
 	    <object size="100%-16 16 100% 32" type="checkbox" style="StoneCrossBox">
-		<action on="Press">getGUIObjectByName("viewPlayer").hidden = !this.checked;</action>
+		<action on="Press">Engine.GetGUIObjectByName("viewPlayer").hidden = !this.checked;</action>
 	    </object>
 
 	    <object size="0 32 100%-18 48" type="text" style="devCommandsText">Display selection state</object>
@@ -292,7 +293,14 @@
 
 	    <object size="0 128 100%-18 144" type="text" style="devCommandsText">Restrict camera</object>
 	    <object size="100%-16 128 100% 144" type="checkbox" style="StoneCrossBox" checked="true">
-		<action on="Press">Engine.GameView_SetConstrainCameraEnabled(this.checked);</action>
+			<action on="Press">
+				Engine.GameView_SetConstrainCameraEnabled(this.checked);
+				// Make selection more durable at the expense of speed if unchecked.
+				if (this.checked)
+					SELECTION_SEARCH_RADIUS -= 200;
+				else
+					SELECTION_SEARCH_RADIUS += 200; 
+			</action>
 	    </object>
 
 	    <object size="0 144 100%-18 160" type="text" style="devCommandsText">Reveal map</object>
@@ -345,6 +353,10 @@
 	<object name="notificationPanel" type="image" size="50%-300 60 50%+300 120" ghost="true">
 	    <object name="notificationText" size="0 0 100% 100%" type="text" style="notificationPanel" ghost="true"/>
 	</object>
+	<object name="timeNotificationPanel" type="image" size="100%-600 60 100%-20 120" ghost="true">
+	    <object name="timeNotificationText" size="0 0 100% 100%" type="text" style="notificationPanel" ghost="true"/>
+	</object>
+
 
 	<!-- ================================  ================================ -->
 	<!-- Chat -->
@@ -431,6 +443,56 @@
 		<object size="50%-64 100%-50 50%+64 100%-22" type="button" style="StoneButton">
 		    Close
 		    <action on="Press">closeDiplomacy();</action>
+		</object>
+	</object>
+
+	<!-- ================================  ================================ -->
+	<!-- Trade Window -->
+	<!-- ================================  ================================ -->
+	<object name="tradeDialogPanel"
+		size="50%-250 50%-130 50%+250 50%+100"
+		type="image"
+		hidden="true"
+		sprite="ModernDialog"
+	>
+		<object type="text" style="TitleText" size="50%-96 -16 50%+96 16">Trade</object>
+
+		<!-- Trading goods -->
+		<object name="tradeGoods" size="20 50 100%-20 82">
+			<object name="tradeHeader" size="0 0 180 100%" type="text" style="ModernLabelText" text_align="left" ghost="true" caption="Trading goods selection:"/>
+
+			<object size="180 0 100% 100%">
+				<repeat count="4">
+					<object name="tradeResource[n]" size="0 0 58 32">
+						<object name="tradeResourceButton[n]" size="4 0 36 100%" type="button" style="StoneButton">
+							<object name="tradeResourceIcon[n]" type="image" ghost="true"/>
+							<object name="tradeResourceSelection[n]" type="image" sprite="stretched:session/icons/corners.png" ghost="true"/>
+							<object name="tradeResourceText[n]" type="text" style="ModernLabelText" ghost="true"/>
+						</object>
+						<object name="tradeArrowUp[n]" size="36 0 52 50%" type="button" style="iconButton">
+							<object type="image" ghost="true" sprite="wheatArrowUp"/>
+						</object>
+						<object name="tradeArrowDn[n]" size="36 50% 52 100%" type="button" style="iconButton">
+							<object type="image" ghost="true" sprite="wheatArrowDn"/>
+						</object>
+					</object>
+				</repeat>
+				<object name="tradeHelp" size="100%-24 4 100% 28" enabled="false" type="button" style="StoneButton" tooltip_style="sessionToolTipBold" tooltip="Select one goods as origin of the changes, \nthen use the arrows of the target goods to make the changes.">
+					<object size="20% 15% 80% 75%" type="image" ghost="true" sprite="iconInfoWhite"/>
+				</object>
+			</object>
+		</object>
+
+		<object name="tradeStatistics" size="20 120 100%-20 168">
+			<object                    size="0   0   130   50%" type="text" style="ModernLabelText" text_align="left" ghost="true" caption="Traders:"/>
+			<object name="landTraders" size="130 0   100%  50%" type="text" style="ModernLabelText" text_align="left" ghost="true" />
+			<object                    size="0   50% 130  100%" type="text" style="ModernLabelText" text_align="left" ghost="true" caption = "Merchant ships:"/>
+			<object name="shipTraders" size="130 50% 100% 100%" type="text" style="ModernLabelText" text_align="left" ghost="true" />
+		</object>
+
+		<object size="50%-64 100%-50 50%+64 100%-22" type="button" style="StoneButton">
+		    Close
+		    <action on="Press">closeTrade();</action>
 		</object>
 	</object>
 
@@ -622,11 +684,11 @@
 
 	    <!-- Displays Alpha name and number -->
 	    <object size="50%+48 0 100%-226 100%" name="alphaLabel" type="text" style="CenteredLabelText" text_valign="top" ghost="true">
-		ALPHA XIV : Naukratis<!-- IMPORTANT: remember to update pregame/mainmenu.xml in sync with this -->
+		ALPHA XV : Osiris<!-- IMPORTANT: remember to update pregame/mainmenu.xml in sync with this -->
 
 		<!-- Displays build date and revision number-->
-		<object size="50%-128 0 50%+128 100%-2" name="buildTimeLabel" type="text" style="BuildNameText" ghost="true">
-		    <action on="Load">this.caption = buildTime(0) + " (" + buildTime(2) + ")"</action>
+		<object size="50%-128 0 50%+128 100%-2" name="Engine.BuildTimeLabel" type="text" style="BuildNameText" ghost="true">
+		    <action on="Load">this.caption = Engine.BuildTime(0) + " (" + Engine.BuildTime(2) + ")"</action>
 		</object>
 	    </object>
 
@@ -635,7 +697,7 @@
 	    <!-- ================================  ================================ -->
 	    <object type="button"
 		name="gameSpeedButton"
-		size="100%-226 4 100%-198 32"
+		size="100%-258 4 100%-230 32"
 		style="iconButton"
 		tooltip_style="sessionToolTip"
 		tooltip="Game speed"
@@ -646,14 +708,14 @@
 			</action>
 	    </object>
 
-		<object size="100%-348 40 100%-198 65" name="gameSpeed" type="dropdown" buffer_zone="5" style="StoneDropDown" hidden="true" tooltip="Choose game speed" tooltip_style="sessionToolTip"/>
+		<object size="100%-380 40 100%-230 65" name="gameSpeed" type="dropdown" buffer_zone="5" style="StoneDropDown" hidden="true" tooltip="Choose game speed" tooltip_style="sessionToolTip"/>
 		
 	    <!-- ================================  ================================ -->
 	    <!-- Diplomacy Button -->
 	    <!-- ================================  ================================ -->
 	    <object type="button"
 		name="diplomacyButton1"
-		size="100%-194 4 100%-166 32"
+		size="100%-226 4 100%-198 32"
 		style="iconButton"
 		tooltip_style="sessionToolTip"
 		tooltip="Diplomacy"
@@ -662,6 +724,23 @@
 		<object size="0 0 100% 100%" name="diplomacyButtonImage" type="image" sprite="stretched:session/icons/diplomacy.png" ghost="true"/>
 		<action on="Press">
 		    toggleDiplomacy();
+		</action>
+	    </object>
+
+	    <!-- ================================  ================================ -->
+	    <!-- Trade Button -->
+	    <!-- ================================  ================================ -->
+	    <object type="button"
+		name="tradeButton1"
+		size="100%-194 4 100%-166 32"
+		style="iconButton"
+		tooltip_style="sessionToolTip"
+		tooltip="Trade"
+	    >
+		<!-- TODO make the button less ugly -->
+		<object size="0 0 100% 100%" name="tradeButtonImage" type="image" sprite="stretched:session/icons/economics.png" ghost="true"/>
+		<action on="Press">
+		    toggleTrade();
 		</action>
 	    </object>
 
@@ -793,40 +872,53 @@
 	<!-- ================================  ================================ -->
 	<!-- Hero Selection -->
 	<!-- ================================  ================================ -->
-	<object
-	    name="unitHeroPanel"
-	    size="0 36 50 86"
+<object
+		name="unitHeroPanel"
+		size="0 36 50 93"
+		hidden="true"
 	>
-		<object name="unitHeroButton" size="0 0 50 50" type="button" hidden="false" style="iconButton" 
-			tooltip_style="sessionToolTip" tooltip="Attack and Armor">
+		<object name="unitHeroButton" size="0 0 50 50" type="button" style="iconButton" 
+			tooltip_style="sessionToolTip" tooltip="Attack and Armor"
+		>
 			<object name="unitHeroImage" size="5 5 100%-5 100%-5" type="image" ghost="true"/>
+			<object name="heroHitOverlay" hidden="true" type="image" ghost="true" size="5 5 100%-5 100%-5"/> 
+		</object>
+		<!-- Hero Health bar -->
+		<object size="3 100%-7 100%-3 100%-2" name="heroHealthSection" ghost="true">
+			<object size="0 0 100% 5" name="heroHealth" type="image" ghost="true">
+				<object type="image" sprite="barBorder" ghost="true" size="-1 -1 100%+1 100%+1"/>
+				<object type="image" sprite="healthBackground" ghost="true"/> 
+				<object type="image" sprite="healthForeground" ghost="true" name="heroHealthBar"/> 
+				<object type="image" sprite="statsBarShaderHorizontal" ghost="true"/>
+			</object>
 		</object>
 	</object>
-	
+
 	<!-- ================================  ================================ -->
 	<!-- Unit Selection Groups -->
 	<!-- ================================  ================================ -->
 	<object
-	    name="unitGroupPanel"
-	    size="0% 50%-216 0%+36 50%+144"
+		name="unitGroupPanel"
+		size="0% 50%-216 0%+36 50%+144"
 	>
-	    <repeat count="10">
-		<object name="unitGroupButton[n]" size="0 0 36 36" type="button" hidden="false" style="iconButton" tooltip_style="sessionToolTipBottomBold"
-			tooltip="Click to select grouped units.">
-		    <object name="unitGroupIcon[n]" size="3 3 33 33" type="image" sprite="groupsIcon" ghost="true"/>
-		    <object name="unitGroupLabel[n]" type="text" style="largeCenteredOutlinedText" ghost="true"/>
-		</object>
-	    </repeat>
+		<repeat count="10">
+			<object name="unitGroupButton[n]" size="0 0 36 36" type="button" hidden="false" style="iconButton" tooltip_style="sessionToolTipBottomBold"
+				tooltip="Click to select grouped units, double-click to focus the grouped units and right-click to disband the group."
+			>
+				<object name="unitGroupIcon[n]" size="3 3 33 33" type="image" sprite="groupsIcon" ghost="true"/>
+				<object name="unitGroupLabel[n]" type="text" style="largeCenteredOutlinedText" ghost="true"/>
+			</object>
+		</repeat>
 	</object>
 
 	<!-- ================================  ================================ -->
-	<!-- Information tooltip
-		Follows the mouse around if 'independent' is set to 'true'. -->
+	<!-- Information tooltip -->
+	<!-- Follows the mouse around if 'independent' is set to 'true'. -->
 	<!-- ================================  ================================ -->
 	<object name="informationTooltip" type="tooltip" independent="true" style="informationTooltip"/>
 
 	<!-- ================================  ================================ -->
-	<!-- Building placement info tooltip									-->
+	<!-- Building placement info tooltip -->
 	<!-- ================================  ================================ -->
 	<object name="placementTooltip" type="tooltip" independent="true" style="informationTooltip"/>
 
@@ -836,71 +928,79 @@
 
 	<object size="50%-512 100%-180 50%+512 100%">
 
-	    <!-- ================================  ================================ -->
-	    <!-- Minimap -->
-	    <!-- ================================  ================================ -->
-	    <object
+	<!-- ================================  ================================ -->
+	<!-- Minimap -->
+	<!-- ================================  ================================ -->
+	<object
 		name="minimapPanel"
 		size="0 100%-212 212 100%"
 		type="image"
 		sprite="mapPanel"
 		z="20"
-	    >
+	>
 		<object name="minimap"
 			type="minimap"
-			size="14 14 100%-14 100%-14"
+			size="8 8 100%-8 100%-8"
 		>
-		    <action on="WorldClick">handleMinimapEvent(arguments[0]);</action>
+			<action on="WorldClick">handleMinimapEvent(arguments[0]);</action>
 		</object>
 
-		<object name="minimapOverlay" size="10 10 100%-10 100%-10" type="image" sprite="stretched:session/minimap_circle.png" ghost="true"/>
+		<object name="minimapOverlay" size="4 4 100%-4 100%-4" type="image" sprite="stretched:session/minimap_circle_modern.png" ghost="true"/>
 
 		<!-- Idle Worker Button -->
-		<object type="image"
-			size="100%-36 4 100%-4 36"
-		>
-		    <object type="button"
-			    style="iconButton"
-			    tooltip_style="sessionToolTip"
-			    tooltip="Find idle worker"
-			    hotkey="selection.idleworker"
-		    >
+		<object size="100%-36 100%-36 100%-5 100%-5">
 			<!-- TODO: should highlight the button if there's non-zero idle workers -->
-			<object size="0 0 100% 100%" type="image" sprite="idleWorker" ghost="true" />
-			<action on="Press">findIdleUnit(["Female", "Trade", "FishingBoat", "CitizenSoldier", "Healer"]);</action>
-		    </object>
+			<object name="idle-overlay" size="-85 -85 100% 100%" type="image" sprite="stretched:session/minimap-idle.png" ghost="true"/>
+			<!-- Since we don't support non-rectangular buttons, we approximate the area using 3 rectangles TODO: Make this cleaner -->
+			<object type="button"
+				tooltip_style="sessionToolTip"
+				tooltip="Find idle worker"
+				hotkey="selection.idleworker"
+			>
+				<action on="Press">findIdleUnit(["Female", "Trade", "FishingBoat", "CitizenSoldier", "Healer"]);</action>
+			</object>
+			<object type="button"
+				tooltip_style="sessionToolTip"
+				tooltip="Find idle worker"
+				size="15 -15 100% 0"
+			>
+				<action on="Press">findIdleUnit(["Female", "Trade", "FishingBoat", "CitizenSoldier", "Healer"]);</action>
+			</object>
+			<object type="button"
+				tooltip_style="sessionToolTip"
+				tooltip="Find idle worker"
+				size="-15 15 0 100%"
+			>
+				<action on="Press">findIdleUnit(["Female", "Trade", "FishingBoat", "CitizenSoldier", "Healer"]);</action>
+			</object>
 		</object>
-	    </object>
+	</object>
 
-	    <!-- ================================  ================================ -->
-	    <!-- Supplemental Details Panel (Left of Selection Details) -->
-	    <!-- ================================  ================================ -->
-	    <object size="50%-304 100%-170 50%-110 100%" name="supplementalSelectionDetails" type="image" sprite="supplementalDetailsPanel" z="20">
+	<!-- ================================  ================================ -->
+	<!-- Supplemental Details Panel (Left of Selection Details) -->
+	<!-- ================================  ================================ -->
+	<object size="50%-304 100%-170 50%-110 100%" name="supplementalSelectionDetails" type="image" sprite="supplementalDetailsPanel" z="20">
 
-		<object name="unitFormationPanel"
-			size="24 12 100% 100%"
-		>
-		    <object size="0 0 100% 100%">
-			<repeat count="16">
-			    <object name="unitFormationButton[n]" hidden="true" style="iconButton" type="button" size="0 0 36 36" tooltip_style="sessionToolTipBottomBold" z="100">
-				<object name="unitFormationIcon[n]" type="image" ghost="true" size="3 3 33 33"/>
-				<object name="unitFormationSelection[n]" hidden="true" type="image" ghost="true" size="3 3 33 33" sprite="stretched:session/icons/corners.png"/>
-			    </object>
-			</repeat>
-		    </object>
+		<object name="unitFormationPanel" size="24 12 100% 100%">
+			<object size="0 0 100% 100%">
+				<repeat count="16">
+					<object name="unitFormationButton[n]" hidden="true" style="iconButton" type="button" size="0 0 36 36" tooltip_style="sessionToolTipBottomBold" z="100">
+						<object name="unitFormationIcon[n]" type="image" ghost="true" size="3 3 33 33"/>
+						<object name="unitFormationSelection[n]" hidden="true" type="image" ghost="true" size="3 3 33 33" sprite="stretched:session/icons/corners.png"/>
+					</object>
+				</repeat>
+			</object>
 		</object>
 
-		<object name="unitGarrisonPanel"
-			size="24 12 100% 100%"
-		>
-		    <object size="0 0 100% 100%">
-			<repeat count="12">
-			    <object name="unitGarrisonButton[n]" hidden="true" style="iconButton" type="button" size="0 0 36 36" tooltip_style="sessionToolTipBottomBold" z="100">
-				<object name="unitGarrisonIcon[n]" type="image" ghost="true" size="3 3 33 33"/>
-				<object name="unitGarrisonCount[n]" ghost="true" style="groupIconsText" type="text" size="0 0 100% 100%"/>
-			    </object>
-			</repeat>
-		    </object>
+		<object name="unitGarrisonPanel" size="24 12 100% 100%">
+			<object size="0 0 100% 100%">
+				<repeat count="12">
+					<object name="unitGarrisonButton[n]" hidden="true" style="iconButton" type="button" size="0 0 36 36" tooltip_style="sessionToolTipBottomBold" z="100">
+						<object name="unitGarrisonIcon[n]" type="image" ghost="true" size="3 3 33 33"/>
+						<object name="unitGarrisonCount[n]" ghost="true" style="groupIconsText" type="text" size="0 0 100% 100%"/>
+					</object>
+				</repeat>
+			</object>
 		</object>
 
 		<object name="unitBarterPanel" 

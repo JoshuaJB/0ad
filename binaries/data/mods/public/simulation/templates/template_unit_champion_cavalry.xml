@@ -27,7 +27,7 @@
     </Resources>
   </Cost>
   <Footprint>
-    <Circle radius="3.5"/>
+    <Circle radius="2.5"/>
     <Height>5.0</Height>
   </Footprint>
   <Health>
@@ -36,6 +36,9 @@
   <Identity>
     <GenericName>Champion Cavalry</GenericName>
     <Classes datatype="tokens">Cavalry</Classes>
+    <Formations datatype="tokens">
+      formations/wedge
+    </Formations>
   </Identity>
   <Obstruction>
     <Unit radius="1.0"/>
@@ -79,6 +82,6 @@
     </Run>
   </UnitMotion>
   <Vision>
-    <Range>70</Range>
+    <Range>60</Range>
   </Vision>
 </Entity>

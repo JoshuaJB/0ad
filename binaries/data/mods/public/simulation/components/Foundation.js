@@ -117,6 +117,7 @@ Foundation.prototype.AddBuilder = function(builderEnt)
 		this.builders.push(builderEnt);
 		Engine.QueryInterface(this.entity, IID_Visual).SetVariable("numbuilders", this.builders.length);
 		this.SetBuildMultiplier();
+		Engine.PostMessage(this.entity, MT_FoundationBuildersChanged, { "to": this.builders });
 	}
 };
 
@@ -127,6 +128,7 @@ Foundation.prototype.RemoveBuilder = function(builderEnt)
 		this.builders.splice(this.builders.indexOf(builderEnt),1);
 		Engine.QueryInterface(this.entity, IID_Visual).SetVariable("numbuilders", this.builders.length);
  		this.SetBuildMultiplier();
+		Engine.PostMessage(this.entity, MT_FoundationBuildersChanged, { "to": this.builders });
  	}
  };
 
@@ -312,11 +314,7 @@ Foundation.prototype.Build = function(builderEnt, work)
 		// ----------------------------------------------------------------------
 		
 		var cmpPlayerStatisticsTracker = QueryOwnerInterface(this.entity, IID_StatisticsTracker);
-		cmpPlayerStatisticsTracker.IncreaseConstructedBuildingsCounter();
-
-		var cmpIdentity = Engine.QueryInterface(building, IID_Identity);
-		if (cmpIdentity.GetClassesList().indexOf("CivCentre") != -1)
-			cmpPlayerStatisticsTracker.IncreaseBuiltCivCentresCounter();
+		cmpPlayerStatisticsTracker.IncreaseConstructedBuildingsCounter(building);
 		
 		var cmpHealth = Engine.QueryInterface(this.entity, IID_Health);
 		var cmpBuildingHealth = Engine.QueryInterface(building, IID_Health);

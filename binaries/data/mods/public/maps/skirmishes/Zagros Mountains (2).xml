@@ -35,8 +35,8 @@
 		</Postproc>
 	</Environment>
 	<Camera>
-		<Position x="360.073" y="88.2067" z="663.344"/>
-		<Rotation angle="0.027965"/>
+		<Position x="172.151" y="135.558" z="494.623"/>
+		<Rotation angle="0.2503"/>
 		<Declination angle="0.610865"/>
 	</Camera>
 	<ScriptSettings><![CDATA[
@@ -8369,7 +8369,7 @@
 		<Entity uid="1697">
 			<Template>gaia/flora_tree_baobab</Template>
 			<Player>0</Player>
-			<Position x="260.83948" z="143.35276"/>
+			<Position x="256.19059" z="142.26075"/>
 			<Orientation y="2.19892"/>
 		</Entity>
 		<Entity uid="1698">
@@ -8823,167 +8823,167 @@
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1777">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="355.82044" z="670.18165"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1778">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="414.18622" z="311.24091"/>
 			<Orientation y="-2.07085"/>
 		</Entity>
 		<Entity uid="1779">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="167.40461" z="286.98804"/>
 			<Orientation y="1.15082"/>
 		</Entity>
 		<Entity uid="1780">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="273.39106" z="360.95337"/>
 			<Orientation y="1.60595"/>
 		</Entity>
 		<Entity uid="1781">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="564.98292" z="343.4029"/>
 			<Orientation y="2.10343"/>
 		</Entity>
 		<Entity uid="1782">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="707.13727" z="254.62037"/>
 			<Orientation y="-1.91092"/>
 		</Entity>
 		<Entity uid="1783">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="648.91932" z="253.67896"/>
 			<Orientation y="1.07366"/>
 		</Entity>
 		<Entity uid="1784">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="901.10401" z="417.25947"/>
 			<Orientation y="0.29087"/>
 		</Entity>
 		<Entity uid="1785">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="909.32032" z="488.3733"/>
 			<Orientation y="-0.71526"/>
 		</Entity>
 		<Entity uid="1786">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="844.60328" z="532.13843"/>
 			<Orientation y="-2.77071"/>
 		</Entity>
 		<Entity uid="1787">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="824.79725" z="393.48755"/>
 			<Orientation y="2.76131"/>
 		</Entity>
 		<Entity uid="1788">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="867.7146" z="505.7754"/>
 			<Orientation y="0.00425"/>
 		</Entity>
 		<Entity uid="1789">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="863.54969" z="654.0619"/>
 			<Orientation y="-0.54583"/>
 		</Entity>
 		<Entity uid="1790">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="784.50208" z="847.18738"/>
 			<Orientation y="-0.96763"/>
 		</Entity>
 		<Entity uid="1791">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="538.57953" z="852.15467"/>
 			<Orientation y="-2.31388"/>
 		</Entity>
 		<Entity uid="1792">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="357.2331" z="847.21229"/>
 			<Orientation y="-1.97764"/>
 		</Entity>
 		<Entity uid="1793">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="168.26758" z="670.52723"/>
 			<Orientation y="-3.02778"/>
 		</Entity>
 		<Entity uid="1794">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="51.82218" z="503.27448"/>
 			<Orientation y="0.18841"/>
 		</Entity>
 		<Entity uid="1795">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="153.0268" z="271.96781"/>
 			<Orientation y="2.92237"/>
 		</Entity>
 		<Entity uid="1796">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="130.60553" z="437.77326"/>
 			<Orientation y="-1.22066"/>
 		</Entity>
 		<Entity uid="1797">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="413.10358" z="129.14554"/>
 			<Orientation y="1.28092"/>
 		</Entity>
 		<Entity uid="1798">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="708.04542" z="81.10065"/>
 			<Orientation y="-1.6886"/>
 		</Entity>
 		<Entity uid="1799">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="539.27149" z="23.4581"/>
 			<Orientation y="0.88202"/>
 		</Entity>
 		<Entity uid="1800">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="663.55188" z="137.21387"/>
 			<Orientation y="0.7728"/>
 		</Entity>
 		<Entity uid="1801">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="896.13227" z="302.04517"/>
 			<Orientation y="-2.35221"/>
 		</Entity>
 		<Entity uid="1802">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="771.09351" z="189.79883"/>
 			<Orientation y="0.78957"/>
 		</Entity>
 		<Entity uid="1803">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="906.7519" z="236.17872"/>
 			<Orientation y="-1.00248"/>
 		</Entity>
 		<Entity uid="1804">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="530.36176" z="465.83515"/>
 			<Orientation y="0.69794"/>
 		</Entity>
 		<Entity uid="1805">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="644.49817" z="351.19916"/>
 			<Orientation y="-1.54133"/>
 		</Entity>
 		<Entity uid="1806">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="489.48795" z="293.04834"/>
 			<Orientation y="1.0215"/>
 		</Entity>
 		<Entity uid="1807">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="486.72724" z="308.39966"/>
 			<Orientation y="2.35621"/>
 		</Entity>
 		<Entity uid="1808">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="929.46943" z="370.66993"/>
 			<Orientation y="-0.8961"/>
 		</Entity>
 		<Entity uid="1809">
-			<Template>actor|fauna/hawk.xml</Template>
+			<Template>gaia/fauna_hawk</Template>
 			<Position x="842.51069" z="340.90424"/>
 			<Orientation y="-0.84313"/>
 		</Entity>
@@ -22197,7 +22197,7 @@
 		<Entity uid="4478">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>2</Player>
-			<Position x="265.1609" z="157.97103"/>
+			<Position x="265.88312" z="156.71488"/>
 			<Orientation y="-0.1167"/>
 			<Actor seed="3592"/>
 		</Entity>
@@ -22232,7 +22232,7 @@
 		<Entity uid="4483">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>2</Player>
-			<Position x="328.3682" z="287.69663"/>
+			<Position x="329.88694" z="285.9787"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="31078"/>
 		</Entity>
@@ -22253,14 +22253,14 @@
 		<Entity uid="4486">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>2</Player>
-			<Position x="233.76804" z="298.81806"/>
+			<Position x="234.27063" z="296.86905"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="43774"/>
 		</Entity>
 		<Entity uid="4487">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>2</Player>
-			<Position x="206.12978" z="272.10007"/>
+			<Position x="206.969" z="273.11551"/>
 			<Orientation y="-0.8595"/>
 			<Actor seed="20918"/>
 		</Entity>
@@ -22375,14 +22375,14 @@
 		<Entity uid="4506">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="278.93412" z="775.37232"/>
+			<Position x="278.6413" z="776.66803"/>
 			<Orientation y="1.35541"/>
 			<Actor seed="49896"/>
 		</Entity>
 		<Entity uid="4507">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="280.37458" z="809.02887"/>
+			<Position x="281.23786" z="807.75342"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="50572"/>
 		</Entity>
@@ -22403,14 +22403,14 @@
 		<Entity uid="4510">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="384.21677" z="844.02613"/>
+			<Position x="385.37592" z="843.79285"/>
 			<Orientation y="-1.21412"/>
 			<Actor seed="56342"/>
 		</Entity>
 		<Entity uid="4511">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="414.50013" z="819.852"/>
+			<Position x="413.53357" z="819.77302"/>
 			<Orientation y="2.35621"/>
 			<Actor seed="47388"/>
 		</Entity>
@@ -22438,15 +22438,15 @@
 		<Entity uid="4515">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="388.52878" z="712.2732"/>
-			<Orientation y="-0.06191"/>
+			<Position x="387.66758" z="711.32074"/>
+			<Orientation y="-2.0288"/>
 			<Actor seed="3032"/>
 		</Entity>
 		<Entity uid="4516">
 			<Template>skirmish/structures/iber_wall_tower</Template>
 			<Player>1</Player>
-			<Position x="349.56717" z="710.25782"/>
-			<Orientation y="1.56554"/>
+			<Position x="351.42255" z="710.11292"/>
+			<Orientation y="0.28559"/>
 			<Actor seed="15622"/>
 		</Entity>
 		<Entity uid="4517">

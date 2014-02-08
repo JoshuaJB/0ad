@@ -38,6 +38,7 @@ class ScriptInterface;
 class CMessage;
 class SceneCollector;
 class CFrustum;
+class ScriptRuntime;
 
 /**
  * Public API for simulation system.
@@ -48,7 +49,7 @@ class CSimulation2
 public:
 	// TODO: CUnitManager should probably be handled automatically by this
 	// module, but for now we'll have it passed in externally instead
-	CSimulation2(CUnitManager*, CTerrain*);
+	CSimulation2(CUnitManager* unitManager, shared_ptr<ScriptRuntime> rt, CTerrain* terrain);
 	~CSimulation2();
 
 	void EnableOOSLog();
@@ -145,6 +146,14 @@ public:
 	 *   templates loaded automatically)
 	 */
 	void ResetState(bool skipScriptedComponents = false, bool skipAI = false);
+
+	/**
+	 * Send a message to replace skirmish entities with real ones
+	 * Called right before InitGame, on CGame instantiation.
+	 * (This mustn't be used when e.g. loading saved games, only when starting new ones.)
+	 * This calls the ReplaceSkirmishGlobals function defined in helpers/InitGame.js.
+	 */
+	void ReplaceSkirmishGlobals();
 
 	/**
 	 * Initialise a new game, based on some script data. (Called on CGame instantiation)

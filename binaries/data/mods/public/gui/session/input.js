@@ -36,6 +36,8 @@ var placementSupport = new PlacementSupport();
 var mouseX = 0;
 var mouseY = 0;
 var mouseIsOverObject = false;
+// Distance to search for a selatable entity in. Bigger numbers are slower.
+var SELECTION_SEARCH_RADIUS = 100;
 
 // Number of pixels the mouse can move before the action is considered a drag
 var maxDragDelta = 4;
@@ -56,7 +58,7 @@ function updateCursorAndTooltip()
 {
 	var cursorSet = false;
 	var tooltipSet = false;
-	var informationTooltip = getGUIObjectByName("informationTooltip");
+	var informationTooltip = Engine.GetGUIObjectByName("informationTooltip");
 	if (!mouseIsOverObject)
 	{
 		var action = determineAction(mouseX, mouseY);
@@ -84,7 +86,7 @@ function updateCursorAndTooltip()
 	if (!tooltipSet)
 		informationTooltip.hidden = true;
 	
-	var placementTooltip = getGUIObjectByName("placementTooltip");
+	var placementTooltip = Engine.GetGUIObjectByName("placementTooltip");
 	if (placementSupport.tooltipMessage)
 	{
 		if (placementSupport.tooltipError)
@@ -208,21 +210,28 @@ function getActionInfo(action, target)
 	}
 
 	if (action == "unset-rallypoint" && selection.indexOf(target) != -1)
-		return {"possible": true};
+	{
+		var haveNonEmptyRallyPoints = selection.some(function(ent) {
+			var entState = GetEntityState(ent);
+			return entState && entState.rallyPoint && entState.rallyPoint.position;
+		});
+		if (haveNonEmptyRallyPoints)
+			return {"possible": true};
+		else
+			return {"possible": false};
+	}
 
 	// Look at the first targeted entity
 	// (TODO: maybe we eventually want to look at more, and be more context-sensitive?
 	// e.g. prefer to attack an enemy unit, even if some friendly units are closer to the mouse)
-	var targetState = GetEntityState(target);
+	var targetState = GetExtendedEntityState(target);
 
 	var gaiaOwned = (targetState.player == 0);
 
 	// Look to see what type of command units going to the rally point should use
 	if (action == "set-rallypoint")
 	{
-		// We assume that all entities are owned by the same player.
-		var entState = GetEntityState(selection[0]);
-
+		// We assume that all entities are owned by the same player (given par entState of selection[0]).
 		var playerState = simState.players[entState.player];
 		var playerOwned = (targetState.player == entState.player);
 		var allyOwned = playerState.isAlly[targetState.player];
@@ -292,9 +301,9 @@ function getActionInfo(action, target)
 				cursor = "action-setup-trade-route";
 				tooltip = "Right-click to establish a default route for new traders.";
 				if (trader)
-					tooltip += "\nGain (metal): " + getTradingTooltip(gain);
+					tooltip += "\nGain: " + getTradingTooltip(gain);
 				else // Foundation or cannot produce traders
-					tooltip += "\nExpected gain (metal): " + getTradingTooltip(gain);
+					tooltip += "\nExpected gain: " + getTradingTooltip(gain);
 			}
 		}
 
@@ -315,7 +324,7 @@ function getActionInfo(action, target)
 	// can return to the dropsite, can build the foundation, or can attack the enemy
 	for each (var entityID in selection)
 	{
-		var entState = GetEntityState(entityID);
+		var entState = GetExtendedEntityState(entityID);
 		if (!entState)
 			continue;
 
@@ -365,18 +374,20 @@ function getActionInfo(action, target)
 				case "is first":
 					tooltip = "Origin trade market.";
 					if (tradingDetails.hasBothMarkets)
-						tooltip += "\nGain (" + tradingDetails.goods + "): " + getTradingTooltip(tradingDetails.gain);
+						tooltip += "\nGain: " + getTradingTooltip(tradingDetails.gain);
 					else
 						tooltip += "\nRight-click on another market to set it as a destination trade market."
 					break;
 				case "is second":
-					tooltip = "Destination trade market.\nGain (" + tradingDetails.goods + "): " + getTradingTooltip(tradingDetails.gain);
+					tooltip = "Destination trade market.\nGain: " + getTradingTooltip(tradingDetails.gain);
 					break;
 				case "set first":
 					tooltip = "Right-click to set as origin trade market";
 					break;
 				case "set second":
-					tooltip = "Right-click to set as destination trade market.\nGain (" + tradingDetails.goods + "): " + getTradingTooltip(tradingDetails.gain);
+					if (tradingDetails.gain.traderGain == 0)   // markets too close
+						return {"possible": false};
+					tooltip = "Right-click to set as destination trade market.\nGain: " + getTradingTooltip(tradingDetails.gain);
 					break;
 				}
 				return {"possible": true, "tooltip": tooltip};
@@ -384,20 +395,20 @@ function getActionInfo(action, target)
 			break;
 		case "heal":
 			// The check if the target is unhealable is done by targetState.needsHeal
-			if (entState.Healer && hasClass(targetState, "Unit") && targetState.needsHeal && (playerOwned || allyOwned))
+			if (entState.healer && hasClass(targetState, "Unit") && targetState.needsHeal && (playerOwned || allyOwned))
 			{
 				// Healers can't heal themselves.
 				if (entState.id == targetState.id)
 					return {"possible": false};
 
-				var unhealableClasses = entState.Healer.unhealableClasses;
+				var unhealableClasses = entState.healer.unhealableClasses;
 				for each (var unitClass in targetState.identity.classes)
 				{
 					if (unhealableClasses.indexOf(unitClass) != -1)
 						return {"possible": false};
 				}
 
-				var healableClasses = entState.Healer.healableClasses;
+				var healableClasses = entState.healer.healableClasses;
 				for each (var unitClass in targetState.identity.classes)
 				{
 					if (healableClasses.indexOf(unitClass) != -1)
@@ -485,9 +496,8 @@ function determineAction(x, y, fromMinimap)
 
 	var targets = [];
 	var target = undefined;
-	var targetState = undefined;
 	if (!fromMinimap)
-		targets = Engine.PickEntitiesAtPoint(x, y);
+		targets = Engine.PickEntitiesAtPoint(x, y, SELECTION_SEARCH_RADIUS);
 
 	if (targets.length)
 		target = targets[0];
@@ -561,7 +571,7 @@ function determineAction(x, y, fromMinimap)
 		else if (getActionInfo("attack", target).possible)
 			return {"type": "attack", "cursor": "action-attack", "target": target};
 		else if (haveRallyPoints && getActionInfo("unset-rallypoint", target).possible)
-			return {"type": "unset-rallypoint"};
+			return {"type": "unset-rallypoint", "cursor": "action-unset-rally"};
 		else if (haveUnitAI && getActionInfo("move", target).possible)
 			return {"type": "move"};
 	}
@@ -749,7 +759,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 			if (x0 > x1) { var t = x0; x0 = x1; x1 = t; }
 			if (y0 > y1) { var t = y0; y0 = y1; y1 = t; }
 
-			var bandbox = getGUIObjectByName("bandbox");
+			var bandbox = Engine.GetGUIObjectByName("bandbox");
 			bandbox.size = [x0, y0, x1, y1].join(" ");
 			bandbox.hidden = false;
 
@@ -769,7 +779,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 				if (x0 > x1) { var t = x0; x0 = x1; x1 = t; }
 				if (y0 > y1) { var t = y0; y0 = y1; y1 = t; }
 
-				var bandbox = getGUIObjectByName("bandbox");
+				var bandbox = Engine.GetGUIObjectByName("bandbox");
 				bandbox.hidden = true;
 
 				// Get list of entities limited to preferred entities
@@ -813,7 +823,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 			else if (ev.button == SDL_BUTTON_RIGHT)
 			{
 				// Cancel selection
-				var bandbox = getGUIObjectByName("bandbox");
+				var bandbox = Engine.GetGUIObjectByName("bandbox");
 				bandbox.hidden = true;
 
 				g_Selection.setHighlightList([]);
@@ -1063,7 +1073,7 @@ function handleInputBeforeGui(ev, hoveredObject)
 function handleInputAfterGui(ev)
 {
 	// Handle the time-warp testing features, restricted to single-player
-	if (!g_IsNetworked && getGUIObjectByName("devTimeWarp").checked)
+	if (!g_IsNetworked && Engine.GetGUIObjectByName("devTimeWarp").checked)
 	{
 		if (ev.type == "hotkeydown" && ev.hotkey == "timewarp.fastforward")
 			Engine.SetSimRate(20.0);
@@ -1100,7 +1110,7 @@ function handleInputAfterGui(ev)
 		{
 		case "mousemotion":
 			// Highlight the first hovered entity (if any)
-			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y);
+			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y, SELECTION_SEARCH_RADIUS);
 			if (ents.length)
 				g_Selection.setHighlightList([ents[0]]);
 			else
@@ -1154,7 +1164,7 @@ function handleInputAfterGui(ev)
 		{
 		case "mousemotion":
 			// Highlight the first hovered entity (if any)
-			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y);
+			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y, SELECTION_SEARCH_RADIUS);
 			if (ents.length)
 				g_Selection.setHighlightList([ents[0]]);
 			else
@@ -1204,14 +1214,14 @@ function handleInputAfterGui(ev)
 				return false;
 			}
 
-			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y);
+			var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y, SELECTION_SEARCH_RADIUS);
 			g_Selection.setHighlightList(ents);
 			return false;
 
 		case "mousebuttonup":
 			if (ev.button == SDL_BUTTON_LEFT)
 			{
-				var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y);
+				var ents = Engine.PickEntitiesAtPoint(ev.x, ev.y, SELECTION_SEARCH_RADIUS);
 				if (!ents.length)
 				{
 					if (!Engine.HotkeyIsPressed("selection.add") && !Engine.HotkeyIsPressed("selection.remove"))
@@ -1433,7 +1443,7 @@ function doAction(action, ev)
 		return true;
 
 	case "setup-trade-route":
-		Engine.PostNetworkCommand({"type": "setup-trade-route", "entities": selection, "target": action.target});
+		Engine.PostNetworkCommand({"type": "setup-trade-route", "entities": selection, "target": action.target, "source": undefined, "route": undefined, "queued": queued});
 		Engine.GuiInterfaceCall("PlaySound", { "name": "order_trade", "entity": selection[0] });
 		return true;
 
@@ -1575,10 +1585,10 @@ function startBuildingPlacement(buildTemplate, playerState)
 	}
 }
 
-// Called by GUI when user changes preferred trading goods
-function selectTradingPreferredGoods(data)
+// Called by GUI when user changes required trading goods
+function selectRequiredGoods(data)
 {
-	Engine.PostNetworkCommand({"type": "select-trading-goods", "entities": data.entities, "preferredGoods": data.preferredGoods});
+	Engine.PostNetworkCommand({"type": "select-required-goods", "entities": data.entities, "requiredGoods": data.requiredGoods});
 }
 
 // Called by GUI when user clicks exchange resources button
@@ -1669,14 +1679,16 @@ function getEntityLimitAndCount(playerState, entType)
 		entCategory = template.buildRestrictions.category;
 	var entLimit = undefined;
 	var entCount = undefined;
+	var entLimitChangers = undefined;
 	var canBeAddedCount = undefined;
 	if (entCategory && playerState.entityLimits[entCategory] != null)
 	{
 		entLimit = playerState.entityLimits[entCategory];
 		entCount = playerState.entityCounts[entCategory];
+		entLimitChangers = playerState.entityLimitChangers[entCategory];
 		canBeAddedCount = Math.max(entLimit - entCount, 0);
 	}
-	return [entLimit, entCount, canBeAddedCount];
+	return [entLimit, entCount, canBeAddedCount, entLimitChangers];
 }
 
 // Add the unit shown at position to the training queue for all entities in the selection
@@ -1689,7 +1701,7 @@ function addTrainingByPosition(position)
 	if (!selection.length)
 		return;
 	
-	var trainableEnts = getAllTrainableEntities(selection);
+	var trainableEnts = getAllTrainableEntitiesFromSelection();
 	
 	// Check if the position is valid
 	if (!trainableEnts.length || trainableEnts.length <= position) 
@@ -1852,7 +1864,7 @@ function performCommand(entity, commandName)
 {
 	if (entity)
 	{
-		var entState = GetEntityState(entity);
+		var entState = GetExtendedEntityState(entity);
 		var playerID = Engine.GetPlayerID();
 
 		if (entState.player == playerID || g_DevSettings.controlAll)
@@ -1909,6 +1921,15 @@ function performCommand(entity, commandName)
 			case "back-to-work":
 				backToWork();
 				break;
+			case "increase-alert-level":
+				increaseAlertLevel();
+				break;
+			case "alert-end":
+				endOfAlert();
+				break;
+			case "select-trading-goods":
+				toggleTrade();
+				break;
 			default:
 				break;
 			}
@@ -1917,7 +1938,7 @@ function performCommand(entity, commandName)
 }
 
 // Performs the specified formation
-function performFormation(entity, formationName)
+function performFormation(entity, formationTemplate)
 {
 	if (entity)
 	{
@@ -1925,7 +1946,7 @@ function performFormation(entity, formationName)
 		Engine.PostNetworkCommand({
 			"type": "formation",
 			"entities": selection,
-			"name": formationName
+			"name": formationTemplate
 		});
 	}
 }
@@ -1952,14 +1973,16 @@ function performGroup(action, groupId)
 			Engine.CameraFollow(toSelect[0]);
 		break;
 	case "save":
-		var selection = g_Selection.toList();
+	case "breakUp":
 		g_Groups.groups[groupId].reset();
-		g_Groups.addEntities(groupId, selection);
+		
+		if (action == "save")
+			g_Groups.addEntities(groupId, g_Selection.toList());
+			
 		updateGroups();
 		break;
 	}
 }
-
 // Performs the specified stance
 function performStance(entity, stanceName)
 {
@@ -2180,6 +2203,26 @@ function removeGuard()
 	});
 	
 	Engine.PostNetworkCommand({"type": "remove-guard", "entities": entities});
+}
+
+function increaseAlertLevel()
+{
+	var entities = g_Selection.toList().filter(function(e) {
+		var state = GetEntityState(e);
+		return (state && state.alertRaiser && state.alertRaiser.canIncreaseLevel);
+	});
+	
+	Engine.PostNetworkCommand({"type": "increase-alert-level", "entities": entities});	
+}
+
+function endOfAlert()
+{
+	var entities = g_Selection.toList().filter(function(e) {
+		var state = GetEntityState(e);
+		return (state && state.alertRaiser && state.alertRaiser.hasRaisedAlert);
+	});
+	
+	Engine.PostNetworkCommand({"type": "alert-end", "entities": entities});
 }
 
 function clearSelection()

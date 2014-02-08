@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -40,7 +40,7 @@ CGUI
 #include "CProgressBar.h"
 #include "CTooltip.h"
 #include "MiniMap.h"
-#include "scripting/JSInterface_GUITypes.h"
+#include "scripting/ScriptFunctions.h"
 
 #include "graphics/FontMetrics.h"
 #include "graphics/ShaderManager.h"
@@ -58,18 +58,11 @@ CGUI
 #include "ps/Pyrogenesis.h"
 #include "ps/XML/Xeromyces.h"
 #include "renderer/Renderer.h"
-#include "scripting/ScriptingHost.h"
 #include "scriptinterface/ScriptInterface.h"
 
 extern int g_yres;
 
 const double SELECT_DBLCLICK_RATE = 0.5;
-
-void CGUI::ScriptingInit()
-{
-	JSI_IGUIObject::init();
-	JSI_GUITypes::init();
-}
 
 InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 {
@@ -321,83 +314,13 @@ void CGUI::SendEventToAll(const CStr& EventName)
 //  Constructor / Destructor
 //-------------------------------------------------------------------
 
-// To isolate the vars declared by each GUI page, we need to create
-// a pseudo-global object to declare them in. In particular, it must
-// have no parent object, so it must be declared with JS_NewGlobalObject.
-// But GUI scripts should have access to the real global's properties
-// (Array, undefined, getGUIObjectByName, etc), so we add a custom resolver
-// that defers to the real global object when necessary.
-
-static JSBool GetGlobalProperty(JSContext* cx, JSObject* UNUSED(obj), jsid id, jsval* vp)
+CGUI::CGUI(const shared_ptr<ScriptRuntime>& runtime) : m_MouseButtons(0), m_FocusedObject(NULL), m_InternalNameNumber(0)
 {
-	return JS_GetPropertyById(cx, g_ScriptingHost.GetGlobalObject(), id, vp);
-}
-
-static JSBool SetGlobalProperty(JSContext* cx, JSObject* UNUSED(obj), jsid id, JSBool UNUSED(strict), jsval* vp)
-{
-	return JS_SetPropertyById(cx, g_ScriptingHost.GetGlobalObject(), id, vp);
-}
-
-static JSBool ResolveGlobalProperty(JSContext* cx, JSObject* obj, jsid id, uintN flags, JSObject** objp)
-{
-	// This gets called when the property can't be resolved in the page_global object.
-
-	// Warning: The interaction between this resolution stuff and the JITs appears
-	// to be quite fragile, and I don't quite understand what the constraints are.
-	// If changing it, be careful to test with each JIT to make sure it works.
-	// (This code is somewhat based on GPSEE's module system.)
-
-	// Declarations and assignments shouldn't affect the real global
-	if (flags & (JSRESOLVE_DECLARING | JSRESOLVE_ASSIGNING))
-	{
-		// Can't be resolved - return NULL
-		*objp = NULL;
-		return JS_TRUE;
-	}
-
-	// Check whether the real global object defined this property
-	uintN attrs;
-	JSBool found;
-	if (!JS_GetPropertyAttrsGetterAndSetterById(cx, g_ScriptingHost.GetGlobalObject(), id, &attrs, &found, NULL, NULL))
-		return JS_FALSE;
-
-	if (!found)
-	{
-		// Not found on real global, so can't be resolved - return NULL
-		*objp = NULL;
-		return JS_TRUE;
-	}
-
-	// Retrieve the property value from the global
-	jsval v;
-	if (!JS_GetPropertyById(cx, g_ScriptingHost.GetGlobalObject(), id, &v))
-		return JS_FALSE;
-
-	// Add the global's property value onto this object, with getter/setter that will
-	// update the global's copy instead of this copy, and then return this object
-	if (!JS_DefinePropertyById(cx, obj, id, v, GetGlobalProperty, SetGlobalProperty, attrs))
-		return JS_FALSE;
-
-	*objp = obj;
-	return JS_TRUE;
-}
-
-static JSClass page_global_class = {
-	"page_global", JSCLASS_GLOBAL_FLAGS | JSCLASS_NEW_RESOLVE,
-	JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
-	JS_EnumerateStub, (JSResolveOp)ResolveGlobalProperty, JS_ConvertStub, JS_FinalizeStub,
-	NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL
-};
-
-CGUI::CGUI() : m_MouseButtons(0), m_FocusedObject(NULL), m_InternalNameNumber(0)
-{
+	m_ScriptInterface.reset(new ScriptInterface("Engine", "GUIPage", runtime));
+	GuiScriptingInit(*m_ScriptInterface);
+	m_ScriptInterface->LoadGlobalScripts();
 	m_BaseObject = new CGUIDummyObject;
-	m_BaseObject->SetGUI(this);
-
-	// Construct the root object for all GUI JavaScript things
-	m_ScriptObject = JS_NewGlobalObject(g_ScriptingHost.getContext(), &page_global_class);
-	JS_AddObjectRoot(g_ScriptingHost.getContext(), &m_ScriptObject);
+	m_BaseObject->SetGUI(this);	
 }
 
 CGUI::~CGUI()
@@ -406,12 +329,6 @@ CGUI::~CGUI()
 
 	if (m_BaseObject)
 		delete m_BaseObject;
-
-	if (m_ScriptObject)
-	{
-		// Let it be garbage-collected
-		JS_RemoveObjectRoot(g_ScriptingHost.getContext(), &m_ScriptObject);
-	}
 }
 
 //-------------------------------------------------------------------
@@ -485,8 +402,7 @@ void CGUI::Destroy()
 {
 	// We can use the map to delete all
 	//  now we don't want to cancel all if one Destroy fails
-	map_pObjects::iterator it;
-	for (it = m_pAllObjects.begin(); it != m_pAllObjects.end(); ++it)
+	for (map_pObjects::iterator it = m_pAllObjects.begin(); it != m_pAllObjects.end(); ++it)
 	{
 		try
 		{
@@ -502,12 +418,10 @@ void CGUI::Destroy()
 		delete it->second;
 	}
 
-	for (std::map<CStr, CGUISprite>::iterator it2 = m_Sprites.begin(); it2 != m_Sprites.end(); ++it2)
-		for (std::vector<SGUIImage>::iterator it3 = it2->second.m_Images.begin(); it3 != it2->second.m_Images.end(); ++it3)
-			delete it3->m_Effects;
-
 	// Clear all
 	m_pAllObjects.clear();
+	for(std::map<CStr, CGUISprite*>::iterator it = m_Sprites.begin(); it != m_Sprites.end(); ++it)
+		delete it->second;
 	m_Sprites.clear();
 	m_Icons.clear();
 }
@@ -688,7 +602,7 @@ SGUIText CGUI::GenerateText(const CGUIString &string,
 		float prelim_line_height=0.f;
 
 		// Width and height of all text calls generated.
-		string.GenerateTextCall(Feedback, Font,
+		string.GenerateTextCall(this, Feedback, Font,
 								string.m_Words[i], string.m_Words[i+1],
 								FirstLine);
 
@@ -806,7 +720,7 @@ SGUIText CGUI::GenerateText(const CGUIString &string,
 				// Don't attach object, it'll suppress the errors
 				//  we want them to be reported in the final GenerateTextCall()
 				//  so that we don't get duplicates.
-				string.GenerateTextCall(Feedback2, Font,
+				string.GenerateTextCall(this, Feedback2, Font,
 										string.m_Words[j], string.m_Words[j+1],
 										FirstLine);
 
@@ -859,7 +773,7 @@ SGUIText CGUI::GenerateText(const CGUIString &string,
 				CGUIString::SFeedback Feedback2;
 
 				// Defaults
-				string.GenerateTextCall(Feedback2, Font,
+				string.GenerateTextCall(this, Feedback2, Font,
 										string.m_Words[j], string.m_Words[j+1], 
 										FirstLine, pObject);
 
@@ -1337,6 +1251,9 @@ void CGUI::Xeromyces_ReadObject(XMBElement Element, CXeromyces* pFile, IGUIObjec
 			code += CStr(child.GetText());
 
 			CStr action = CStr(child.GetAttributes().GetNamedItem(attr_on));
+			
+			// We need to set the GUI this object belongs to because RegisterScriptHandler requires an associated GUI.
+			object->SetGUI(this);
 			object->RegisterScriptHandler(action.LowerCase(), code, this);
 		}
 		else if (element_name == elmt_repeat)
@@ -1430,7 +1347,7 @@ void CGUI::Xeromyces_ReadScript(XMBElement Element, CXeromyces* pFile, boost::un
 		Paths.insert(file);
 		try
 		{
-			g_ScriptingHost.RunScript(file, m_ScriptObject);
+			m_ScriptInterface->LoadGlobalScriptFile(file);
 		}
 		catch (PSERROR_Scripting& e)
 		{
@@ -1443,7 +1360,7 @@ void CGUI::Xeromyces_ReadScript(XMBElement Element, CXeromyces* pFile, boost::un
 	{
 		CStr code (Element.GetText());
 		if (! code.empty())
-			g_ScriptingHost.RunMemScript(code.c_str(), code.length(), "Some XML file", Element.GetLineNumber(), m_ScriptObject);
+			m_ScriptInterface->LoadGlobalScript(L"Some XML file", code.FromUTF8());
 	}
 	catch (PSERROR_Scripting& e)
 	{
@@ -1454,7 +1371,7 @@ void CGUI::Xeromyces_ReadScript(XMBElement Element, CXeromyces* pFile, boost::un
 void CGUI::Xeromyces_ReadSprite(XMBElement Element, CXeromyces* pFile)
 {
 	// Sprite object we're adding
-	CGUISprite sprite;
+	CGUISprite* Sprite = new CGUISprite;
 	
 	// and what will be its reference name
 	CStr name;
@@ -1487,7 +1404,7 @@ void CGUI::Xeromyces_ReadSprite(XMBElement Element, CXeromyces* pFile)
 
 		if (ElementName == "image")
 		{
-			Xeromyces_ReadImage(child, pFile, sprite);
+			Xeromyces_ReadImage(child, pFile, *Sprite);
 		}
 		else if (ElementName == "effect")
 		{
@@ -1510,9 +1427,9 @@ void CGUI::Xeromyces_ReadSprite(XMBElement Element, CXeromyces* pFile)
 	// Apply the effects to every image (unless the image overrides it with
 	// different effects)
 	if (effects)
-		for (std::vector<SGUIImage>::iterator it = sprite.m_Images.begin(); it != sprite.m_Images.end(); ++it)
-			if (! it->m_Effects)
-				it->m_Effects = new SGUIImageEffects(*effects); // do a copy just so it can be deleted correctly later
+		for (std::vector<SGUIImage*>::iterator it = Sprite->m_Images.begin(); it != Sprite->m_Images.end(); ++it)
+			if (! (*it)->m_Effects)
+				(*it)->m_Effects = new SGUIImageEffects(*effects); // do a copy just so it can be deleted correctly later
 
 	delete effects;
 
@@ -1520,18 +1437,18 @@ void CGUI::Xeromyces_ReadSprite(XMBElement Element, CXeromyces* pFile)
 	//	Add Sprite
 	//
 
-	m_Sprites[name] = sprite;
+	m_Sprites[name] = Sprite;
 }
 
 void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite &parent)
 {
 
 	// Image object we're adding
-	SGUIImage image;
+	SGUIImage* Image = new SGUIImage;
 	
 	// Set defaults to "0 0 100% 100%"
-	image.m_TextureSize = CClientArea(CRect(0, 0, 0, 0), CRect(0, 0, 100, 100));
-	image.m_Size = CClientArea(CRect(0, 0, 0, 0), CRect(0, 0, 100, 100));
+	Image->m_TextureSize = CClientArea(CRect(0, 0, 0, 0), CRect(0, 0, 100, 100));
+	Image->m_Size = CClientArea(CRect(0, 0, 0, 0), CRect(0, 0, 100, 100));
 	
 	// TODO Gee: Setup defaults here (or maybe they are in the SGUIImage ctor)
 
@@ -1549,7 +1466,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 
 		if (attr_name == "texture")
 		{
-			image.m_TextureName = VfsPath("art/textures/ui") / attr_value;
+			Image->m_TextureName = VfsPath("art/textures/ui") / attr_value;
 		}
 		else
 		if (attr_name == "size")
@@ -1557,7 +1474,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CClientArea ca;
 			if (!GUI<CClientArea>::ParseString(attr_value, ca))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_Size = ca;
+			else Image->m_Size = ca;
 		}
 		else
 		if (attr_name == "texture_size")
@@ -1565,7 +1482,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CClientArea ca;
 			if (!GUI<CClientArea>::ParseString(attr_value, ca))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_TextureSize = ca;
+			else Image->m_TextureSize = ca;
 		}
 		else
 		if (attr_name == "real_texture_placement")
@@ -1573,7 +1490,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CRect rect;
 			if (!GUI<CRect>::ParseString(attr_value, rect))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_TexturePlacementInFile = rect;
+			else Image->m_TexturePlacementInFile = rect;
 		}
 		else
 		if (attr_name == "cell_size")
@@ -1581,7 +1498,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CSize size;
 			if (!GUI<CSize>::ParseString(attr_value, size))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_CellSize = size;
+			else Image->m_CellSize = size;
 		}
 		else
 		if (attr_name == "fixed_h_aspect_ratio")
@@ -1589,7 +1506,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			float val;
 			if (!GUI<float>::ParseString(attr_value, val))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_FixedHAspectRatio = val;
+			else Image->m_FixedHAspectRatio = val;
 		}
 		else
 		if (attr_name == "round_coordinates")
@@ -1597,17 +1514,17 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			bool b;
 			if (!GUI<bool>::ParseString(attr_value, b))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_RoundCoordinates = b;
+			else Image->m_RoundCoordinates = b;
 		}
 		else
 		if (attr_name == "wrap_mode")
 		{
 			if (attr_value == L"repeat")
-				image.m_WrapMode = GL_REPEAT;
+				Image->m_WrapMode = GL_REPEAT;
 			else if (attr_value == L"mirrored_repeat")
-				image.m_WrapMode = GL_MIRRORED_REPEAT;
+				Image->m_WrapMode = GL_MIRRORED_REPEAT;
 			else if (attr_value == L"clamp_to_edge")
-				image.m_WrapMode = GL_CLAMP_TO_EDGE;
+				Image->m_WrapMode = GL_CLAMP_TO_EDGE;
 			else
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
 		}
@@ -1617,7 +1534,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			float z_level;
 			if (!GUI<float>::ParseString(attr_value, z_level))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_DeltaZ = z_level/100.f;
+			else Image->m_DeltaZ = z_level/100.f;
 		}
 		else
 		if (attr_name == "backcolor")
@@ -1625,7 +1542,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CColor color;
 			if (!GUI<CColor>::ParseString(attr_value, color))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_BackColor = color;
+			else Image->m_BackColor = color;
 		}
 		else
 		if (attr_name == "bordercolor")
@@ -1633,7 +1550,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			CColor color;
 			if (!GUI<CColor>::ParseString(attr_value, color))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_BorderColor = color;
+			else Image->m_BorderColor = color;
 		}
 		else
 		if (attr_name == "border")
@@ -1641,7 +1558,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 			bool b;
 			if (!GUI<bool>::ParseString(attr_value, b))
 				LOGERROR(L"GUI: Error parsing '%hs' (\"%ls\")", attr_name.c_str(), attr_value.c_str());
-			else image.m_Border = b;
+			else Image->m_Border = b;
 		}
 		else
 		{
@@ -1657,14 +1574,14 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 		CStr ElementName (pFile->GetElementString(child.GetNodeName()));
 		if (ElementName == "effect")
 		{
-			if (image.m_Effects)
+			if (Image->m_Effects)
 			{
 				LOGERROR(L"GUI <image> must not have more than one <effect>");
 			}
 			else
 			{
-				image.m_Effects = new SGUIImageEffects;
-				Xeromyces_ReadEffects(child, pFile, *image.m_Effects);
+				Image->m_Effects = new SGUIImageEffects;
+				Xeromyces_ReadEffects(child, pFile, *Image->m_Effects);
 			}
 		}
 		else
@@ -1677,7 +1594,7 @@ void CGUI::Xeromyces_ReadImage(XMBElement Element, CXeromyces* pFile, CGUISprite
 	//	Input
 	//
 
-	parent.AddImage(image);	
+	parent.AddImage(Image);	
 }
 
 void CGUI::Xeromyces_ReadEffects(XMBElement Element, CXeromyces* pFile, SGUIImageEffects &effects)

@@ -69,9 +69,6 @@ class CScriptValRooted;
 //  Types
 //--------------------------------------------------------
 
-// Map with pointers
-typedef std::map<CStr, SGUISetting> map_Settings;
-
 struct JSObject;
 
 //--------------------------------------------------------
@@ -554,10 +551,10 @@ private:
 	CGUI									*m_pGUI;
 
 	// Internal storage for registered script handlers.
-	std::map<CStr, JSObject**> m_ScriptHandlers;
+	std::map<CStr, CScriptValRooted> m_ScriptHandlers;
 	
 	// Cached JSObject representing this GUI object
-	JSObject								*m_JSObject;
+	CScriptValRooted						m_JSObject;
 };
 
 

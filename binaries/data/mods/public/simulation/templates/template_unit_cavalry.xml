@@ -20,8 +20,8 @@
       <food>80</food>
     </Resources>
   </Cost>
-  <Footprint>
-    <Circle radius="3.5"/>
+  <Footprint replace="">
+    <Square width="3" depth="5"/>
     <Height>7.5</Height>
   </Footprint>
   <Health>
@@ -31,6 +31,9 @@
     <Classes datatype="tokens">Cavalry CitizenSoldier Organic</Classes>
     <GenericName>Cavalry</GenericName>
     <Rank>Basic</Rank>
+    <Formations datatype="tokens">
+      formations/wedge
+    </Formations>
   </Identity>
   <Loot>
     <xp>130</xp>
@@ -64,8 +67,10 @@
   <Selectable>
     <Overlay>
       <Texture>
-        <MainTexture>arrow/256x256.png</MainTexture>
-        <MainTextureMask>arrow/256x256_mask.png</MainTextureMask>
+        <MainTexture>circle/128x128.png</MainTexture>
+        <MainTextureMask>circle/128x128_mask.png</MainTextureMask>
+        <!--<MainTexture>arrow/256x256.png</MainTexture>
+       <MainTextureMask>arrow/256x256_mask.png</MainTextureMask>-->
       </Texture>
     </Overlay>
   </Selectable>

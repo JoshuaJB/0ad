@@ -333,7 +333,7 @@ void CNetTurnManager::QuickSave()
 
 	m_QuickSaveState = stream.str();
 	if (g_GUI)
-		m_QuickSaveMetadata = g_GUI->GetScriptInterface().StringifyJSON(g_GUI->GetSavedGameData().get(), false);
+		m_QuickSaveMetadata = g_GUI->GetSavedGameData();
 	else
 		m_QuickSaveMetadata = std::string();
 
@@ -360,8 +360,7 @@ void CNetTurnManager::QuickLoad()
 	}
 
 	if (g_GUI && !m_QuickSaveMetadata.empty())
-		g_GUI->GetScriptInterface().CallFunctionVoid(OBJECT_TO_JSVAL(g_GUI->GetScriptObject()),
-		"restoreSavedGameData", g_GUI->GetScriptInterface().ParseJSON(m_QuickSaveMetadata));
+		g_GUI->RestoreSavedGameData(m_QuickSaveMetadata);
 
 	LOGMESSAGERENDER(L"Quickloaded game");
 
@@ -418,6 +417,11 @@ void CNetClientTurnManager::NotifyFinishedUpdate(u32 turn)
 	msg.m_Turn = turn;
 	msg.m_Hash = hash;
 	m_NetClient.SendMessage(&msg);
+}
+
+void CNetClientTurnManager::OnDestroyConnection()
+{
+	NotifyFinishedOwnCommands(m_CurrentTurn + COMMAND_DELAY);
 }
 
 void CNetClientTurnManager::OnSimulationMessage(CSimulationMessage* msg)

@@ -32,6 +32,17 @@ function toTitleCase(word)
 	return word;
 }
 
+function pluralize(word, count, pluralWord)
+{
+	if (count == 1 && pluralWord != null)
+		return pluralWord;
+
+	var plural = "s";
+	if (word[word.length - 1] == "s")
+		plural = "es";
+	return word + (count == 1 ? "" : plural);
+}
+
 // Get the basic player data
 function getPlayerData(playerAssignments)
 {
@@ -164,6 +175,19 @@ function damageTypeDetails(dmg)
 	{
 		return "[font=\"serif-12\"](None)[/font]";
 	}
+}
+
+function attackRateDetails(entState) {
+	if (entState.buildingAI)
+		var arrows = entState.buildingAI.arrowCount;
+
+	var time = entState.attack.repeatTime / 1000;
+	if (entState.buildingAI) {
+		return Math.max(arrows, entState.buildingAI.defaultArrowCount) + "[font=\"sans-10\"][color=\"orange\"] " +
+			pluralize("arrow", arrows) + "[/color][/font]" + " / " + (time == 1 ? "" : time) +
+			" [font=\"sans-10\"][color=\"orange\"]" + pluralize("second", time) + "[/color][/font]";
+	}
+	return time + "[font=\"sans-10\"][color=\"orange\"] " + pluralize("second", time) + "[/color][/font]";
 }
 
 // Converts an armor level into the actual reduction percentage
@@ -319,6 +343,38 @@ function getEntityCommandsList(entState)
 		    "tooltip": "Remove guard",
 		    "icon": "remove-guard.png"
 		});
+	}
+
+	if (hasClass(entState, "Market"))
+	{
+		commands.push({
+		    "name": "select-trading-goods",
+		    "tooltip": "Select trading goods",
+		    "icon": "economics.png"
+		});
+	}
+
+	if(entState.alertRaiser)
+	{
+		if(entState.alertRaiser.canIncreaseLevel)
+		{
+			if(entState.alertRaiser.hasRaisedAlert)
+				var tooltip = "Increase the alert level to protect more units";
+			else
+				var tooltip = "Raise an alert!";
+			commands.push({
+				"name": "increase-alert-level",
+				"tooltip": tooltip,
+				"icon": "bell_level1.png"
+			});
+		}
+
+		if(entState.alertRaiser.hasRaisedAlert)
+			commands.push({
+				"name": "alert-end",
+				"tooltip": "End of alert.",
+				"icon": "bell_level0.png"
+			});
 	}
 
 	return commands;

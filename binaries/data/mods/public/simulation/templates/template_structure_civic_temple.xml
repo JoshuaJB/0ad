@@ -23,7 +23,7 @@
   <GarrisonHolder>
     <Max>20</Max>
     <EjectHealth>0.1</EjectHealth>
-    <EjectEntitiesOnDestroy>true</EjectEntitiesOnDestroy>
+    <EjectClassesOnDestroy datatype="tokens">Unit</EjectClassesOnDestroy>
     <List datatype="tokens">Support Infantry Cavalry</List>
     <BuffHeal>3</BuffHeal>
     <LoadingRange>2</LoadingRange>
@@ -62,7 +62,7 @@
   <TerritoryInfluence>
     <Root>false</Root>
     <Radius>40</Radius>
-    <Weight>65536</Weight>
+    <Weight>30000</Weight>
   </TerritoryInfluence>
   <ProductionQueue>
     <BatchTimeModifier>0.8</BatchTimeModifier>
@@ -72,7 +72,7 @@
     <Technologies datatype="tokens">
       pair_heal_01
       pair_heal_02
-      heal_temple
+      pair_heal_03
     </Technologies>
   </ProductionQueue>
   <Vision>

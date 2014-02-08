@@ -3,7 +3,7 @@
   <Armour>
     <Hack>15.0</Hack>
     <Pierce>35.0</Pierce>
-    <Crush>10.0</Crush>
+    <Crush>5.0</Crush>
     <Foundation>
       <Hack>4.0</Hack>
       <Pierce>7.0</Pierce>
@@ -24,13 +24,16 @@
     <Height>7.0</Height>
   </Footprint>
   <Health>
-    <Max>3000</Max>
+    <Max>1500</Max>
   </Health>
   <Identity>
     <Civ>rome</Civ>
 	<SelectionGroupName>structures/rome_wallset_siege</SelectionGroupName>
 	<GenericName>Siege Wall</GenericName>
     <SpecificName>Murus Circummunitionis</SpecificName>
+    <Classes datatype="tokens">
+	  SiegeWall
+	</Classes>
     <Icon>structures/palisade.png</Icon>
 	<Tooltip>A wooden and turf palisade buildable in enemy and neutral territories.</Tooltip>
     <History>Quick building, but expensive wooden and earthen walls used to surround and siege an enemy town or fortified position. The most famous examples are the Roman sieges of the Iberian stronghold of Numantia and the Gallic stronghold of Alesia.</History>

@@ -57,7 +57,7 @@
   <Identity>
     <Civ>rome</Civ>
     <GenericName>Entrenched Army Camp</GenericName>
-    <SpecificName>Castra Vallum</SpecificName>
+    <SpecificName>Castrum Vallum</SpecificName>
     <Classes datatype="tokens">
 	  ArmyCamp
 	</Classes>
@@ -90,6 +90,9 @@
       units/rome_mechanical_siege_scorpio_packed
       units/rome_mechanical_siege_ram
     </Entities>
+    <Technologies datatype="tokens">
+	  romans/decay_logistics
+    </Technologies>
   </ProductionQueue>
   <Vision>
     <Range>60</Range>

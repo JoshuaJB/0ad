@@ -13,6 +13,7 @@
 %%
 %% You should have received a copy of the GNU General Public License
 %% along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
+
 -module(mod_ipstamp).
 
 -behaviour(gen_mod).
@@ -24,15 +25,13 @@
 %% Domain on which run the ejabberd server
 -define (Domain, "lobby.wildfiregames.com").
 
-%% Login of the Xpartamupp jabber client
--define (XpartamuppLogin, "xpartamupp").
-
 start(_Host, _Opts) ->
     ?INFO_MSG("mod_ipstamp starting", []),
     ejabberd_hooks:add(filter_packet, global, ?MODULE, on_filter_packet, 50),
     ok.
 
 stop(_Host) ->
+    ?INFO_MSG("mod_ipstamp stopping", []),
     ejabberd_hooks:delete(filter_packet, global, ?MODULE, on_filter_packet, 50),
     ok.
 
@@ -80,6 +79,6 @@ on_filter_packet({From, To, Packet} = Input) ->
         Input
       end;
     true ->
-      Input 
+      Input
     end.
 

@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_structure_civic">
+  <Armour>
+    <Foundation>
+      <Hack>5</Hack>
+      <Pierce>15</Pierce>
+      <Crush>3</Crush>
+    </Foundation>
+  </Armour>
   <Attack>
     <Ranged>
       <Hack>0.0</Hack>
@@ -27,7 +34,7 @@
   </BuildRestrictions>
   <Cost>
     <PopulationBonus>20</PopulationBonus>
-    <BuildTime>600</BuildTime>
+    <BuildTime>500</BuildTime>
     <Resources>
       <food>0</food>
       <wood>500</wood>
@@ -42,10 +49,10 @@
   <GarrisonHolder>
     <Max>20</Max>
     <EjectHealth>0.1</EjectHealth>
-    <EjectEntitiesOnDestroy>true</EjectEntitiesOnDestroy>
+    <EjectClassesOnDestroy datatype="tokens">Unit</EjectClassesOnDestroy>
     <List datatype="tokens">Support Infantry Cavalry</List>
     <BuffHeal>1</BuffHeal>
-    <LoadingRange>2</LoadingRange>
+    <LoadingRange>1</LoadingRange>
   </GarrisonHolder>
   <Health>
     <Max>3000</Max>
@@ -91,13 +98,20 @@
       <constructed>interface/complete/building/complete_civ_center.xml</constructed>
       <attack>attack/weapon/arrowfly.xml</attack>
       <death>attack/destruction/building_collapse_large.xml</death>
+	  <alert0>interface/alarm/alarm_alert_0.xml</alert0>
+	  <alert1>interface/alarm/alarm_alert_1.xml</alert1>
+	  <alert2>interface/alarm/alarm_alert_2.xml</alert2>
     </SoundGroups>
   </Sound>
   <TerritoryInfluence>
     <Root>true</Root>
     <Radius>140</Radius>
-    <Weight>65536</Weight>
+    <Weight>40000</Weight>
   </TerritoryInfluence>
+  <AlertRaiser>
+    <MaximumLevel>2</MaximumLevel>
+    <Range>140</Range>
+  </AlertRaiser>
   <Vision>
     <Range>90</Range>
   </Vision>

@@ -2,10 +2,12 @@ var g_ChatMessages = [];
 var g_Name = "unknown";
 var g_GameList = {};
 var g_specialKey = Math.random();
+// This object looks like {"name":[numMessagesSinceReset, lastReset, timeBlocked]} when in use.
 var g_spamMonitor = {};
-var g_spammers = {};
 var g_timestamp = Engine.ConfigDB_GetValue("user", "lobby.chattimestamp") == "true";
 var g_mapSizes = {};
+// Block spammers for 30 seconds.
+var SPAM_BLOCK_LENGTH = 30;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -18,29 +20,29 @@ function init(attribs)
 	g_Name = Engine.LobbyGetNick();
 
 	g_mapSizes = initMapSizes();
-	g_mapSizes.shortNames.push("Any");
-	g_mapSizes.tiles.push("");
+	g_mapSizes.shortNames.splice(0, 0, "Any");
+	g_mapSizes.tiles.splice(0, 0, "");
 
-	var mapSizeFilter = getGUIObjectByName("mapSizeFilter");
+	var mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
 	mapSizeFilter.list = g_mapSizes.shortNames;
 	mapSizeFilter.list_data = g_mapSizes.tiles;
 
-	var playersNumberFilter = getGUIObjectByName("playersNumberFilter");
-	playersNumberFilter.list = [2,3,4,5,6,7,8,"Any"];
-	playersNumberFilter.list_data = [2,3,4,5,6,7,8,""];
+	var playersNumberFilter = Engine.GetGUIObjectByName("playersNumberFilter");
+	playersNumberFilter.list = ["Any",2,3,4,5,6,7,8];
+	playersNumberFilter.list_data = ["",2,3,4,5,6,7,8];
 
-	var mapTypeFilter = getGUIObjectByName("mapTypeFilter");
-	mapTypeFilter.list = ["Skirmish", "Random", "Scenario", "Any"];
-	mapTypeFilter.list_data = ["skirmish", "random", "scenario", ""];
+	var mapTypeFilter = Engine.GetGUIObjectByName("mapTypeFilter");
+	mapTypeFilter.list = ["Any", "Skirmish", "Random", "Scenario"];
+	mapTypeFilter.list_data = ["", "skirmish", "random", "scenario"];
 
 	Engine.LobbySetPlayerPresence("available");
 	Engine.SendGetGameList();
 	Engine.SendGetBoardList();
+	Engine.SendGetRatingList();
 	updatePlayerList();
+	updateSubject(Engine.LobbyGetRoomSubject());
 
 	resetFilters();
-	setTimeout(clearSpamMonitor, 5000);
-	setTimeout(clearSpammers, 30000);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,31 +66,22 @@ function lobbyDisconnect()
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// Server requests functions
-////////////////////////////////////////////////////////////////////////////////////////////////
-
-function lobbyRefreshGameList()
-{
-	Engine.SendGetGameList();
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////
 // Update functions
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 function resetFilters()
 {
 	// Reset states of gui objects
-	getGUIObjectByName("mapSizeFilter").selected = getGUIObjectByName("mapSizeFilter").list.length - 1;
-	getGUIObjectByName("playersNumberFilter").selected = getGUIObjectByName("playersNumberFilter").list.length - 1;
-	getGUIObjectByName("mapTypeFilter").selected = getGUIObjectByName("mapTypeFilter").list.length - 1;
-	getGUIObjectByName("showFullFilter").checked = false;
+	Engine.GetGUIObjectByName("mapSizeFilter").selected = 0
+	Engine.GetGUIObjectByName("playersNumberFilter").selected = 0;
+	Engine.GetGUIObjectByName("mapTypeFilter").selected = 0;
+	Engine.GetGUIObjectByName("showFullFilter").checked = true;
 
 	// Update the list of games
 	updateGameList();
 
 	// Update info box about the game currently selected
-	selectGame(getGUIObjectByName("gamesBox").selected);
+	updateGameSelection();
 }
 
 function applyFilters()
@@ -97,46 +90,100 @@ function applyFilters()
 	updateGameList();
 
 	// Update info box about the game currently selected
-	selectGame(getGUIObjectByName("gamesBox").selected);
+	updateGameSelection();
 }
 
-function displayGame(g, mapSizeFilter, playersNumberFilter, mapTypeFilter, showFullFilter)
+/**
+ * Filter a game based on the status of the filter dropdowns.
+ *
+ * @param game Game to be tested.
+ * @return True if game should not be displayed.
+ */
+function filterGame(game)
 {
-	if(mapSizeFilter != "" && g.mapSize != mapSizeFilter) return false;
-	if(playersNumberFilter != "" && g.tnbp != playersNumberFilter) return false;
-	if(mapTypeFilter != "" && g.mapType != mapTypeFilter) return false;
-	if(!showFullFilter && g.tnbp == g.nbp) return false;
+	var mapSizeFilter = Engine.GetGUIObjectByName("mapSizeFilter");
+	var playersNumberFilter = Engine.GetGUIObjectByName("playersNumberFilter");
+	var mapTypeFilter = Engine.GetGUIObjectByName("mapTypeFilter");
+	var showFullFilter = Engine.GetGUIObjectByName("showFullFilter");
+	// We assume index 0 means display all for any given filter.
+	if (mapSizeFilter.selected != 0 && game.mapSize != mapSizeFilter.list_data[mapSizeFilter.selected])
+		return true;
+	if (playersNumberFilter.selected != 0 && game.tnbp != playersNumberFilter.list_data[playersNumberFilter.selected])
+		return true;
+	if (mapTypeFilter.selected != 0 && game.mapType != mapTypeFilter.list_data[mapTypeFilter.selected])
+		return true;
+	if (!showFullFilter.checked && game.tnbp <= game.nbp)
+		return true;
 
-	return true;
+	return false;
 }
 
-// Do a full update of the player listing **Only call on init**
+/**
+ * Update the subject GUI object.
+ *
+ * @param newSubject New room subject.
+ */
+function updateSubject(newSubject)
+{
+	var subject = Engine.GetGUIObjectByName("subject");
+	var subjectBox = Engine.GetGUIObjectByName("subjectBox");
+	var logo = Engine.GetGUIObjectByName("logo");
+	// Load new subject and un-escape newlines.
+	subject.caption = newSubject.replace("\\n", "\n", "g");
+	// If the subject is only whitespace, hide it and reposition the logo.
+	if (subject.caption.match(/^([\s\t\r\n]*)$/g))
+	{
+		subjectBox.hidden = true;
+		logo.size = "50%-110 50%-50 50%+110 50%+50";
+	}
+	else
+	{
+		subjectBox.hidden = false;
+		logo.size = "50%-110 40 50%+110 140";
+	}
+}
+
+/**
+ * Do a full update of the player listing, including ratings from C++.
+ *
+ * @return Array containing the player, presence, nickname, and rating listings.
+ */
 function updatePlayerList()
 {
-	var playersBox = getGUIObjectByName("playersBox");
-	[playerList, presenceList, nickList] = [[],[],[]];
-	for each (var p in Engine.GetPlayerList())
+	var playersBox = Engine.GetGUIObjectByName("playersBox");
+	[playerList, presenceList, nickList, ratingList] = [[],[],[],[]];
+	var cleanPlayerList = Engine.GetPlayerList();
+	for (var i = 0; i < cleanPlayerList.length; i++)
 	{
-		var [name, status] = formatPlayerListEntry(p.name, p.presence);
+		// Add a "-" for unrated players.
+		if (!cleanPlayerList[i].rating)
+			cleanPlayerList[i].rating = "-";
+		// Colorize.
+		var [name, status, rating] = formatPlayerListEntry(cleanPlayerList[i].name, cleanPlayerList[i].presence, cleanPlayerList[i].rating, cleanPlayerList[i].role);
+		// Push to lists.
 		playerList.push(name);
 		presenceList.push(status);
-		nickList.push(p.name);
+		nickList.push(cleanPlayerList[i].name);
+		ratingList.push(String("  " + rating));
 	}
 	playersBox.list_name = playerList;
 	playersBox.list_status = presenceList;
+	playersBox.list_rating = ratingList;
 	playersBox.list = nickList;
 	if (playersBox.selected >= playersBox.list.length)
 		playersBox.selected = -1;
-	return [playerList, presenceList, nickList];
+	return [playerList, presenceList, nickList, ratingList];
 }
 
-// Update leaderboard listing
-function updateBoardList()
+/**
+ * Update the leaderboard from data cached in C++.
+ */
+function updateLeaderboard()
 {
 	// Get list from C++
 	var boardList = Engine.GetBoardList();
 	// Get GUI leaderboard object
-	var leaderboard = getGUIObjectByName("leaderboardBox");
+	var leaderboard = Engine.GetGUIObjectByName("leaderboardBox");
 	// Sort list in acending order by rating
 	boardList.sort(function(a, b) b.rating - a.rating);
 
@@ -163,10 +210,12 @@ function updateBoardList()
 		leaderboard.selected = -1;
 }
 
-// Update game listing
+/**
+ * Update the game listing from data cached in C++.
+ */
 function updateGameList()
 {
-	var gamesBox = getGUIObjectByName("gamesBox");
+	var gamesBox = Engine.GetGUIObjectByName("gamesBox");
 	var gameList = Engine.GetGameList();
 	// Store the game whole game list data so that we can access it later
 	// to update the game info panel.
@@ -186,21 +235,10 @@ function updateGameList()
 	var list = [];
 	var list_data = [];
 
-	var mapSizeFilterDD = getGUIObjectByName("mapSizeFilter");
-	var playersNumberFilterDD = getGUIObjectByName("playersNumberFilter");
-	var mapTypeFilterDD = getGUIObjectByName("mapTypeFilter");
-	var showFullFilterCB = getGUIObjectByName("showFullFilter");
-
-	// Get filter values
-	var mapSizeFilter = mapSizeFilterDD.selected >= 0 ? mapSizeFilterDD.list_data[mapSizeFilterDD.selected] : "";
-	var playersNumberFilter = playersNumberFilterDD.selected >=0 ? playersNumberFilterDD.list_data[playersNumberFilterDD.selected] : "";
-	var mapTypeFilter = mapTypeFilterDD.selected >= 0 ? mapTypeFilterDD.list_data[mapTypeFilterDD.selected] : "";
-	var showFullFilter = showFullFilterCB.checked;
-
 	var c = 0;
-	for each (g in gameList)
+	for each (var g in gameList)
 	{
-		if(displayGame(g, mapSizeFilter, playersNumberFilter, mapTypeFilter, showFullFilter))
+		if(!filterGame(g))
 		{
 			// Highlight games 'waiting' for this player, otherwise display as green
 			var name = (g.state != 'waiting') ? '[color="0 125 0"]' + g.name + '[/color]' : '[color="orange"]' + g.name + '[/color]';
@@ -228,101 +266,124 @@ function updateGameList()
 	if (gamesBox.selected >= gamesBox.list_name.length)
 		gamesBox.selected = -1;
 
-	// If game selected, update info box about the game.
-	if(getGUIObjectByName("gamesBox").selected != -1)
-		selectGame(getGUIObjectByName("gamesBox").selected)
+	// Update info box about the game currently selected
+	updateGameSelection();
 }
 
-// The following function colorizes and formats the entries in the player list.
-function formatPlayerListEntry(nickname, presence)
+/**
+ * Colorize and format the entries in the player list.
+ *
+ * @param nickname Name of player.
+ * @param presence Presence of player.
+ * @param rating Rating of player.
+ * @return Colorized versions of name, status, and rating.
+ */
+function formatPlayerListEntry(nickname, presence, rating, role)
 {
 	// Set colors based on player status
-	var color_close = '[/color]';
+	var color, status;
 	switch (presence)
 	{
 	case "playing":
-		var color = '[color="125 0 0"]';
-		var status = color + "Busy" + color_close;
+		color = "125 0 0";
+		status = "Busy";
 		break;
+	case "gone":
 	case "away":
-		var color = '[color="0 0 125"]';
-		var status = color + "Away" + color_close;
+		color = "229 76 13";
+		status = "Away";
 		break;
 	case "available":
-		var color = '[color="0 125 0"]';
-		var status = color + "Online" + color_close;
+		color = "0 125 0";
+		status = "Online";
 		break;
 	case "offline":
-		var color = '[color="0 0 0"]';
-		var status = color + "Offline" + color_close;
+		color = "0 0 0";
+		status = "Offline";
 		break;
 	default:
-		warn("Unknown presence '"+presence+"'");
+		warn("Unknown presence '" + presence + "'");
+		color = "178 178 178";
+		status = "Unknown";
 		break;
 	}
+	// Center the unrated symbol.
+	if (rating == "-")
+		rating = "    -";
+	var formattedStatus = '[color="' + color + '"]' + status + "[/color]";
+	var formattedRating = '[color="' + color + '"]' + rating + "[/color]"; 
+	var formattedName = colorPlayerName(nickname);
 
-	var name = colorPlayerName(nickname);
-
+	// Give moderators special formatting.
+	if (role == "moderator")
+		formattedName = formattedName; //TODO
 	// Push this player's name and status onto the list
-	return [name, status];
+	return [formattedName, formattedStatus, formattedRating];
 }
 
-function selectGame(selected)
+/**
+ * Populate the game info area with information on the current game selection.
+ */
+function updateGameSelection()
 {
+	var selected = Engine.GetGUIObjectByName("gamesBox").selected;
+	// If a game is not selected, hide the game information area.
 	if (selected == -1)
 	{
-		// Hide the game info panel if a game is not selected
-		getGUIObjectByName("gameInfo").hidden = true;
-		getGUIObjectByName("gameInfoEmpty").hidden = false;
-		getGUIObjectByName("joinGameButton").hidden = true;
+		Engine.GetGUIObjectByName("gameInfo").hidden = true;
+		Engine.GetGUIObjectByName("joinGameButton").hidden = true;
+		Engine.GetGUIObjectByName("gameInfoEmpty").hidden = false;
 		return;
 	}
 
 	var mapData;
-	var g = getGUIObjectByName("gamesBox").list_data[selected];
+	var g = Engine.GetGUIObjectByName("gamesBox").list_data[selected];
 
 	// Load map data
 	if (g_GameList[g].mapType == "random" && g_GameList[g].mapName == "random")
 		mapData = {"settings": {"Description": "A randomly selected map."}};
-	else if (g_GameList[g].mapType == "random" && fileExists(g_GameList[g].mapName + ".json"))
+	else if (g_GameList[g].mapType == "random" && Engine.FileExists(g_GameList[g].mapName + ".json"))
 		mapData = parseJSONData(g_GameList[g].mapName + ".json");
-	else if (fileExists(g_GameList[g].mapName + ".xml"))
+	else if (Engine.FileExists(g_GameList[g].mapName + ".xml"))
 		mapData = Engine.LoadMapSettings(g_GameList[g].mapName + ".xml");
 	else
 		// Warn the player if we can't find the map. 
-		warn("Map '"+ g_GameList[g].mapName +"'  not found");
+		warn("Map '" + g_GameList[g].mapName + "' not found locally.");
 
-	// Show the game info paneland join button.
-	getGUIObjectByName("gameInfo").hidden = false;
-	getGUIObjectByName("gameInfoEmpty").hidden = true;
-	getGUIObjectByName("joinGameButton").hidden = false;
+	// Show the game info panel and join button.
+	Engine.GetGUIObjectByName("gameInfo").hidden = false;
+	Engine.GetGUIObjectByName("joinGameButton").hidden = false;
+	Engine.GetGUIObjectByName("gameInfoEmpty").hidden = true;
 
 	// Display the map name, number of players, the names of the players, the map size and the map type.
-	getGUIObjectByName("sgMapName").caption = g_GameList[g].niceMapName;
-	getGUIObjectByName("sgNbPlayers").caption = g_GameList[g].nbp + "/" + g_GameList[g].tnbp;
-	getGUIObjectByName("sgPlayersNames").caption = g_GameList[g].players;
-	getGUIObjectByName("sgMapSize").caption = g_GameList[g].mapSize.split("(")[0];
-	getGUIObjectByName("sgMapType").caption = toTitleCase(g_GameList[g].mapType);
+	Engine.GetGUIObjectByName("sgMapName").caption = g_GameList[g].niceMapName;
+	Engine.GetGUIObjectByName("sgNbPlayers").caption = g_GameList[g].nbp + "/" + g_GameList[g].tnbp;
+	Engine.GetGUIObjectByName("sgPlayersNames").caption = g_GameList[g].players;
+	Engine.GetGUIObjectByName("sgMapSize").caption = g_GameList[g].mapSize.split("(")[0];
+	Engine.GetGUIObjectByName("sgMapType").caption = toTitleCase(g_GameList[g].mapType);
 
 	// Display map description if it exists, otherwise display a placeholder.
 	if (mapData && mapData.settings.Description)
 		var mapDescription = mapData.settings.Description;
 	else
 		var mapDescription = "Sorry, no description available.";
-	
+
 	// Display map preview if it exists, otherwise display a placeholder.
 	if (mapData && mapData.settings.Preview)
 		var mapPreview = mapData.settings.Preview;
 	else
 		var mapPreview = "nopreview.png";
-	
-	getGUIObjectByName("sgMapDescription").caption = mapDescription;
-	getGUIObjectByName("sgMapPreview").sprite = "cropped:(0.7812,0.5859)session/icons/mappreview/" + mapPreview;
+
+	Engine.GetGUIObjectByName("sgMapDescription").caption = mapDescription;
+	Engine.GetGUIObjectByName("sgMapPreview").sprite = "cropped:(0.7812,0.5859)session/icons/mappreview/" + mapPreview;
 }
 
+/**
+ * Start the joining process on the currectly selected game.
+ */
 function joinSelectedGame()
 {
-	var gamesBox = getGUIObjectByName("gamesBox");
+	var gamesBox = Engine.GetGUIObjectByName("gamesBox");
 	if (gamesBox.selected >= 0)
 	{
 		var g = gamesBox.list_data[gamesBox.selected];
@@ -333,7 +394,7 @@ function joinSelectedGame()
 		// Check if it looks like an ip address
 		if (sip.split('.').length != 4)
 		{
-			addChatMessage({ "from": "system", "text": "This game does not have a valid address" });
+			addChatMessage({ "from": "system", "text": "This game's address '" + sip + "' does not appear to be valid." });
 			return;
 		}
 
@@ -348,9 +409,17 @@ function joinSelectedGame()
 // Utils
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Add a leading zero to single-digit numbers.
+ */
 function twoDigits(n)
 {
 	return n < 10 ? "0" + n : n;
+}
+
+function stripColorCodes(input)
+{
+	return input.replace(/\[(\w+)[^w]*?](.*?)\[\/\1]/g, '$2');
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,6 +432,7 @@ function onTick()
 	Engine.RecvXmppClient();
 
 	updateTimers();
+	checkSpamMonitor();
 
 	// Receive messages
 	while (true)
@@ -371,23 +441,24 @@ function onTick()
 		// Clean Message
 		if (!message)
 			break;
-		message.from = escapeText(message.from);
-		message.text = escapeText(message.text);
+		var from = escapeText(message.from);
+		var text = escapeText(message.text);
 		switch (message.type)
 		{
 		case "mucmessage": // For room messages
-			addChatMessage({ "from": message.from, "text": message.text });
+			addChatMessage({ "from": from, "text": text });
 			break;
 		case "message": // For private messages
-			addChatMessage({ "from": message.from, "text": message.text });
+			addChatMessage({ "from": from, "text": text });
 			break;
 		case "muc":
 			var nick = message.text;
 			var presence = Engine.LobbyGetPlayerPresence(nick);
-			var playersBox = getGUIObjectByName("playersBox");
+			var playersBox = Engine.GetGUIObjectByName("playersBox");
 			var playerList = playersBox.list_name;
 			var presenceList = playersBox.list_status;
 			var nickList = playersBox.list;
+			var ratingList = playersBox.list_rating;
 			var nickIndex = nickList.indexOf(nick);
 			switch(message.level)
 			{
@@ -395,13 +466,15 @@ function onTick()
 				if (nick == g_Name)
 				{
 					// We just joined, we need to get the full player list
-					[playerList, presenceList, nickList] = updatePlayerList();
+					[playerList, presenceList, nickList, ratingList] = updatePlayerList();
 					break;
 				}
-				var [name, status] = formatPlayerListEntry(nick, presence);
+				var [name, status, rating] = formatPlayerListEntry(nick, presence, "-");
 				playerList.push(name);
 				presenceList.push(status);
 				nickList.push(nick);
+				ratingList.push(String(rating));
+				Engine.SendGetRatingList();
 				addChatMessage({ "text": "/special " + nick + " has joined.", "key": g_specialKey });
 				break;
 			case "leave":
@@ -410,6 +483,7 @@ function onTick()
 				playerList.splice(nickIndex, 1);
 				presenceList.splice(nickIndex, 1);
 				nickList.splice(nickIndex, 1);
+				ratingList.splice(nickIndex, 1);
 				addChatMessage({ "text": "/special " + nick + " has left.", "key": g_specialKey });
 				break;
 			case "nick":
@@ -420,18 +494,23 @@ function onTick()
 					addChatMessage({ "from": "system", "text": "Invalid nickname: " + message.data });
 					break;
 				}
-				var [name, status] = formatPlayerListEntry(message.data, presence); // TODO: actually we don't want to change the presence here, so use what was used before
+				var [name, status, rating] = formatPlayerListEntry(message.data, presence, stripColorCodes(ratingList[nickIndex])); // TODO: actually we don't want to change the presence here, so use what was used before
 				playerList[nickIndex] = name;
 				// presence stays the same
 				nickList[nickIndex] = message.data;
 				addChatMessage({ "text": "/special " + nick + " is now known as " + message.data + ".", "key": g_specialKey });
+				Engine.SendGetRatingList();
 				break;
 			case "presence":
 				if (nickIndex == -1) // This shouldn't ever happen
 					break;
-				var [name, status] = formatPlayerListEntry(nick, presence);
+				var [name, status, rating] = formatPlayerListEntry(nick, presence, stripColorCodes(ratingList[nickIndex]));
 				presenceList[nickIndex] = status;
 				playerList[nickIndex] = name;
+				ratingList[nickIndex] = rating;
+				break;
+			case "subject":
+				updateSubject(message.text);
 				break;
 			default:
 				warn("Unknown message.level '" + message.level + "'");
@@ -440,7 +519,8 @@ function onTick()
 			// Push new data to GUI
 			playersBox.list_name = playerList;
 			playersBox.list_status = presenceList;
-			playersBox.list = nickList;
+			playersBox.list_rating = ratingList;
+			playersBox.list = nickList;		
 			if (playersBox.selected >= playersBox.list.length)
 				playersBox.selected = -1;
 			break;
@@ -448,23 +528,23 @@ function onTick()
 			switch (message.level)
 			{
 			case "standard":
-				addChatMessage({ "from": "system", "text": message.text, "color": "150 0 0" });
+				addChatMessage({ "from": "system", "text": text, "color": "150 0 0" });
 				if (message.text == "disconnected")
 				{
 					// Clear the list of games and the list of players
 					updateGameList();
-					updateBoardList();
+					updateLeaderboard();
 					updatePlayerList();
 					// Disable the 'host' button
-					getGUIObjectByName("hostButton").enabled = false;
+					Engine.GetGUIObjectByName("hostButton").enabled = false;
 				}
 				else if (message.text == "connected")
 				{
-					getGUIObjectByName("hostButton").enabled = true;
+					Engine.GetGUIObjectByName("hostButton").enabled = true;
 				}
 				break;
 			case "error":
-				addChatMessage({ "from": "system", "text": message.text, "color": "150 0 0" });
+				addChatMessage({ "from": "system", "text": text, "color": "150 0 0" });
 				break;
 			case "internal":
 				switch (message.text)
@@ -473,7 +553,10 @@ function onTick()
 					updateGameList();
 					break;
 				case "boardlist updated":
-					updateBoardList();
+					updateLeaderboard();
+					break;
+				case "ratinglist updated":
+					updatePlayerList();
 					break;
 				case "port request":
 					// Uncomment next line to be notified of UDP hole punch requests.
@@ -491,11 +574,11 @@ function onTick()
 /* Messages */
 function submitChatInput()
 {
-	var input = getGUIObjectByName("chatInput");
+	var input = Engine.GetGUIObjectByName("chatInput");
 	var text = escapeText(input.caption);
 	if (text.length)
 	{
-		if (!handleSpecialCommand(text))
+		if (!handleSpecialCommand(text) && !isSpam(text, g_Name))
 			Engine.LobbySendMessage(text);
 		input.caption = "";
 	}
@@ -503,26 +586,29 @@ function submitChatInput()
 
 function completeNick()
 {
-	var input = getGUIObjectByName("chatInput");
+	var input = Engine.GetGUIObjectByName("chatInput");
 	var text = escapeText(input.caption);
 	if (text.length)
 	{
 		var matched = false;
-		for each (var playerObj in Engine.GetPlayerList()) {
+		for each (var playerObj in Engine.GetPlayerList())
+		{
 			var player = playerObj.name;
 			var breaks = text.match(/(\s+)/g) || [];
-			text.split(/\s+/g).reduceRight(function (wordsSoFar, word, index) {
+			text.split(/\s+/g).reduceRight(function (wordsSoFar, word, index)
+			{
 				if (matched)
 					return null;
 				var matchCandidate = word + (breaks[index - 1] || "") + wordsSoFar;
-				if (player.toUpperCase().indexOf(matchCandidate.toUpperCase().trim()) == 0) {
+				if (player.toUpperCase().indexOf(matchCandidate.toUpperCase().trim()) == 0)
+				{
 					input.caption = text.replace(matchCandidate.trim(), player);
 					matched = true;
 				}
 				return matchCandidate;
 			}, "");
-			if (matched)
-				break;
+		if (matched)
+			break;
 		}
 	}
 }
@@ -533,6 +619,12 @@ function isValidNick(nick)
 	return prohibitedNicks.indexOf(nick) == -1;
 }
 
+/**
+ * Handle all '/' commands.
+ *
+ * @param text Text to be checked for commands.
+ * @return true if more text processing is needed, false otherwise.
+ */
 function handleSpecialCommand(text)
 {
 	if (text[0] != '/')
@@ -543,19 +635,10 @@ function handleSpecialCommand(text)
 	switch (cmd)
 	{
 	case "away":
-		// TODO: Should we handle away messages?
 		Engine.LobbySetPlayerPresence("away");
 		break;
 	case "back":
 		Engine.LobbySetPlayerPresence("available");
-		break;
-	case "nick":
-		if (g_spammers[g_Name] != undefined)
-			break;
-		// Strip invalid characters.
-		nick = sanitizePlayerName(nick, true, true);
-		Engine.LobbySetNick(nick);
-		g_Name = nick;
 		break;
 	case "kick": // TODO: Split reason from nick and pass it too, for now just support "/kick nick"
 			// also allow quoting nicks (and/or prevent users from changing it here, but that doesn't help if the spammer uses a different client)
@@ -577,6 +660,11 @@ function handleSpecialCommand(text)
 	return true;
 }
 
+/**
+ * Process and, if appropriate, display a formatted message.
+ *
+ * @param msg The message to be processed.
+ */
 function addChatMessage(msg)
 {
 	// Highlight local user's nick
@@ -584,7 +672,8 @@ function addChatMessage(msg)
 		msg.text = msg.text.replace(new RegExp('\\b' + '\\' + g_Name + '\\b', "g"), colorPlayerName(g_Name));
 
 	// Run spam test
-	if (updateSpamandDetect(msg.text, msg.from))
+	updateSpamMonitor(msg.from);
+	if (isSpam(msg.text, msg.from))
 		return;
 
 	// Format Text
@@ -594,7 +683,7 @@ function addChatMessage(msg)
 	if (formatted)
 	{
 		g_ChatMessages.push(formatted);
-		getGUIObjectByName("chatText").caption = g_ChatMessages.join("\n");
+		Engine.GetGUIObjectByName("chatText").caption = g_ChatMessages.join("\n");
 	}
 }
 
@@ -606,7 +695,15 @@ function ircSplit(string)
 	return [string.substr(1), ""];
 }
 
-// The following formats text in an IRC-like way
+/**
+ * Format text in an IRC-like way.
+ *
+ * @param text Body of the message.
+ * @param from Sender of the message.
+ * @param color Optional color of sender.
+ * @param key Key to verify join/leave messages with. TODO: Remove this, it only provides synthetic security.
+ * @return Formatted text.
+ */
 function ircFormat(text, from, color, key)
 {
 	// Generate and apply color to uncolored names,
@@ -646,41 +743,76 @@ function ircFormat(text, from, color, key)
 	return formatted + '[font="serif-bold-13"]<' + coloredFrom + '>[/font] ' + text;
 }
 
-// The following function tracks message stats and returns true if the input text is spam.
-function updateSpamandDetect(text, from)
+/**
+ * Update the spam monitor.
+ *
+ * @param from User to update.
+ */
+function updateSpamMonitor(from)
 {
-	// Check for blank lines.
+	// Integer time in seconds.
+	var time = Math.floor(Date.now() / 1000);
+
+	// Update or initialize the user in the spam monitor.
+	if (g_spamMonitor[from])
+		g_spamMonitor[from][0]++;
+	else
+		g_spamMonitor[from] = [1, time, 0];
+}
+
+/**
+ * Check if a message is spam.
+ *
+ * @param text Body of message.
+ * @param from Sender of message.
+ * @return True if message should be blocked.
+ */
+function isSpam(text, from)
+{
+	// Integer time in seconds.
+	var time = Math.floor(Date.now() / 1000);
+
+	// Initialize if not already in the database.
+	if (!g_spamMonitor[from])
+		g_spamMonitor[from] = [1, time, 0];
+
+	// Block blank lines.
 	if (text == " ")
 		return true;
-	// Update the spam monitor.
-	if (g_spamMonitor[from])
-		g_spamMonitor[from]++;
-	else
-		g_spamMonitor[from] = 1;
-	if (g_spamMonitor[from] > 5)
-		g_spammers[from] = true
-	// Block spammers and notify the player if they are blocked.
-	if(from in g_spammers)
+	// Block users who are still within their spam block period.
+	else if (g_spamMonitor[from][2] + SPAM_BLOCK_LENGTH >= time)
+		return true;
+	// Block users who exceed the rate of 1 message per second for five seconds and are not already blocked. TODO: Make this smarter and block profanity.
+	else if (g_spamMonitor[from][0] == 6)
 	{
+		g_spamMonitor[from][2] = time;
 		if (from == g_Name)
 			addChatMessage({ "from": "system", "text": "Please do not spam. You have been blocked for thirty seconds." });
 		return true;
 	}
 	// Return false if everything is clear.
-	return false;
+	else
+		return false;
 }
 
-// Timers to clear spammers after some time.
-function clearSpamMonitor()
+/**
+ * Reset timer used to measure message send speed.
+ */
+function checkSpamMonitor()
 {
-	g_spamMonitor = {};
-	setTimeout(clearSpamMonitor, 5000);
-}
+	// Integer time in seconds.
+	var time = Math.floor(Date.now() / 1000);
 
-function clearSpammers()
-{
-	g_spammers = {};
-	setTimeout(clearSpammers, 30000);
+	// Clear message count every 5 seconds.
+	for each (var stats in g_spamMonitor)
+	{
+		if (stats[1] + 5 <= time)
+		{
+			stats[1] = time;
+			stats[0] = 0;
+		}
+	}
+
 }
 
 /* Utilities */

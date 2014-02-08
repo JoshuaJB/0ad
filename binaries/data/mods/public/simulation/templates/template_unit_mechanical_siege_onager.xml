@@ -28,7 +28,7 @@
       </Bonuses>
       <Splash>
         <Shape>Circular</Shape>
-        <Range>20</Range>
+        <Range>10</Range>
         <FriendlyFire>true</FriendlyFire>
         <Hack>0.0</Hack>
         <Pierce>15.0</Pierce>
@@ -44,7 +44,7 @@
     </Resources>
   </Cost>
   <Footprint replace="">
-    <Square width="10.0" depth="15.0"/>
+    <Square width="6.0" depth="15.0"/>
     <Height>4.5</Height>
   </Footprint>
   <Health>

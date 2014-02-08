@@ -802,9 +802,7 @@ void CCmpUnitMotion::Move(fixed dt)
 	}
 
 	if (m_State == STATE_IDLE)
-	{
 		return;
-	}
 
 	switch (m_PathState)
 	{
@@ -870,8 +868,9 @@ void CCmpUnitMotion::Move(fixed dt)
 		// We want to move (at most) maxSpeed*dt units from pos towards the next waypoint
 
 		fixed timeLeft = dt;
-
-		while (timeLeft > fixed::Zero())
+		fixed zero = fixed::Zero();
+		
+		while (timeLeft > zero)
 		{
 			// If we ran out of short path, we have to stop
 			if (m_ShortPath.m_Waypoints.empty())
@@ -879,13 +878,6 @@ void CCmpUnitMotion::Move(fixed dt)
 
 			CFixedVector2D target(m_ShortPath.m_Waypoints.back().x, m_ShortPath.m_Waypoints.back().z);
 			CFixedVector2D offset = target - pos;
-
-			// Face towards the target
-			if (!offset.IsZero())
-			{
-				entity_angle_t angle = atan2_approx(offset.X, offset.Y);
-				cmpPosition->TurnTo(angle);
-			}
 
 			// Work out how far we can travel in timeLeft
 			fixed maxdist = maxSpeed.Multiply(timeLeft);
@@ -933,18 +925,25 @@ void CCmpUnitMotion::Move(fixed dt)
 
 		// Update the Position component after our movement (if we actually moved anywhere)
 		if (pos != initialPos)
-			cmpPosition->MoveTo(pos.X, pos.Y);
+		{
+			CFixedVector2D offset = pos - initialPos;
+			
+			// Face towards the target
+			entity_angle_t angle = atan2_approx(offset.X, offset.Y);
+			cmpPosition->MoveAndTurnTo(pos.X,pos.Y, angle);
 
-		// Calculate the mean speed over this past turn.
-		m_CurSpeed = cmpPosition->GetDistanceTravelled() / dt;
-
+			// Calculate the mean speed over this past turn.
+			m_CurSpeed = cmpPosition->GetDistanceTravelled() / dt;
+		}
+		
 		if (wasObstructed)
 		{
 			// Oops, we hit something (very likely another unit).
 			// Stop, and recompute the whole path.
 			// TODO: if the target has UnitMotion and is higher priority,
 			// we should wait a little bit.
-
+			
+			m_CurSpeed = zero;
 			RequestLongPath(pos, m_FinalGoal);
 			m_PathState = PATHSTATE_WAITING_REQUESTING_LONG;
 
@@ -996,10 +995,19 @@ void CCmpUnitMotion::Move(fixed dt)
 						}
 						else
 						{
+							// check if target was reached in case of a moving target
+							CmpPtr<ICmpUnitMotion> cmpUnitMotion(GetSimContext(), m_TargetEntity);
+							if 
+							(
+								cmpUnitMotion && cmpUnitMotion->IsMoving() &&
+								MoveToTargetRange(m_TargetEntity, m_TargetMinRange, m_TargetMaxRange)
+							)
+								return;
+
 							// Not in formation, so just finish moving
-
 							StopMoving();
-
+							m_State = STATE_IDLE;
+							MoveSucceeded();
 
 							if (m_FacePointAfterMove)
 								FaceTowardsPointFromPos(pos, m_FinalGoal.x, m_FinalGoal.z);
@@ -1138,20 +1146,19 @@ bool CCmpUnitMotion::CheckTargetMovement(CFixedVector2D from, entity_pos_t minDe
 
 bool CCmpUnitMotion::PathIsShort(const ICmpPathfinder::Path& path, CFixedVector2D from, entity_pos_t minDistance)
 {
-	CFixedVector2D pos = from;
 	entity_pos_t distLeft = minDistance;
 
 	for (ssize_t i = (ssize_t)path.m_Waypoints.size()-1; i >= 0; --i)
 	{
 		// Check if the next path segment is longer than the requested minimum
 		CFixedVector2D waypoint(path.m_Waypoints[i].x, path.m_Waypoints[i].z);
-		CFixedVector2D delta = waypoint - pos;
+		CFixedVector2D delta = waypoint - from;
 		if (delta.CompareLength(distLeft) > 0)
 			return false;
 
 		// Still short enough - prepare to check the next segment
 		distLeft -= delta.Length();
-		pos = waypoint;
+		from = waypoint;
 	}
 
 	// Reached the end of the path before exceeding minDistance
@@ -1510,7 +1517,12 @@ bool CCmpUnitMotion::MoveToTargetRange(entity_id_t target, entity_pos_t minRange
 
 		entity_pos_t distance = Geometry::DistanceToSquare(pos - CFixedVector2D(obstruction.x, obstruction.z), obstruction.u, obstruction.v, halfSize);
 
-		if (distance < minRange)
+		// compare with previous obstruction
+		ICmpObstructionManager::ObstructionSquare previousObstruction;
+		cmpObstruction->GetPreviousObstructionSquare(previousObstruction);
+		entity_pos_t previousDistance = Geometry::DistanceToSquare(pos - CFixedVector2D(previousObstruction.x, previousObstruction.z), obstruction.u, obstruction.v, halfSize);
+
+		if (distance < minRange && previousDistance < minRange)
 		{
 			// Too close to the square - need to move away
 
@@ -1525,7 +1537,7 @@ bool CCmpUnitMotion::MoveToTargetRange(entity_id_t target, entity_pos_t minRange
 			goal.hw = obstruction.hw + delta;
 			goal.hh = obstruction.hh + delta;
 		}
-		else if (maxRange < entity_pos_t::Zero() || distance < maxRange)
+		else if (maxRange < entity_pos_t::Zero() || distance < maxRange || previousDistance < maxRange)
 		{
 			// We're already in range - no need to move anywhere
 			if (m_FacePointAfterMove)
@@ -1555,6 +1567,17 @@ bool CCmpUnitMotion::MoveToTargetRange(entity_id_t target, entity_pos_t minRange
 						FaceTowardsPointFromPos(pos, goal.x, goal.z);
 					return false;
 				}
+
+				entity_pos_t previousCircleDistance = (pos - CFixedVector2D(previousObstruction.x, previousObstruction.z)).Length() - circleRadius;
+
+				if (previousCircleDistance < maxRange)
+				{
+					// We're already in range - no need to move anywhere
+					if (m_FacePointAfterMove)
+						FaceTowardsPointFromPos(pos, goal.x, goal.z);
+					return false;
+				}
+
 
 				entity_pos_t goalDistance = maxRange - g_GoalDelta;
 
@@ -1628,12 +1651,17 @@ bool CCmpUnitMotion::IsInTargetRange(entity_id_t target, entity_pos_t minRange, 
 		CFixedVector2D halfSize(obstruction.hw, obstruction.hh);
 		entity_pos_t distance = Geometry::DistanceToSquare(pos - CFixedVector2D(obstruction.x, obstruction.z), obstruction.u, obstruction.v, halfSize);
 
+		// compare with previous obstruction
+		ICmpObstructionManager::ObstructionSquare previousObstruction;
+		cmpObstruction->GetPreviousObstructionSquare(previousObstruction);
+		entity_pos_t previousDistance = Geometry::DistanceToSquare(pos - CFixedVector2D(previousObstruction.x, previousObstruction.z), obstruction.u, obstruction.v, halfSize);
+		
 		// See if we're too close to the target square
-		if (distance < minRange)
+		if (distance < minRange && previousDistance < minRange)
 			return false;
 
 		// See if we're close enough to the target square
-		if (maxRange < entity_pos_t::Zero() || distance <= maxRange)
+		if (maxRange < entity_pos_t::Zero() || distance <= maxRange || previousDistance <= maxRange)
 			return true;
 
 		entity_pos_t circleRadius = halfSize.Length();
@@ -1647,6 +1675,11 @@ bool CCmpUnitMotion::IsInTargetRange(entity_id_t target, entity_pos_t minRange, 
 
 			if (circleDistance <= maxRange)
 				return true;
+			// also check circle around previous position
+			circleDistance = (pos - CFixedVector2D(previousObstruction.x, previousObstruction.z)).Length() - circleRadius;
+
+			if (circleDistance <= maxRange)
+				return true;
 		}
 
 		return false;
@@ -1657,14 +1690,12 @@ bool CCmpUnitMotion::IsInTargetRange(entity_id_t target, entity_pos_t minRange, 
 		if (!cmpTargetPosition || !cmpTargetPosition->IsInWorld())
 			return false;
 
-		CFixedVector2D targetPos = cmpTargetPosition->GetPosition2D();
+		CFixedVector2D targetPos = cmpTargetPosition->GetPreviousPosition2D();
 
 		entity_pos_t distance = (pos - targetPos).Length();
 
-		if (minRange <= distance && (maxRange < entity_pos_t::Zero() || distance <= maxRange))
-			return true;
-
-		return false;
+		return minRange <= distance && 
+			(maxRange < entity_pos_t::Zero() || distance <= maxRange);
 	}
 }
 

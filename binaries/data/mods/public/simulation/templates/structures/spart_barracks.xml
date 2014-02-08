@@ -26,10 +26,13 @@
       units/spart_infantry_spearman_b
       units/spart_champion_infantry_sword
       units/spart_infantry_javelinist_b
+      units/spart_cavalry_spearman_b
       units/spart_cavalry_javelinist_b
     </Entities>
     <Technologies datatype="tokens">
 	  -unlock_champion_units
+	  upgrade_rank_advanced_infantry
+	  upgrade_rank_elite_infantry
     </Technologies>
   </ProductionQueue>
   <VisualActor>

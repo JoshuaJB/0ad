@@ -65,6 +65,18 @@ ProductionQueue.prototype.Init = function()
 
 	this.entityCache = [];
 	this.spawnNotified = false;
+	
+	this.alertRaiser = undefined;
+};
+
+ProductionQueue.prototype.PutUnderAlert = function(raiser)
+{
+	this.alertRaiser = raiser;
+};
+
+ProductionQueue.prototype.ResetAlert = function()
+{
+	this.alertRaiser = undefined;
 };
 
 /*
@@ -72,19 +84,50 @@ ProductionQueue.prototype.Init = function()
  */
 ProductionQueue.prototype.GetEntitiesList = function()
 {
+	return this.entitiesList;
+};
+
+ProductionQueue.prototype.CalculateEntitiesList = function()
+{
+	this.entitiesList = [];
 	if (!this.template.Entities)
-		return [];
+		return;
 	
 	var string = this.template.Entities._string;
 	if (!string)
-		return [];
+		return;
 	
 	// Replace the "{civ}" codes with this entity's civ ID
 	var cmpIdentity = Engine.QueryInterface(this.entity, IID_Identity);
 	if (cmpIdentity)
 		string = string.replace(/\{civ\}/g, cmpIdentity.GetCiv());
 	
-	return string.split(/\s+/);
+	var entitiesList = string.split(/\s+/);
+
+	// check if some templates need to show their advanced or elite version
+	var upgradeTemplate = function(templateName)
+	{
+		var template = cmpTemplateManager.GetTemplate(templateName);
+		while (template.Promotion)
+		{
+			var requiredXp = ApplyValueModificationsToTemplate("Promotion/RequiredXp", +template.Promotion.RequiredXp, playerID, template);
+			if (requiredXp > 0)
+				break;
+			templateName = template.Promotion.Entity;
+			template = cmpTemplateManager.GetTemplate(templateName);
+		}
+		return templateName;
+	};
+
+	var cmpTemplateManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_TemplateManager);
+	var playerID = QueryOwnerInterface(this.entity, IID_Player).GetPlayerID();
+	for each (var templateName in entitiesList)
+		this.entitiesList.push(upgradeTemplate(templateName));
+	for each (var item in this.queue)
+	{
+		if (item.unitTemplate)
+			item.unitTemplate = upgradeTemplate(item.unitTemplate);
+	}
 };
 
 /*
@@ -192,7 +235,17 @@ ProductionQueue.prototype.AddBatch = function(templateName, type, count, metadat
 			var template = cmpTempMan.GetTemplate(templateName);
 			if (!template)
 				return;
-			
+			if (template.Promotion)
+			{
+				var requiredXp = ApplyValueModificationsToTemplate("Promotion/RequiredXp", +template.Promotion.RequiredXp, cmpPlayer.GetPlayerID(), template);
+
+				if (requiredXp == 0)
+				{
+					this.AddBatch(template.Promotion.Entity, type, count, metadata);
+					return;
+				}
+			}
+
 			// Apply a time discount to larger batches.
 			var timeMult = this.GetBatchTime(count);
 			
@@ -220,7 +273,7 @@ ProductionQueue.prototype.AddBatch = function(templateName, type, count, metadat
 			{
 				var unitCategory = template.TrainingRestrictions.Category;
 				var cmpPlayerEntityLimits = QueryOwnerInterface(this.entity, IID_EntityLimits);
-				cmpPlayerEntityLimits.IncreaseCount(unitCategory, count);
+				cmpPlayerEntityLimits.ChangeCount(unitCategory, count);
 			}
 
 			this.queue.push({
@@ -327,7 +380,7 @@ ProductionQueue.prototype.RemoveBatch = function(id)
 			{
 				var unitCategory = template.TrainingRestrictions.Category;
 				var cmpPlayerEntityLimits = QueryPlayerIDInterface(item.player, IID_EntityLimits);
-				cmpPlayerEntityLimits.DecreaseCount(unitCategory, item.count);
+				cmpPlayerEntityLimits.ChangeCount(unitCategory, -item.count);
 			}
 		}
 
@@ -378,7 +431,7 @@ ProductionQueue.prototype.GetQueue = function()
 			"technologyTemplate": item.technologyTemplate,
 			"count": item.count,
 			"neededSlots": item.neededSlots,
-			"progress": 1-(item.timeRemaining/item.timeTotal),
+			"progress": 1 - ( item.timeRemaining / (item.timeTotal || 1) ),
 			"metadata": item.metadata,
 		});
 	}
@@ -420,6 +473,8 @@ ProductionQueue.prototype.OnOwnershipChanged = function(msg)
 		if (cmpPlayer && this.queue.length > 0)
 			cmpPlayer.UnBlockTraining();
 	}
+	if (msg.to != -1)
+		this.CalculateEntitiesList();
 
 	// Reset the production queue whenever the owner changes.
 	// (This should prevent players getting surprised when they capture
@@ -473,7 +528,7 @@ ProductionQueue.prototype.SpawnUnits = function(templateName, count, metadata)
 			{
 				var unitCategory = cmpTrainingRestrictions.GetCategory();
 				var cmpPlayerEntityLimits = QueryOwnerInterface(this.entity, IID_EntityLimits);
-				cmpPlayerEntityLimits.DecrementCount(unitCategory);
+				cmpPlayerEntityLimits.ChangeCount(unitCategory,-1);
 			}
 		}
 	}
@@ -516,7 +571,7 @@ ProductionQueue.prototype.SpawnUnits = function(templateName, count, metadata)
 		}
 
 		var cmpPlayerStatisticsTracker = QueryOwnerInterface(this.entity, IID_StatisticsTracker);
-		cmpPlayerStatisticsTracker.IncreaseTrainedUnitsCounter();
+		cmpPlayerStatisticsTracker.IncreaseTrainedUnitsCounter(ent);
 
 		// Play a sound, but only for the first in the batch (to avoid nasty phasing effects)
 		if (createdEnts.length == 0)
@@ -549,6 +604,13 @@ ProductionQueue.prototype.SpawnUnits = function(templateName, count, metadata)
 			"owner": cmpOwnership.GetOwner(),
 			"metadata": metadata,
 		});
+		
+		if(this.alertRaiser && spawnedEnts.length > 0)
+		{
+			var cmpAlertRaiser = Engine.QueryInterface(this.alertRaiser, IID_AlertRaiser);
+			if(cmpAlertRaiser)
+				cmpAlertRaiser.UpdateUnits(spawnedEnts);
+		}
 	}
 	
 	return createdEnts.length;
@@ -701,6 +763,15 @@ ProductionQueue.prototype.UnpauseProduction = function()
 	this.paused = false;
 	var cmpTimer = Engine.QueryInterface(SYSTEM_ENTITY, IID_Timer);
 	this.timer = cmpTimer.SetTimeout(this.entity, IID_ProductionQueue, "ProgressTimeout", g_ProgressInterval, {});
+};
+
+ProductionQueue.prototype.OnValueModification = function(msg)
+{
+	// if the promotion requirements of units is changed,
+	// update the entities list so that automatically promoted units are shown
+	// appropriately in the list
+	if (msg.component == "Promotion")
+		this.CalculateEntitiesList();
 };
 
 Engine.RegisterComponentType(IID_ProductionQueue, "ProductionQueue", ProductionQueue);

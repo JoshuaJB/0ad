@@ -46,7 +46,7 @@
   <GarrisonHolder>
     <Max>20</Max>
     <EjectHealth>0.075</EjectHealth>
-    <EjectEntitiesOnDestroy>true</EjectEntitiesOnDestroy>
+    <EjectClassesOnDestroy datatype="tokens">Unit</EjectClassesOnDestroy>
     <List datatype="tokens">Support Infantry Cavalry Siege</List>
     <BuffHeal>0</BuffHeal>
     <LoadingRange>6</LoadingRange>
@@ -59,11 +59,11 @@
     <GenericName>Fortress</GenericName>
     <Tooltip>Train heroes, champions, and siege weapons. Research siege weapon improvements. Garrison: 20.</Tooltip>
     <Classes datatype="tokens">
-	  City
-	  Defensive
-	  GarrisonFortress
-	  Fortress
-	</Classes>
+      City
+      Defensive
+      GarrisonFortress
+      Fortress
+    </Classes>
     <Icon>structures/fortress.png</Icon>
     <RequiredTechnology>phase_city</RequiredTechnology>
   </Identity>
@@ -94,7 +94,7 @@
   <TerritoryInfluence>
     <Root>false</Root>
     <Radius>100</Radius>
-    <Weight>65536</Weight>
+    <Weight>40000</Weight>
   </TerritoryInfluence>
   <Vision>
     <Range>80</Range>

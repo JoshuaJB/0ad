@@ -44,8 +44,6 @@
 #include "graphics/TerrainTextureManager.h"
 #include "gui/GUI.h"
 #include "gui/GUIManager.h"
-#include "gui/scripting/JSInterface_IGUIObject.h"
-#include "gui/scripting/JSInterface_GUITypes.h"
 #include "gui/scripting/ScriptFunctions.h"
 #include "maths/MathUtil.h"
 #include "network/NetServer.h"
@@ -71,6 +69,7 @@
 #include "ps/ProfileViewer.h"
 #include "ps/Profiler2.h"
 #include "ps/Pyrogenesis.h"	// psSetLogDir
+#include "ps/SavedGame.h"
 #include "ps/scripting/JSInterface_Console.h"
 #include "ps/TouchInput.h"
 #include "ps/UserReport.h"
@@ -81,8 +80,6 @@
 #include "renderer/Renderer.h"
 #include "renderer/VertexBufferManager.h"
 #include "renderer/ModelRenderer.h"
-#include "scripting/ScriptingHost.h"
-#include "scripting/ScriptGlue.h"
 #include "scriptinterface/DebuggingServer.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "scriptinterface/ScriptStats.h"
@@ -114,6 +111,8 @@ ERROR_TYPE(System, RequiredExtensionsMissing);
 bool g_DoRenderGui = true;
 bool g_DoRenderLogger = true;
 bool g_DoRenderCursor = true;
+
+shared_ptr<ScriptRuntime> g_ScriptRuntime;
 
 static const int SANE_TEX_QUALITY_DEFAULT = 5;	// keep in sync with code
 
@@ -182,9 +181,9 @@ retry:
 // display progress / description in loading screen
 void GUI_DisplayLoadProgress(int percent, const wchar_t* pending_task)
 {
-	g_ScriptingHost.GetScriptInterface().SetGlobal("g_Progress", percent, true);
-	g_ScriptingHost.GetScriptInterface().SetGlobal("g_LoadDescription", pending_task, true);
-	g_GUI->SendEventToAll("progress");
+	g_GUI->GetActiveGUI()->GetScriptInterface()->SetGlobal("g_Progress", percent, true);
+	g_GUI->GetActiveGUI()->GetScriptInterface()->SetGlobal("g_LoadDescription", pending_task, true);
+	g_GUI->GetActiveGUI()->SendEventToAll("progress");
 }
 
 
@@ -320,28 +319,6 @@ void Render()
 }
 
 
-static void RegisterJavascriptInterfaces()
-{
-	// GUI
-	CGUI::ScriptingInit();
-
-	GuiScriptingInit(g_ScriptingHost.GetScriptInterface());
-	JSI_Sound::RegisterScriptFunctions(g_ScriptingHost.GetScriptInterface());
-}
-
-
-static void InitScripting()
-{
-	TIMER(L"InitScripting");
-
-	// Create the scripting host.  This needs to be done before the GUI is created.
-	// [7ms]
-	new ScriptingHost;
-	
-	RegisterJavascriptInterfaces();
-}
-
-
 static size_t OperatingSystemFootprint()
 {
 #if OS_WIN
@@ -415,6 +392,10 @@ ErrorReactionInternal psDisplayError(const wchar_t* UNUSED(text), size_t UNUSED(
 static std::vector<CStr> GetMods(const CmdLineArgs& args, bool dev)
 {
 	std::vector<CStr> mods = args.GetMultiple("mod");
+	// List of the mods, to be used by the Gui
+	g_modsLoaded.clear();
+	for (size_t i = 0; i < mods.size(); ++i)
+		g_modsLoaded.push_back((std::string)mods[i]);
 	// TODO: It would be nice to remove this hard-coding
 	mods.insert(mods.begin(), "public");
 
@@ -499,7 +480,7 @@ static void InitVfs(const CmdLineArgs& args, int flags)
 }
 
 
-static void InitPs(bool setup_gui, const CStrW& gui_page, CScriptVal initData)
+static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcScriptInterface, CScriptVal initData)
 {
 	{
 		// console
@@ -530,12 +511,12 @@ static void InitPs(bool setup_gui, const CStrW& gui_page, CScriptVal initData)
 	{
 		// We do actually need *some* kind of GUI loaded, so use the
 		// (currently empty) Atlas one
-		g_GUI->SwitchPage(L"page_atlas.xml", initData);
+		g_GUI->SwitchPage(L"page_atlas.xml", srcScriptInterface, initData);
 		return;
 	}
 
 	// GUI uses VFS, so this must come after VFS init.
-	g_GUI->SwitchPage(gui_page, initData);
+	g_GUI->SwitchPage(gui_page, srcScriptInterface, initData);
 }
 
 
@@ -673,8 +654,8 @@ static void ShutdownSDL()
 
 void EndGame()
 {
-	SAFE_DELETE(g_NetServer);
 	SAFE_DELETE(g_NetClient);
+	SAFE_DELETE(g_NetServer);
 	SAFE_DELETE(g_Game);
 
 	ISoundManager::CloseGame();
@@ -687,7 +668,7 @@ void Shutdown(int UNUSED(flags))
 
 	SAFE_DELETE(g_XmppClient);
 
-	ShutdownPs(); // Must delete g_GUI before g_ScriptingHost
+	ShutdownPs();
 
 	in_reset_handlers();
 
@@ -718,10 +699,10 @@ void Shutdown(int UNUSED(flags))
 	g_UserReporter.Deinitialize();
 	TIMER_END(L"shutdown UserReporter");
 
-	TIMER_BEGIN(L"shutdown ScriptingHost");
-	delete &g_ScriptingHost;
-	delete g_DebuggingServer;
-	TIMER_END(L"shutdown ScriptingHost");
+	// JS debugger temporarily disabled during the SpiderMonkey upgrade (check trac ticket #2348 for details)
+	//TIMER_BEGIN(L"shutdown DebuggingServer (if active)");
+	//delete g_DebuggingServer;
+	//TIMER_END(L"shutdown DebuggingServer (if active)");
 
 	TIMER_BEGIN(L"shutdown ConfigDB");
 	delete &g_ConfigDB;
@@ -875,13 +856,16 @@ void Init(const CmdLineArgs& args, int flags)
 	// This must come after VFS init, which sets the current directory
 	// (required for finding our output log files).
 	g_Logger = new CLogger;
+	
+	// Workaround until Simulation and AI use their own threads and also their own runtimes
+	g_ScriptRuntime = ScriptInterface::CreateRuntime(128 * 1024 * 1024);
 
 	// Special command-line mode to dump the entity schemas instead of running the game.
 	// (This must be done after loading VFS etc, but should be done before wasting time
 	// on anything else.)
 	if (args.Has("dumpSchema"))
 	{
-		CSimulation2 sim(NULL, NULL);
+		CSimulation2 sim(NULL, g_ScriptRuntime, NULL);
 		sim.LoadDefaultScripts();
 		std::ofstream f("entity.rng", std::ios_base::out | std::ios_base::trunc);
 		f << sim.GenerateSchema();
@@ -917,10 +901,9 @@ void Init(const CmdLineArgs& args, int flags)
 	CONFIG_Init(args);
 
 	// before scripting 
-	if (g_JSDebuggerEnabled)
-		g_DebuggingServer = new CDebuggingServer();
-
-	InitScripting();	// before GUI
+	// JS debugger temporarily disabled during the SpiderMonkey upgrade (check trac ticket #2348 for details)
+	//if (g_JSDebuggerEnabled)
+	//	g_DebuggingServer = new CDebuggingServer();
 
 	// Optionally start profiler HTTP output automatically
 	// (By default it's only enabled by a hotkey, for security/performance)
@@ -977,7 +960,7 @@ void InitGraphics(const CmdLineArgs& args, int flags)
 	if(g_DisableAudio)
 		ISoundManager::SetEnabled(false);
 
-	g_GUI = new CGUIManager(g_ScriptingHost.GetScriptInterface());
+	g_GUI = new CGUIManager();
 
 	// (must come after SetVideoMode, since it calls ogl_Init)
 	if (ogl_HaveExtensions(0, "GL_ARB_vertex_program", "GL_ARB_fragment_program", NULL) != 0 // ARB
@@ -1036,11 +1019,11 @@ void InitGraphics(const CmdLineArgs& args, int flags)
 			CScriptValRooted data;
 			if (g_GUI)
 			{
-				ScriptInterface& scriptInterface = g_GUI->GetScriptInterface();
-				scriptInterface.Eval("({})", data);
-				scriptInterface.SetProperty(data.get(), "isStartup", true);
+				shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetScriptInterface();
+				scriptInterface->Eval("({})", data);
+				scriptInterface->SetProperty(data.get(), "isStartup", true);
 			}
-			InitPs(setup_gui, L"page_pregame.xml", data.get());
+			InitPs(setup_gui, L"page_pregame.xml", g_GUI->GetScriptInterface().get(), data.get());
 		}
 	}
 	catch (PSERROR_Game_World_MapLoadFailed& e)
@@ -1048,7 +1031,7 @@ void InitGraphics(const CmdLineArgs& args, int flags)
 		// Map Loading failed
 
 		// Start the engine so we have a GUI
-		InitPs(true, L"page_pregame.xml", JSVAL_VOID);
+		InitPs(true, L"page_pregame.xml", NULL, JSVAL_VOID);
 
 		// Call script function to do the actual work
 		//	(delete game data, switch GUI page, show error, etc.)
@@ -1262,9 +1245,8 @@ bool Autostart(const CmdLineArgs& args)
 	scriptInterface.SetProperty(attrs.get(), "settings", settings);
 
 	CScriptVal mpInitData;
-	g_GUI->GetScriptInterface().Eval("({isNetworked:true, playerAssignments:{}})", mpInitData);
-	g_GUI->GetScriptInterface().SetProperty(mpInitData.get(), "attribs",
-			CScriptVal(g_GUI->GetScriptInterface().CloneValueFromOtherContext(scriptInterface, attrs.get())));
+	scriptInterface.Eval("({isNetworked:true, playerAssignments:{}})", mpInitData);
+	scriptInterface.SetProperty(mpInitData.get(), "attribs", attrs);
 
 	// Get optional playername
 	CStrW userName = L"anonymous";
@@ -1275,7 +1257,7 @@ bool Autostart(const CmdLineArgs& args)
 
 	if (args.Has("autostart-host"))
 	{
-		InitPs(true, L"page_loading.xml", mpInitData.get());
+		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData.get());
 
 		size_t maxPlayers = 2;
 		if (args.Has("autostart-players"))
@@ -1296,7 +1278,7 @@ bool Autostart(const CmdLineArgs& args)
 	}
 	else if (args.Has("autostart-client"))
 	{
-		InitPs(true, L"page_loading.xml", mpInitData.get());
+		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData.get());
 
 		g_NetClient = new CNetClient(g_Game);
 		g_NetClient->SetUserName(userName);
@@ -1320,7 +1302,7 @@ bool Autostart(const CmdLineArgs& args)
 		PSRETURN ret = g_Game->ReallyStartGame();
 		ENSURE(ret == PSRETURN_OK);
 
-		InitPs(true, L"page_session.xml", JSVAL_VOID);
+		InitPs(true, L"page_session.xml", NULL, JSVAL_VOID);
 	}
 
 	return true;
@@ -1335,14 +1317,7 @@ void CancelLoad(const CStrW& message)
 	// So all GUI pages that load games should include this script
 	if (g_GUI && g_GUI->HasPages())
 	{
-		JSContext* cx = g_ScriptingHost.getContext();
-		jsval fval, rval;
-		JSBool ok = JS_GetProperty(cx, g_GUI->GetScriptObject(), "cancelOnError", &fval);
-		ENSURE(ok);
-
-		jsval msgval = ScriptInterface::ToJSVal(cx, message);
-
-		if (ok && !JSVAL_IS_VOID(fval))
-			JS_CallFunctionValue(cx, g_GUI->GetScriptObject(), fval, 1, &msgval, &rval);
+		if (g_GUI->GetActiveGUI()->GetScriptInterface()->HasProperty(g_GUI->GetActiveGUI()->GetGlobalObject(), "cancelOnError" ))
+			g_GUI->GetActiveGUI()->GetScriptInterface()->CallFunctionVoid(g_GUI->GetActiveGUI()->GetGlobalObject(), "cancelOnError", message);
 	}
 }

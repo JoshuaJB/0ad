@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -340,6 +340,7 @@ namespace glooxwrapper
 		virtual void handleMUCParticipantPresence(MUCRoom* room, const MUCRoomParticipant participant, const Presence& presence) = 0; // MUCRoom not supported
 		virtual void handleMUCMessage(MUCRoom* room, const Message& msg, bool priv) = 0; // MUCRoom not supported
 		virtual void handleMUCError(MUCRoom* room, gloox::StanzaError error) = 0; // MUCRoom not supported
+		virtual void handleMUCSubject(MUCRoom* room, const string& nick, const string& subject) = 0; // MUCRoom not supported
 	};
 
 	class GLOOXWRAPPER_API RegistrationHandler

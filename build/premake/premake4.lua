@@ -11,8 +11,10 @@ newoption { trigger = "without-nvtt", description = "Disable use of NVTT" }
 newoption { trigger = "without-tests", description = "Disable generation of test projects" }
 newoption { trigger = "without-pch", description = "Disable generation and usage of precompiled headers" }
 newoption { trigger = "without-lobby", description = "Disable the use of gloox and the multiplayer lobby" }
+newoption { trigger = "without-miniupnpc", description = "Disable use of miniupnpc for port forwarding" }
 newoption { trigger = "with-system-nvtt", description = "Search standard paths for nvidia-texture-tools library, instead of using bundled copy" }
 newoption { trigger = "with-system-enet", description = "Search standard paths for libenet, instead of using bundled copy" }
+newoption { trigger = "with-system-miniupnpc", description = "Search standard paths for libminiupnpc, instead of using bundled copy" }
 newoption { trigger = "with-system-mozjs185", description = "Search standard paths for libmozjs185, instead of using bundled copy" }
 newoption { trigger = "with-c++11", description = "Enable C++11 on GCC" }
 newoption { trigger = "sysroot", description = "Set compiler system root path, used for building against a non-system SDK. For example /usr/local becomes SYSROOT/user/local" }
@@ -180,6 +182,10 @@ function project_set_build_flags()
 
 	if _OPTIONS["without-lobby"] then
 		defines { "CONFIG2_LOBBY=0" }
+	end
+
+	if _OPTIONS["without-miniupnpc"] then
+		defines { "CONFIG2_MINIUPNPC=0" }
 	end
 
 	-- required for the lowlevel library. must be set from all projects that use it, otherwise it assumes it is
@@ -574,6 +580,9 @@ function setup_all_libs ()
 		"enet",
 		"boost",	-- dragged in via server->simulation.h->random
 	}
+	if not _OPTIONS["without-miniupnpc"] then
+		table.insert(extern_libs, "miniupnpc")
+	end
 	setup_static_lib_project("network", source_dirs, extern_libs, {})
 
 
@@ -581,6 +590,7 @@ function setup_all_libs ()
 		source_dirs = {
 			"lobby",
 			"lobby/scripting",
+			"third_party/encryption"
 		}
 
 		extern_libs = {
@@ -610,6 +620,7 @@ function setup_all_libs ()
 	else
 		source_dirs = {
 			"lobby/scripting",
+			"third_party/encryption"
 		}
 		extern_libs = {
 			"spidermonkey",
@@ -659,7 +670,6 @@ function setup_all_libs ()
 		"soundmanager/data",
 		"soundmanager/items",
 		"soundmanager/scripting",
-		"scripting",
 		"maths",
 		"maths/scripting",
 	}
@@ -724,6 +734,9 @@ function setup_all_libs ()
 		"opengl",
 		"boost",
 	}
+	if not _OPTIONS["without-audio"] then
+		table.insert(extern_libs, "openal")
+	end
 	setup_static_lib_project("gui", source_dirs, extern_libs, {})
 
 
@@ -865,6 +878,10 @@ end
 
 if not _OPTIONS["without-lobby"] then
 	table.insert(used_extern_libs, "gloox")
+end
+
+if not _OPTIONS["without-miniupnpc"] then
+	table.insert(used_extern_libs, "miniupnpc")
 end
 
 -- Bundles static libs together with main.cpp and builds game executable.

@@ -14,7 +14,6 @@
     <AlertnessMax>8</AlertnessMax>
   </BattleDetection>
   <EntityLimits>
-    <LimitMultiplier>1.0</LimitMultiplier>
     <Limits>
       <DefenseTower>30</DefenseTower>
       <Fortress>10</Fortress>
@@ -29,7 +28,16 @@
       <Council>1</Council>
       <Library>1</Library>
       <Lighthouse>1</Lighthouse>
+      <Juggernaut>1</Juggernaut>
     </Limits>
+    <LimitChangers>
+      <WarDog>
+        <Kennel>10</Kennel>
+      </WarDog>
+      <Pillar>
+        <Ashoka>5</Ashoka>
+      </Pillar>
+    </LimitChangers>
   </EntityLimits>
   <Player/>
   <StatisticsTracker/>

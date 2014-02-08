@@ -18,6 +18,7 @@
 #ifndef INCLUDED_SAVEDGAME
 #define INCLUDED_SAVEDGAME
 
+#include "scriptinterface/ScriptInterface.h"
 class CSimulation2;
 class ScriptInterface;
 class CScriptValRooted;
@@ -48,7 +49,7 @@ namespace SavedGames
  * @param playerID ID of the player who saved this file
  * @return INFO::OK if successfully saved, else an error Status
  */
-Status Save(const std::wstring& name, const std::wstring& description, CSimulation2& simulation, CGUIManager* gui, int playerID);
+Status Save(const std::wstring& name, const std::wstring& description, CSimulation2& simulation, shared_ptr<ScriptInterface::StructuredClone> guiMetadataClone, int playerID);
 
 /**
  * Create new saved game archive with given prefix and simulation data
@@ -60,7 +61,7 @@ Status Save(const std::wstring& name, const std::wstring& description, CSimulati
  * @param playerID ID of the player who saved this file
  * @return INFO::OK if successfully saved, else an error Status
  */
-Status SavePrefix(const std::wstring& prefix, const std::wstring& description, CSimulation2& simulation, CGUIManager* gui, int playerID);
+Status SavePrefix(const std::wstring& prefix, const std::wstring& description, CSimulation2& simulation, shared_ptr<ScriptInterface::StructuredClone> guiMetadataClone, int playerID);
 
 /**
  * Load saved game archive with the given name
@@ -91,6 +92,17 @@ std::vector<CScriptValRooted> GetSavedGames(ScriptInterface& scriptInterface);
  */
 bool DeleteSavedGame(const std::wstring& name);
 
+/**
+ * Gets info (version and mods loaded) on the running engine
+ *
+ * @param scriptInterface the ScriptInterface in which to create the return data.
+ * @return list of objects containing saved game data
+ */
+CScriptValRooted GetEngineInfo(ScriptInterface& scriptInterface);
+
 }
+
+// list of mods currently loaded
+extern std::vector<std::string> g_modsLoaded;
 
 #endif // INCLUDED_SAVEDGAME

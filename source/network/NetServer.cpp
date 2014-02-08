@@ -1,4 +1,4 @@
-/* Copyright (C) 2011 Wildfire Games.
+/* Copyright (C) 2013 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -29,6 +29,15 @@
 #include "ps/CLogger.h"
 #include "scriptinterface/ScriptInterface.h"
 #include "simulation2/Simulation2.h"
+#include "ps/ConfigDB.h"
+
+#if CONFIG2_MINIUPNPC
+// Next four files are for UPnP port forwarding.
+#include <miniupnpc/miniwget.h>
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/upnpcommands.h>
+#include <miniupnpc/upnperrors.h>
+#endif
 
 #define	DEFAULT_SERVER_NAME			L"Unnamed Server"
 #define DEFAULT_WELCOME_MESSAGE		L"Welcome"
@@ -182,6 +191,12 @@ bool CNetServerWorker::SetupConnection()
 	int ret = pthread_create(&m_WorkerThread, NULL, &RunThread, this);
 	ENSURE(ret == 0);
 
+#if CONFIG2_MINIUPNPC
+	// Launch the UPnP thread
+	ret = pthread_create(&m_UPnPThread, NULL, &SetupUPnP, NULL);
+	ENSURE(ret == 0);
+#endif
+
 	return true;
 }
 
@@ -218,6 +233,106 @@ bool CNetServerWorker::PunchHole(const char * ipAddress)
 	}
 	return true;
 }
+
+#if CONFIG2_MINIUPNPC
+void* CNetServerWorker::SetupUPnP(void*)
+{
+	// Values we want to set.
+	char psPort[6];
+	sprintf_s(psPort, ARRAY_SIZE(psPort), "%d", PS_DEFAULT_PORT);
+	const char* leaseDuration = "0"; // Indefinite/permanent lease duration.
+	const char* description = "0AD Multiplayer";
+	const char* protocall = "UDP";
+	char internalIPAddress[64];
+	char externalIPAddress[40];
+	// Variables to hold the values that actually get set.
+	char intClient[40];
+	char intPort[6];
+	char duration[16];
+	// Intermediate variables.
+	struct UPNPUrls urls;
+	struct IGDdatas data;
+	struct UPNPDev* devlist = 0;
+
+	// Cached root descriptor URL.
+	std::string rootDescURL;
+	CFG_GET_VAL("network.upnprootdescurl", String, rootDescURL);
+	if (!rootDescURL.empty())
+		LOGMESSAGE(L"Net server: attempting to use cached root descriptor URL: %hs", rootDescURL.c_str());
+
+	// Init the return variable for UPNP_GetValidIGD to 1 so things behave when using cached URLs.
+	int ret = 1;
+
+	// If we have a cached URL, try that first, otherwise try getting a valid UPnP device for 10 seconds. We also get our LAN address here.
+	if (!((!rootDescURL.empty() && UPNP_GetIGDFromUrl(rootDescURL.c_str(), &urls, &data, internalIPAddress, sizeof(internalIPAddress)))
+	  || ((devlist = upnpDiscover(10000, 0, 0, 0, 0, 0)) != NULL && (ret = UPNP_GetValidIGD(devlist, &urls, &data, internalIPAddress, sizeof(internalIPAddress))) != 0)))
+	{
+		LOGMESSAGE(L"Net server: upnpDiscover failed and no working cached URL.");
+		return NULL;
+	}
+
+	switch (ret)
+	{
+	case 1:
+		LOGMESSAGE(L"Net server: found valid IGD = %hs", urls.controlURL);
+		break;
+	case 2:
+		LOGMESSAGE(L"Net server: found a valid, not connected IGD = %hs, will try to continue anyway", urls.controlURL);
+		break;
+	case 3:
+		LOGMESSAGE(L"Net server: found a UPnP device unrecognized as IGD = %hs, will try to continue anyway", urls.controlURL);
+		break;
+	default:
+		debug_warn(L"Unrecognized return value from UPNP_GetValidIGD");
+	}
+
+	// Try getting our external/internet facing IP. TODO: Display this on the game-setup page for conviniance.
+	ret = UPNP_GetExternalIPAddress(urls.controlURL, data.first.servicetype, externalIPAddress);
+	if (ret != UPNPCOMMAND_SUCCESS)
+	{
+		LOGMESSAGE(L"Net server: GetExternalIPAddress failed with code %d (%hs)", ret, strupnperror(ret));
+		return NULL;
+	}
+	LOGMESSAGE(L"Net server: ExternalIPAddress = %hs", externalIPAddress);
+
+	// Try to setup port forwarding.
+	ret = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype, psPort, psPort,
+							internalIPAddress, description, protocall, 0, leaseDuration);
+	if (ret != UPNPCOMMAND_SUCCESS)
+	{
+		LOGMESSAGE(L"Net server: AddPortMapping(%hs, %hs, %hs) failed with code %d (%hs)",
+			   psPort, psPort, internalIPAddress, ret, strupnperror(ret));
+		return NULL;
+	}
+
+	// Check that the port was actually forwarded.
+	ret = UPNP_GetSpecificPortMappingEntry(urls.controlURL,
+									 data.first.servicetype,
+									 psPort, protocall,
+									 intClient, intPort, NULL/*desc*/,
+									 NULL/*enabled*/, duration);
+
+	if (ret != UPNPCOMMAND_SUCCESS)
+	{
+		LOGMESSAGE(L"Net server: GetSpecificPortMappingEntry() failed with code %d (%hs)", ret, strupnperror(ret));
+		return NULL;
+	}
+
+	LOGMESSAGE(L"Net server: External %hs:%hs %hs is redirected to internal %hs:%hs (duration=%hs)",
+				   externalIPAddress, psPort, protocall, intClient, intPort, duration);
+
+	// Cache root descriptor URL to try to avoid discovery next time.
+	g_ConfigDB.SetValueString(CFG_USER, "network.upnprootdescurl", urls.controlURL);
+	g_ConfigDB.WriteFile(CFG_USER);
+	LOGMESSAGE(L"Net server: cached UPnP root descriptor URL as %hs", urls.controlURL);
+
+	// Make sure everything is properly freed.
+	FreeUPNPUrls(&urls);
+	freeUPNPDevlist(devlist);
+
+	return NULL;
+}
+#endif // CONFIG2_MINIUPNPC
 
 bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
 {
@@ -264,7 +379,6 @@ void CNetServerWorker::Run()
 	// To avoid the need for JS_SetContextThread, we create and use and destroy
 	// the script interface entirely within this network thread
 	m_ScriptInterface = new ScriptInterface("Engine", "Net server", ScriptInterface::CreateRuntime());
-
 	while (true)
 	{
 		if (!RunStep())

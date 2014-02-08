@@ -1,4 +1,4 @@
-/* Copyright (C) 2013 Wildfire Games.
+/* Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -51,7 +51,7 @@ private:
 
 public:
 	//Basic
-	XmppClient(const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, bool regOpt = false);
+	XmppClient(const std::string& sUsername, const std::string& sPassword, const std::string& sRoom, const std::string& sNick, const int historyRequestSize = 0, const bool regOpt = false);
 	virtual ~XmppClient();
 
 	//Network
@@ -60,6 +60,7 @@ public:
 	void recv();
 	void SendIqGetGameList();
 	void SendIqGetBoardList();
+	void SendIqGetRatingList();
 	void SendIqGameReport(ScriptInterface& scriptInterface, CScriptVal data);
 	void SendIqRegisterGame(ScriptInterface& scriptInterface, CScriptVal data);
 	void SendIqUnregisterGame();
@@ -71,11 +72,11 @@ public:
 	void ban(const std::string& nick, const std::string& reason);
 	void SetPresence(const std::string& presence);
 	void GetPresence(const std::string& nickname, std::string& presence);
+	void GetSubject(std::string& subject);
 
 	CScriptValRooted GUIGetPlayerList(ScriptInterface& scriptInterface);
 	CScriptValRooted GUIGetGameList(ScriptInterface& scriptInterface);
 	CScriptValRooted GUIGetBoardList(ScriptInterface& scriptInterface);
-
 	//Script
 	ScriptInterface& GetScriptInterface();
 
@@ -85,9 +86,9 @@ protected:
 	virtual void handleMUCParticipantPresence(glooxwrapper::MUCRoom*, const glooxwrapper::MUCRoomParticipant, const glooxwrapper::Presence&);
 	virtual void handleMUCError(glooxwrapper::MUCRoom*, gloox::StanzaError);
 	virtual void handleMUCMessage(glooxwrapper::MUCRoom* room, const glooxwrapper::Message& msg, bool priv);
+	virtual void handleMUCSubject(glooxwrapper::MUCRoom*, const glooxwrapper::string& nick, const glooxwrapper::string& subject);
 	/* MUC handlers not supported by glooxwrapper */
 	// virtual bool handleMUCRoomCreation(glooxwrapper::MUCRoom*) {return false;}
-	// virtual void handleMUCSubject(glooxwrapper::MUCRoom*, const std::string&, const std::string&) {}
 	// virtual void handleMUCInviteDecline(glooxwrapper::MUCRoom*, const glooxwrapper::JID&, const std::string&) {}
 	// virtual void handleMUCInfo(glooxwrapper::MUCRoom*, int, const std::string&, const glooxwrapper::DataForm*) {}
 	// virtual void handleMUCItems(glooxwrapper::MUCRoom*, const std::list<gloox::Disco::Item*, std::allocator<gloox::Disco::Item*> >&) {}
@@ -116,6 +117,7 @@ protected:
 
 	// Helpers
 	void GetPresenceString(const gloox::Presence::PresenceType p, std::string& presence) const;
+	void GetRoleString(const gloox::MUCRoomRole r, std::string& role) const;
 	std::string StanzaErrorToString(gloox::StanzaError err);
 public:
 	/* Messages */
@@ -136,13 +138,15 @@ public:
 
 private:
 	/// Map of players
-	std::map<std::string, gloox::Presence::PresenceType> m_PlayerMap;
+	std::map<std::string, std::vector<std::string> > m_PlayerMap;
 	/// List of games
 	std::vector<const glooxwrapper::Tag*> m_GameList;
 	/// List of rankings
 	std::vector<const glooxwrapper::Tag*> m_BoardList;
-	/// Queue of messages
+	/// Queue of messages for the GUI
 	std::deque<GUIMessage> m_GuiMessageQueue;
+	/// Current room subject/topic.
+	std::string m_Subject;
 };
 
 #endif // XMPPCLIENT_H

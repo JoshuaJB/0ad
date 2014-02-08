@@ -41,7 +41,7 @@ var g_barterSell = 0;
 // Lay out a row of centered buttons (does not work inside a loop like the other function)
 function layoutButtonRowCentered(rowNumber, guiName, startIndex, endIndex, width)
 {
-	var buttonSideLength = getGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
+	var buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
 	var buttonSpacer = buttonSideLength+1;
 	var colNumber = 0;
 
@@ -51,8 +51,8 @@ function layoutButtonRowCentered(rowNumber, guiName, startIndex, endIndex, width
 
 	for (var i = startIndex; i < endIndex; i++)
 	{
-		var button = getGUIObjectByName("unit"+guiName+"Button["+i+"]");
-		var icon = getGUIObjectByName("unit"+guiName+"Icon["+i+"]");
+		var button = Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]");
+		var icon = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+i+"]");
 
 		if (button)
 		{
@@ -116,7 +116,7 @@ function layoutRow(objectName, rowNumber, guiName, objectSideWidth, objectSpacer
 
 	for (var i = startIndex; i < endIndex; i++)
 	{
-		var button = getGUIObjectByName("unit"+guiName+objectName+"["+i+"]");
+		var button = Engine.GetGUIObjectByName("unit"+guiName+objectName+"["+i+"]");
 
 		if (button)
 		{
@@ -142,13 +142,20 @@ function setOverlay(object, value)
 /**
  * Format entity count/limit message for the tooltip
  */
-function formatLimitString(trainEntLimit, trainEntCount)
+function formatLimitString(trainEntLimit, trainEntCount, trainEntLimitChangers)
 {
 	if (trainEntLimit == undefined)
 		return "";
 	var text = "\n\nCurrent Count: " + trainEntCount + ", Limit: " + trainEntLimit + ".";
 	if (trainEntCount >= trainEntLimit)
 		text = "[color=\"red\"]" + text + "[/color]";
+	for (var c in trainEntLimitChangers)
+	{
+		if (trainEntLimitChangers[c] > 0)
+			text += "\n" + c + " enlarges the limit with " + trainEntLimitChangers[c] + ".";
+		else if (trainEntLimitChangers[c] < 0)
+			text += "\n" + c + " lessens the limit with " + (-trainEntLimitChangers[c]) + ".";
+	}
 	return text;
 }
 
@@ -309,10 +316,10 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		// If a tech has been researched it leaves an empty slot
 		if (guiName == RESEARCH && !item)
 		{
-			getGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
+			Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
 			// We also remove the paired tech and the pair symbol
-			getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
-			getGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
+			Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
+			Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
 			continue;
 		}
 
@@ -380,7 +387,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				var name = getEntityNames(template);
 				var tooltip = name;
 				var count = g_Selection.groups.getCount(item);
-				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
+				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
 				break;
 
 			case QUEUE:
@@ -389,16 +396,16 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 					tooltip += "\n[color=\"red\"]Insufficient population capacity:\n[/color]"+getCostComponentDisplayName("population")+" "+item.neededSlots;
 
 				var progress = Math.round(item.progress*100) + "%";
-				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (item.count > 1 ? item.count : "");
+				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (item.count > 1 ? item.count : "");
 
 				if (i == 0)
 				{
-					getGUIObjectByName("queueProgress").caption = (item.progress ? progress : "");
-					var size = getGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size;
+					Engine.GetGUIObjectByName("queueProgress").caption = (item.progress ? progress : "");
+					var size = Engine.GetGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size;
 
 					// Buttons are assumed to be square, so left/right offsets can be used for top/bottom.
 					size.top = size.left + Math.round(item.progress * (size.right - size.left));
-					getGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size = size;
+					Engine.GetGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size = size;
 				}
 				break;
 
@@ -406,7 +413,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				var name = getEntityNames(template);
 				var tooltip = "Unload " + name + "\nSingle-click to unload 1. Shift-click to unload all of this type.";
 				var count = garrisonGroups.getCount(item);
-				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
+				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
 				break;
 
 			case GATE:
@@ -423,7 +430,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 					tooltip += "\n" + getEntityCostTooltip(template, wallCount);
 
-					var affordableMask = getGUIObjectByName("unitGateUnaffordable["+i+"]");
+					var affordableMask = Engine.GetGUIObjectByName("unitGateUnaffordable["+i+"]");
 					affordableMask.hidden = true;
 
 					var neededResources = Engine.GuiInterfaceCall("GetNeededResources", multiplyEntityCosts(template, wallCount));
@@ -440,7 +447,6 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				break;
 
 			case STANCE:
-			case FORMATION:
 				var tooltip = toTitleCase(item);
 				break;
 
@@ -460,9 +466,9 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 				tooltip += "\n" + getEntityCostTooltip(template, trainNum, unitEntState.id);
 
-				var [trainEntLimit, trainEntCount, canBeAddedCount] =
+				var [trainEntLimit, trainEntCount, canBeAddedCount, trainEntLimitChangers] =
 					getEntityLimitAndCount(playerState, entType);
-				tooltip += formatLimitString(trainEntLimit, trainEntCount);
+				tooltip += formatLimitString(trainEntLimit, trainEntCount, trainEntLimitChangers);
 
 				tooltip += "[color=\"255 251 131\"]" + formatBatchTrainingString(buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch) + "[/color]";
 				break;
@@ -492,9 +498,9 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				tooltip += "\n" + getEntityCostTooltip(template);
 				tooltip += getPopulationBonusTooltip(template);
 
-				var [entLimit, entCount, canBeAddedCount] =
+				var [entLimit, entCount, canBeAddedCount, entLimitChangers] =
 					getEntityLimitAndCount(playerState, entType);
-				tooltip += formatLimitString(entLimit, entCount);
+				tooltip += formatLimitString(entLimit, entCount, entLimitChangers);
 
 				break;
 
@@ -503,11 +509,11 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				if (item.name == "unload-all")
 				{
 					var count = garrisonGroups.getTotalCount();
-					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 0 ? count : "");
+					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 0 ? count : "");
 				}
 				else
 				{
-					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = "";
+					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = "";
 				}
 
 				tooltip = (item.tooltip ? item.tooltip : toTitleCase(item.name));
@@ -518,15 +524,15 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		}
 
 		// Button
-		var button = getGUIObjectByName("unit"+guiName+"Button["+i+"]");
-		var button1 = getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]");
-		var affordableMask = getGUIObjectByName("unit"+guiName+"Unaffordable["+i+"]");
-		var affordableMask1 = getGUIObjectByName("unit"+guiName+"Unaffordable["+(i+rowLength)+"]");
-		var icon = getGUIObjectByName("unit"+guiName+"Icon["+i+"]");
-		var guiSelection = getGUIObjectByName("unit"+guiName+"Selection["+i+"]");
-		var pair = getGUIObjectByName("unit"+guiName+"Pair["+i+"]");
+		var button = Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]");
+		var button1 = Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]");
+		var affordableMask = Engine.GetGUIObjectByName("unit"+guiName+"Unaffordable["+i+"]");
+		var affordableMask1 = Engine.GetGUIObjectByName("unit"+guiName+"Unaffordable["+(i+rowLength)+"]");
+		var icon = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+i+"]");
+		var guiSelection = Engine.GetGUIObjectByName("unit"+guiName+"Selection["+i+"]");
+		var pair = Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]");
 		button.hidden = false;
-		button.tooltip = tooltip;
+		button.tooltip = tooltip || "";
 
 		// Button Function (need nested functions to get the closure right)
 		// Items can have a callback element that overrides the normal caller-supplied callback function.
@@ -544,14 +550,14 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			{
 				button.onpress = (function(e){ return function() { callback(e) } })(item.bottom);
 
-				var icon1 = getGUIObjectByName("unit"+guiName+"Icon["+(i+rowLength)+"]");
+				var icon1 = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+(i+rowLength)+"]");
 				button1.hidden = false;
 				button1.tooltip = tooltip1;
 				button1.onpress = (function(e){ return function() { callback(e) } })(item.top);
 
 				// when we hover over a pair, the other one gets a red cross over it to show it won't be available any more.
-				var unchosenIcon = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
-				var unchosenIcon1 = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+(i+rowLength)+"]");
+				var unchosenIcon = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
+				var unchosenIcon1 = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+(i+rowLength)+"]");
 
 				button1.onmouseenter = (function(e){ return function() { setOverlay(e, true) } })(unchosenIcon);
 				button1.onmouseleave = (function(e){ return function() { setOverlay(e, false) } })(unchosenIcon);
@@ -564,7 +570,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			else
 			{
 				// Hide the overlay.
-				var unchosenIcon = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
+				var unchosenIcon = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
 				unchosenIcon.hidden = true;
 			}
 		}
@@ -572,11 +578,10 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		// Get icon image
 		if (guiName == FORMATION)
 		{
-			var formationOk = Engine.GuiInterfaceCall("CanMoveEntsIntoFormation", {
-				"ents": g_Selection.toList(),
-				"formationName": item
-			});
+			var formationInfo = Engine.GuiInterfaceCall("GetFormationInfoFromTemplate", {"templateName": item});
 
+			button.tooltip = formationInfo.name;
+			var formationOk = canMoveSelectionIntoFormation(item);
 			var grayscale = "";
 			button.enabled = formationOk;
 			if (!formationOk)
@@ -584,31 +589,16 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				grayscale = "grayscale:";
 
 				// Display a meaningful tooltip why the formation is disabled
-				var requirements = Engine.GuiInterfaceCall("GetFormationRequirements", {
-					"formationName": item
-				});
-
- 				button.tooltip += " (disabled)";
-				if (requirements.count > 1)
-					button.tooltip += "\n" + requirements.count + " units required";
-				if (requirements.classesRequired)
-				{
-					button.tooltip += "\nOnly units of type";
-					for each (var classRequired in requirements.classesRequired)
-					{
-						button.tooltip += " " + classRequired;
-					}
-					button.tooltip += " allowed.";
-				}
+ 				button.tooltip += " (disabled)"+formationInfo.tooltip;
  			}
 
 			var formationSelected = Engine.GuiInterfaceCall("IsFormationSelected", {
 				"ents": g_Selection.toList(),
-				"formationName": item
+				"formationTemplate": item
 			});
 
 			guiSelection.hidden = !formationSelected;
-			icon.sprite = "stretched:"+grayscale+"session/icons/formations/"+item.replace(/\s+/,'').toLowerCase()+".png";
+			icon.sprite = "stretched:"+grayscale+"session/icons/"+item+".png";
 
  		}
 		else if (guiName == STANCE)
@@ -789,7 +779,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 						trainNum = buildingsCountToTrainFullBatch * fullBatchSize + remainderBatch;
 						button_disableable = !Engine.HotkeyIsPressed("selection.remove");
 					}
-					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (batchTrainingCount > 0) ? batchTrainingCount : "";
+					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (batchTrainingCount > 0) ? batchTrainingCount : "";
 				}
 
 				// Walls have no cost defined.
@@ -831,11 +821,11 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 	var numRows = Math.ceil(numButtons / rowLength);
 
-	var buttonSideLength = getGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
+	var buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
 
 	// We sort pairs upside down, so get the size from the topmost button.
 	if (guiName == RESEARCH)
-		buttonSideLength = getGUIObjectByName("unit"+guiName+"Button["+(rowLength*numRows)+"]").size.bottom;
+		buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button["+(rowLength*numRows)+"]").size.bottom;
 
 	var buttonSpacer = buttonSideLength+1;
 
@@ -863,7 +853,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 	// Layout pair icons
 	if (guiName == RESEARCH)
 	{
-		var pairSize = getGUIObjectByName("unit"+guiName+"Pair[0]").size;
+		var pairSize = Engine.GetGUIObjectByName("unit"+guiName+"Pair[0]").size;
 		var pairSideWidth = pairSize.right;
 		var pairSideHeight = pairSize.bottom;
 		var pairSpacerHeight = pairSideHeight + 1;
@@ -875,7 +865,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 	// Resize Queue panel if needed
 	if (guiName == QUEUE) // or garrison
 	{
-		var panel = getGUIObjectByName("unitQueuePanel");
+		var panel = Engine.GetGUIObjectByName("unitQueuePanel");
 		var size = panel.size;
 		size.top = (UNIT_PANEL_BASE - ((numRows-1)*UNIT_PANEL_HEIGHT));
 		panel.size = size;
@@ -883,15 +873,15 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 	// Hide any buttons we're no longer using
 	for (var i = numButtons; i < g_unitPanelButtons[guiName]; ++i)
-		getGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
+		Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
 
 	// Hide unused pair buttons and symbols
 	if (guiName == RESEARCH)
 	{
 		for (var i = numButtons; i < g_unitPanelButtons[guiName]; ++i)
 		{
-			getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
-			getGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
+			Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
+			Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
 		}
 	}
 
@@ -903,20 +893,23 @@ function setupUnitTradingPanel(usedPanels, unitEntState, selection)
 {
 	usedPanels[TRADING] = 1;
 
+	var requiredGoods = unitEntState.trader.requiredGoods;
 	for (var i = 0; i < TRADING_RESOURCES.length; i++)
 	{
 		var resource = TRADING_RESOURCES[i];
-		var button = getGUIObjectByName("unitTradingButton["+i+"]");
+		var button = Engine.GetGUIObjectByName("unitTradingButton["+i+"]");
 		button.size = (i * 46) + " 0 " + ((i + 1) * 46) + " 46";
-		var selectTradingPreferredGoodsData = { "entities": selection, "preferredGoods": resource };
-		button.onpress = (function(e){ return function() { selectTradingPreferredGoods(e); } })(selectTradingPreferredGoodsData);
+		if (resource == requiredGoods)
+			var selectRequiredGoodsData = { "entities": selection, "requiredGoods": undefined };
+		else
+			var selectRequiredGoodsData = { "entities": selection, "requiredGoods": resource };
+		button.onpress = (function(e){ return function() { selectRequiredGoods(e); } })(selectRequiredGoodsData);
 		button.enabled = true;
-		button.tooltip = "Set " + resource + " as trading goods";
-		var icon = getGUIObjectByName("unitTradingIcon["+i+"]");
-		var preferredGoods = unitEntState.trader.preferredGoods;
-		var selected = getGUIObjectByName("unitTradingSelection["+i+"]");
-		selected.hidden = !(resource == preferredGoods);
-		var grayscale = (resource != preferredGoods) ? "grayscale:" : "";
+		button.tooltip = "Set/unset " + resource + " as forced trading goods.";
+		var icon = Engine.GetGUIObjectByName("unitTradingIcon["+i+"]");
+		var selected = Engine.GetGUIObjectByName("unitTradingSelection["+i+"]");
+		selected.hidden = !(resource == requiredGoods);
+		var grayscale = (resource != requiredGoods) ? "grayscale:" : "";
 		icon.sprite = "stretched:"+grayscale+"session/icons/resources/" + resource + ".png";
 	}
 }
@@ -940,15 +933,15 @@ function setupUnitBarterPanel(unitEntState, playerState)
 			if (j == 0)
 			{
 				// Display the selection overlay
-				var selection = getGUIObjectByName("unitBarter" + action + "Selection["+i+"]");
+				var selection = Engine.GetGUIObjectByName("unitBarter" + action + "Selection["+i+"]");
 				selection.hidden = !(i == g_barterSell);
 			}
 
 			// We gray out the not selected icons in 'sell' row
 			var grayscale = (j == 0 && i != g_barterSell) ? "grayscale:" : "";
-			var icon = getGUIObjectByName("unitBarter" + action + "Icon["+i+"]");
+			var icon = Engine.GetGUIObjectByName("unitBarter" + action + "Icon["+i+"]");
 
-			var button = getGUIObjectByName("unitBarter" + action + "Button["+i+"]");
+			var button = Engine.GetGUIObjectByName("unitBarter" + action + "Button["+i+"]");
 			button.size = (i * 46) + " 0 " + ((i + 1) * 46) + " 46";
 			var amountToBuy;
 			// We don't display a button in 'buy' row if the same resource is selected in 'sell' row
@@ -980,7 +973,7 @@ function setupUnitBarterPanel(unitEntState, playerState)
 					var hidden = neededResources ? false : true;
 					for (var ii = 0; ii < BARTER_RESOURCES.length; ii++)
 					{
-						var affordableMask = getGUIObjectByName("unitBarterBuyUnaffordable["+ii+"]");
+						var affordableMask = Engine.GetGUIObjectByName("unitBarterBuyUnaffordable["+ii+"]");
 						affordableMask.hidden = hidden;
 					}
 				}
@@ -993,7 +986,7 @@ function setupUnitBarterPanel(unitEntState, playerState)
 				button.onpress = (function(exchangeResourcesParameters){ return function() { exchangeResources(exchangeResourcesParameters); } })(exchangeResourcesParameters);
 				amount = amountToBuy;
 			}
-			getGUIObjectByName("unitBarter" + action + "Amount["+i+"]").caption = amount;
+			Engine.GetGUIObjectByName("unitBarter" + action + "Amount["+i+"]").caption = amount;
 		}
 	}
 }
@@ -1062,15 +1055,15 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 				function (item) { performStance(entState.id, item); } );
 		}
 
-		getGUIObjectByName("unitBarterPanel").hidden = !entState.barterMarket;
+		Engine.GetGUIObjectByName("unitBarterPanel").hidden = !entState.barterMarket;
 		if (entState.barterMarket)
 		{
 			usedPanels["Barter"] = 1;
 			setupUnitBarterPanel(entState, playerState);
 		}
 
-		var buildableEnts = getAllBuildableEntities(selection);
-		var trainableEnts = getAllTrainableEntities(selection);
+		var buildableEnts = getAllBuildableEntitiesFromSelection();
+		var trainableEnts = getAllTrainableEntitiesFromSelection();
 
 		// Whether the GUI's right panel has been filled.
 		var rightUsed = true;
@@ -1082,8 +1075,8 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 		else if (entState.production && entState.production.entities)
 			setupUnitPanel(TRAINING, usedPanels, entState, playerState, trainableEnts,
 				function (trainEntType) { addTrainingToQueue(selection, trainEntType, playerState); } );
-		else if (entState.trader)
-			setupUnitTradingPanel(usedPanels, entState, selection);
+//		else if (entState.trader)
+//			setupUnitTradingPanel(usedPanels, entState, selection);
 		else if (!entState.foundation && entState.gate || hasClass(entState, "LongWall"))
 		{
 			// Allow long wall pieces to be converted to gates
@@ -1240,7 +1233,7 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 	var offset = 0;
 	for each (var panelName in g_unitPanels)
 	{
-		var panel = getGUIObjectByName("unit" + panelName + "Panel");
+		var panel = Engine.GetGUIObjectByName("unit" + panelName + "Panel");
 		if (usedPanels[panelName])
 			panel.hidden = false;
 		else
@@ -1252,7 +1245,7 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 function hideUnitCommands()
 {
 	for each (var panelName in g_unitPanels)
-		getGUIObjectByName("unit" + panelName + "Panel").hidden = true;
+		Engine.GetGUIObjectByName("unit" + panelName + "Panel").hidden = true;
 }
 
 // Get all of the available entities which can be trained by the selected entities
@@ -1272,6 +1265,14 @@ function getAllTrainableEntities(selection)
 	return trainableEnts;
 }
 
+function getAllTrainableEntitiesFromSelection()
+{
+	if (!g_allTrainableEntities)
+		g_allTrainableEntities = getAllTrainableEntities(g_Selection.toList());
+
+	return g_allTrainableEntities;
+}
+
 // Get all of the available entities which can be built by the selected entities
 function getAllBuildableEntities(selection)
 {
@@ -1287,4 +1288,25 @@ function getAllBuildableEntities(selection)
 	// Remove duplicates
 	removeDupes(buildableEnts);
 	return buildableEnts;
+}
+
+function getAllBuildableEntitiesFromSelection()
+{
+	if (!g_allBuildableEntities)
+		g_allBuildableEntities = getAllBuildableEntities(g_Selection.toList());
+
+	return g_allBuildableEntities;
+}
+
+// Check if the selection can move into formation, and cache the result
+function canMoveSelectionIntoFormation(formationTemplate)
+{
+	if (!(formationTemplate in g_canMoveIntoFormation))
+	{
+		g_canMoveIntoFormation[formationTemplate] = Engine.GuiInterfaceCall("CanMoveEntsIntoFormation", {
+			"ents": g_Selection.toList(),
+			"formationTemplate": formationTemplate
+		});
+	}
+	return g_canMoveIntoFormation[formationTemplate];
 }

@@ -5,9 +5,9 @@
     <Classes datatype="tokens">Camel</Classes>
 	<SelectionGroupName>units/ptol_cavalry_archer_b</SelectionGroupName>
 	<GenericName>Nabataean Camel Archer</GenericName>
-    <SpecificName>?</SpecificName>
+    <SpecificName>Mutsābiq Gamal Nabatu</SpecificName>
     <History>?</History>
-	<Icon>units/pers_cavalry_archer.png</Icon>
+	<Icon>units/ptol_cavalry_archer.png</Icon>
     <Tooltip>Classes: Ranged Cavalry Camel Archer.
 Counters: 2x vs. Spearmen, 1.5x vs. Swordsmen.
 Countered by: Skirmishers and Elephants.

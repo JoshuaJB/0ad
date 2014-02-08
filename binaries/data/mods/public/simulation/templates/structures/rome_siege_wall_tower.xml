@@ -3,7 +3,7 @@
   <Armour>
     <Hack>15.0</Hack>
     <Pierce>35.0</Pierce>
-    <Crush>10.0</Crush>
+    <Crush>5.0</Crush>
     <Foundation>
       <Hack>4.0</Hack>
       <Pierce>7.0</Pierce>
@@ -15,7 +15,7 @@
   </BuildRestrictions>
   <Cost>
     <Resources>
-      <wood>80</wood>
+      <wood>100</wood>
       <stone>0</stone>
     </Resources>
   </Cost>
@@ -24,7 +24,7 @@
     <Height>14.0</Height>
   </Footprint>
   <Health>
-    <Max>3000</Max>
+    <Max>2000</Max>
   </Health>
   <Identity>
     <Civ>rome</Civ>

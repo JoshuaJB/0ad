@@ -19,13 +19,15 @@ Player.prototype.Init = function()
 		"metal": 300,
 		"stone": 300
 	};
-	
+	this.tradingGoods = [                      // goods for next trade-route and its proba in % (the sum of probas must be 100)
+		{ "goods":  "wood", "proba": 30 },
+		{ "goods": "stone", "proba": 35 },
+		{ "goods": "metal", "proba": 35 } ];
 	this.team = -1;	// team number of the player, players on the same team will always have ally diplomatic status - also this is useful for team emblems, scoring, etc.
 	this.teamsLocked = false;
 	this.state = "active"; // game state - one of "active", "defeated", "won"
 	this.diplomacy = [];	// array of diplomatic stances for this player with respect to other players (including gaia and self)
 	this.conquestCriticalEntitiesCount = 0; // number of owned units with ConquestCritical class
-	this.phase = "village";
 	this.formations = [];
 	this.startCam = undefined;
 	this.controlAllUnits = false;
@@ -34,7 +36,7 @@ Player.prototype.Init = function()
 	this.cheatsEnabled = false;
 	this.cheatTimeMultiplier = 1;
 	this.heroes = [];
-	Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager).CheckPlayers();
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager).CheckConquestCriticalEntities();
 };
 
 Player.prototype.SetPlayerID = function(id)
@@ -100,6 +102,11 @@ Player.prototype.GetPopulationCount = function()
 Player.prototype.SetPopulationBonuses = function(num)
 {
 	this.popBonuses = num;
+};
+
+Player.prototype.AddPopulationBonuses = function(num)
+{
+	this.popBonuses += num;
 };
 
 Player.prototype.GetPopulationLimit = function()
@@ -191,7 +198,7 @@ Player.prototype.GetNeededResources = function(amounts)
 	var amountsNeeded = {};
 	for (var type in amounts)
 		if (this.resourceCount[type] != undefined && amounts[type] > this.resourceCount[type])
-			amountsNeeded[type] = amounts[type] - this.resourceCount[type];
+			amountsNeeded[type] = amounts[type] - Math.floor(this.resourceCount[type]);
 
 	if (Object.keys(amountsNeeded).length == 0)
 		return undefined;
@@ -232,6 +239,45 @@ Player.prototype.TrySubtractResources = function(amounts)
 			cmpStatisticsTracker.IncreaseResourceUsedCounter(type, amounts[type]);
 
 	return true;
+};
+
+Player.prototype.GetNextTradingGoods = function()
+{
+	var value = 100*Math.random();
+	var last = this.tradingGoods.length - 1;
+	var sumProba = 0;
+	for (var i = 0; i < last; ++i)
+	{
+		sumProba += this.tradingGoods[i].proba;
+		if (value < sumProba)
+			return this.tradingGoods[i].goods;
+	}
+	return this.tradingGoods[last].goods;
+};
+
+Player.prototype.GetTradingGoods = function()
+{
+	var tradingGoods = {};
+	for each (var resource in this.tradingGoods)
+		tradingGoods[resource.goods] = resource.proba;
+
+	return tradingGoods;
+};
+
+Player.prototype.SetTradingGoods = function(tradingGoods)
+{
+	var sumProba = 0;
+	for (var resource in tradingGoods)
+		sumProba += tradingGoods[resource];
+	if (sumProba != 100)	// consistency check
+	{
+		error("Player.js SetTradingGoods: " + uneval(tradingGoods));
+		tradingGoods = { "food": 20, "wood":20, "stone":30, "metal":30 };
+	}
+
+	this.tradingGoods = [];
+	for (var resource in tradingGoods)
+		this.tradingGoods.push( {"goods": resource, "proba": tradingGoods[resource]} );
 };
 
 Player.prototype.GetState = function()
@@ -501,13 +547,10 @@ Player.prototype.OnGlobalOwnershipChanged = function(msg)
 			this.conquestCriticalEntitiesCount--;
 
 		if (this.conquestCriticalEntitiesCount == 0) // end game when needed
-			Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager).CheckPlayers();
+			Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager).CheckConquestCriticalEntities();
 
 		if (cmpCost)
-		{
 			this.popUsed -= cmpCost.GetPopCost();
-			this.popBonuses -= cmpCost.GetPopBonus();
-		}
 
 		if (cmpIdentity && cmpIdentity.HasClass("Hero"))
 		{
@@ -523,10 +566,7 @@ Player.prototype.OnGlobalOwnershipChanged = function(msg)
 			this.conquestCriticalEntitiesCount++;
 
 		if (cmpCost)
-		{
 			this.popUsed += cmpCost.GetPopCost();
-			this.popBonuses += cmpCost.GetPopBonus();
-		}
 
 		if (cmpIdentity && cmpIdentity.HasClass("Hero"))
 			this.heroes.push(msg.entity);
@@ -569,6 +609,7 @@ Player.prototype.OnPlayerDefeated = function(msg)
 Player.prototype.OnDiplomacyChanged = function()
 {
 	this.UpdateSharedLos();
+	Engine.QueryInterface(SYSTEM_ENTITY, IID_EndGameManager).CheckConquestCriticalEntities();
 };
 
 Player.prototype.SetCheatsEnabled = function(flag)

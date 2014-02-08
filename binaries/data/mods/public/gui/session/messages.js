@@ -136,7 +136,12 @@ function displayNotifications()
 	var messages = [];
 	for each (var n in notifications)
 		messages.push(n.message);
-	getGUIObjectByName("notificationText").caption = messages.join("\n");
+	Engine.GetGUIObjectByName("notificationText").caption = messages.join("\n");
+}
+
+function updateTimeNotifications()
+{
+	Engine.GetGUIObjectByName("timeNotificationText").caption = Engine.GuiInterfaceCall("GetTimeNotificationText");
 }
 
 // Returns [username, playercolor] for the given player
@@ -162,7 +167,7 @@ function handleNetMessage(message)
 		if (g_Disconnected)
 			return;
 
-		var obj = getGUIObjectByName("netStatus");
+		var obj = Engine.GetGUIObjectByName("netStatus");
 		switch (message.status)
 		{
 		case "waiting_for_players":
@@ -260,7 +265,7 @@ function submitChatDirectly(text)
 
 function submitChatInput()
 {
-	var input = getGUIObjectByName("chatInput");
+	var input = Engine.GetGUIObjectByName("chatInput");
 	var text = input.caption;
 	var isCheat = false;
 	if (text.length)
@@ -273,22 +278,36 @@ function submitChatInput()
 				if (text.indexOf(cheat) !== 0)
 					continue;
 
-				var number;
-				if (cheats[cheat].DefaultNumber !== undefined)
+				// test for additional parameter which is the rest of the string after the cheat
+				var parameter = "";
+				if (cheats[cheat].DefaultParameter !== undefined)
 				{
-					// Match the first word in the substring.
-					var match = text.substr(cheat.length).match(/\S+/);
-					if (match && match[0])
-						number = Math.floor(match[0]);
+					var par = text.substr(cheat.length);
+					par = par.replace(/^\W+/, '').replace(/\W+$/, ''); // remove whitespaces at start and end
 
-					if (number <= 0 || isNaN(number))
-						number = cheats[cheat].DefaultNumber;
+					// check, if the isNumeric flag is set
+					if (cheats[cheat].isNumeric)
+					{
+						// Match the first word in the substring.
+						var match = par.match(/\S+/);
+						if (match && match[0])
+							par = Math.floor(match[0]);
+						// check, if valid number could be parsed
+						if (par <= 0 || isNaN(par))
+							par = "";
+					}
+
+					// replace default parameter, if not empty or number
+					if (par.length > 0 || parseFloat(par) === par)
+						parameter = par;
+					else
+						parameter = cheats[cheat].DefaultParameter;
 				}
 
 				Engine.PostNetworkCommand({
 					"type": "cheat",
 					"action": cheats[cheat].Action,
-					"number": number,
+					"parameter": parameter,
 					"text": cheats[cheat].Type,
 					"selected": g_Selection.toList(),
 					"templates": cheats[cheat].Templates,
@@ -300,7 +319,7 @@ function submitChatInput()
 
 		if (!isCheat)
 		{
-			if (getGUIObjectByName("toggleTeamChat").checked)
+			if (Engine.GetGUIObjectByName("toggleTeamChat").checked)
 				text = "/team " + text;
 
 			if (g_IsNetworked)
@@ -438,7 +457,7 @@ function addChatMessage(msg, playerAssignments)
 	if (chatMessages.length > MAX_NUM_CHAT_LINES)
 		removeOldChatMessages();
 	else
-		getGUIObjectByName("chatText").caption = chatMessages.join("\n");
+		Engine.GetGUIObjectByName("chatText").caption = chatMessages.join("\n");
 }
 
 function removeOldChatMessages()
@@ -446,7 +465,7 @@ function removeOldChatMessages()
 	clearTimeout(chatTimers[0]); // The timer only needs to be cleared when new messages bump old messages off
 	chatTimers.shift();
 	chatMessages.shift();
-	getGUIObjectByName("chatText").caption = chatMessages.join("\n");
+	Engine.GetGUIObjectByName("chatText").caption = chatMessages.join("\n");
 }
 
 // Parses chat messages for commands.

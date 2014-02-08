@@ -7,7 +7,7 @@
   </Armour>
   <Attack>
     <Melee>
-      <Hack>7.0</Hack>
+      <Hack>10.0</Hack>
       <Pierce>0.0</Pierce>
       <Crush>0.0</Crush>
       <MaxRange>8.0</MaxRange>
@@ -24,7 +24,7 @@
 	  </Bonuses>
     </Melee>
     <Charge>
-      <Hack>14.0</Hack>
+      <Hack>20.0</Hack>
       <Pierce>0.0</Pierce>
       <Crush>0.0</Crush>
       <MaxRange>8.0</MaxRange>
@@ -47,7 +47,7 @@
       <food>50</food>
       <wood>0</wood>
       <stone>0</stone>
-      <metal>80</metal>
+      <metal>75</metal>
     </Resources>
   </Cost>
   <Identity>
@@ -57,6 +57,11 @@
 	<Tooltip>Classes: Champion Melee Infantry Spearman.
 Counters: 2x vs. All Cavalry, 1.5x vs. Elephants. 
 Countered by: Swordsmen, Skirmishers, and Cavalry Archers.</Tooltip>
+    <Formations datatype="tokens">
+      formations/phalanx
+      formations/syntagma
+      formations/testudo
+    </Formations>
   </Identity>
   <Sound>
     <SoundGroups>

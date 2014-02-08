@@ -29,6 +29,11 @@
 					"Name": "Immortals",
 					"History": ".",
 					"Description": "Reduces train time for Anusiya champion infantry by half."
+				},
+				{
+					"Name": "Nisean War Horses",
+					"History": "The beautiful and powerful breed of Nisean horses increases health for Persian cavalry.",
+					"Description": "+25% health for cavalry, but +10% train time."
 				} 
 			],
 			"Heroes":
@@ -96,7 +101,7 @@
 			"History": "The term Apadana designates a large hypostyle palace found in Persia. The best known example, and by far the largest, was the great Apadana at Persepolis. Functioning as the empire's central audience hall, the palace is famous for the reliefs of the tribute-bearers and of the army, including the Immortals.",
 			"Requirements": "",
 			"Phase": "City",
-			"Special": "Trains heroes and Persian Immortals. Gives a slow trickle of all resources as 'Satrapy Tribute.'" 
+			"Special": "Train heroes and Persian Immortals. Gives a slow trickle of all resources as 'Satrapy Tribute.'" 
 		}
 	],
 	"StartEntities":
@@ -122,16 +127,16 @@
 	],
 	"Formations":
 	[
-		"Scatter",
-		"Box",
-		"Column Closed",
-		"Line Closed",
-		"Column Open",
-		"Line Open",
-		"Flank",
-		"Skirmish",
-		"Wedge",
-		"Battle Line"
+		"formations/scatter",
+		"formations/box",
+		"formations/column_closed",
+		"formations/line_closed",
+		"formations/column_open",
+		"formations/line_open",
+		"formations/flank",
+		"formations/skirmish",
+		"formations/wedge",
+		"formations/battle_line"
 	],
 	"AINames":
 	[

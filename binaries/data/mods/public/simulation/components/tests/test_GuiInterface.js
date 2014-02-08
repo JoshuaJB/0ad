@@ -1,4 +1,5 @@
 Engine.LoadComponentScript("interfaces/Attack.js");
+Engine.LoadComponentScript("interfaces/AlertRaiser.js");
 Engine.LoadComponentScript("interfaces/Barter.js");
 Engine.LoadComponentScript("interfaces/Builder.js");
 Engine.LoadComponentScript("interfaces/DamageReceiver.js");
@@ -21,6 +22,7 @@ Engine.LoadComponentScript("interfaces/Trader.js")
 Engine.LoadComponentScript("interfaces/Timer.js");
 Engine.LoadComponentScript("interfaces/StatisticsTracker.js");
 Engine.LoadComponentScript("interfaces/UnitAI.js");
+Engine.LoadComponentScript("interfaces/BuildingAI.js");
 Engine.LoadComponentScript("GuiInterface.js");
 
 var cmp = ConstructComponent(SYSTEM_ENTITY, "GuiInterface");
@@ -78,10 +80,16 @@ AddMock(100, IID_Player, {
 AddMock(100, IID_EntityLimits, {
 	GetLimits: function() { return {"Foo": 10}; },
 	GetCounts: function() { return {"Foo": 5}; },
+	GetLimitChangers: function() {return {"Foo": {}}; }
 });
 
 AddMock(100, IID_TechnologyManager, {
-	IsTechnologyResearched: function(tech) { return false; },
+	IsTechnologyResearched: function(tech) { if (tech == "phase_village") return true; else return false; },
+	GetQueuedResearch: function() { return {}; },
+	GetStartedResearch: function() { return {}; },
+	GetResearchedTechs: function() { return {}; },
+	GetClassCounts: function() { return {}; },
+	GetTypeCountsByClass: function() { return {}; },
 	GetTechModifications: function() { return {}; },
 });
 
@@ -134,40 +142,8 @@ AddMock(101, IID_Player, {
 AddMock(101, IID_EntityLimits, {
 	GetLimits: function() { return {"Bar": 20}; },
 	GetCounts: function() { return {"Bar": 0}; },
+	GetLimitChangers: function() {return {"Bar": {}}; }
 });
-
-AddMock(100, IID_TechnologyManager, {
-	IsTechnologyResearched: function(tech) { if (tech == "phase_village") return true; else return false; },
-	GetQueuedResearch: function() { return {}; },
-	GetStartedResearch: function() { return {}; },
-	GetResearchedTechs: function() { return {}; },
-	GetClassCounts: function() { return {}; },
-	GetTypeCountsByClass: function() { return {}; },
-	GetTechModifications: function() { return {}; },
-});
-AddMock(100, IID_StatisticsTracker, {
-		GetStatistics: function() {
-		return {
-		"unitsTrained": 10,
-		"unitsLost": 9,
-		"buildingsConstructed": 5,
-		"buildingsLost": 4,
-		"civCentresBuilt": 1,
-		"resourcesGathered": {
-		"food": 100,
-		"wood": 0,
-		"metal": 0,
-		"stone": 0,
-		"vegetarianFood": 0,
-		},
-		"treasuresCollected": 0,
-		"percentMapExplored": 10,
-		};
-		},
-		IncreaseTrainedUnitsCounter: function() { return 1; },
-		IncreaseConstructedBuildingsCounter: function() { return 1; },
-		IncreaseBuiltCivCentresCounter: function() { return 1; },
-		});
 
 AddMock(101, IID_TechnologyManager, {
 		IsTechnologyResearched: function(tech) { if (tech == "phase_village") return true; else return false; },
@@ -229,7 +205,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 			isEnemy: [true, true],
 			entityLimits: {"Foo": 10},
 			entityCounts: {"Foo": 5},
-			techModifications: {},
+			entityLimitChangers: {"Foo": {}},
 			researchQueued: {},
 			researchStarted: {},
 			researchedTechs: {},
@@ -257,7 +233,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetSimulationState(), {
 			isEnemy: [false, false],
 			entityLimits: {"Bar": 20},
 			entityCounts: {"Bar": 0},
-			techModifications: {},
+			entityLimitChangers: {"Bar": {}},
 			researchQueued: {},
 			researchStarted: {},
 			researchedTechs: {},
@@ -292,7 +268,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 			isEnemy: [true, true],
 			entityLimits: {"Foo": 10},
 			entityCounts: {"Foo": 5},
-			techModifications: {},
+			entityLimitChangers: {"Foo": {}},
 			researchQueued: {},
 			researchStarted: {},
 			researchedTechs: {},
@@ -336,7 +312,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 			isEnemy: [false, false],
 			entityLimits: {"Bar": 20},
 			entityCounts: {"Bar": 0},
-			techModifications: {},
+			entityLimitChangers: {"Bar": {}},
 			researchQueued: {},
 			researchStarted: {},
 			researchedTechs: {},
@@ -362,6 +338,7 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedSimulationState(), {
 	],
 	circularMap: false,
 	timeElapsed: 0,
+	barterPrices: {buy: {food: 150}, sell: {food: 25}}
 });
 
 
@@ -415,8 +392,11 @@ TS_ASSERT_UNEVAL_EQUALS(cmp.GetEntityState(-1, 10), {
 	needsRepair: false,
 	needsHeal: true,
 	buildEntities: ["test1", "test2"],
+	visibility: "visible",
+});
+
+TS_ASSERT_UNEVAL_EQUALS(cmp.GetExtendedEntityState(-1, 10), {
 	barterMarket: {
 		prices: { "buy": {"food":150}, "sell": {"food":25} },
 	},
-	visibility: "visible",
 });

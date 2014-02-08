@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Copyright (C) 2013 Wildfire Games.
+"""Copyright (C) 2014 Wildfire Games.
  * This file is part of 0 A.D.
  *
  * 0 A.D. is free software: you can redistribute it and/or modify
@@ -28,7 +28,9 @@ from sleekxmpp.xmlstream.matcher import StanzaPath
 
 from LobbyRanking import session as db, Game, Player, PlayerInfo
 from ELO import get_rating_adjustment
-from config import default_rating, leaderboard_minimum_games, leaderboard_active_games
+# Rating that new players should be inserted into the
+# database with, before they've played any games.
+leaderboard_default_rating = 1200
 
 ## Class that contains and manages leaderboard data ##
 class LeaderboardList():
@@ -44,7 +46,7 @@ class LeaderboardList():
     """
     players = db.query(Player).filter_by(jid=str(JID))
     if not players.first():
-      player = Player(jid=str(JID), rating=default_rating)
+      player = Player(jid=str(JID), rating=-1)
       db.add(player)
       db.commit()
       return player
@@ -107,6 +109,22 @@ class LeaderboardList():
     db.add(game)
     db.commit()
     return game
+ 
+  def verifyGame(self, gamereport):
+    """
+      Returns a boolean based on whether the game should be rated.
+      Here, we can specify the criteria for rated games.
+    """
+    winning_jids = list(dict.keys({jid: state for jid, state in
+                                  gamereport['playerStates'].items()
+                                  if state == 'won'}))
+    # We only support 1v1s right now. TODO: Support team games.
+    if len(winning_jids) * 2 > len(dict.keys(gamereport['playerStates'])):
+      # More than half the people have won. This is not a balanced team game or duel.
+      return False
+    if len(dict.keys(gamereport['playerStates'])) != 2:
+      return False
+    return True
 
   def rateGame(self, game):
     """
@@ -122,10 +140,16 @@ class LeaderboardList():
     # the database model, and therefore this code, requires a winner.
     # The Elo implementation does not, however.
     result = 1 if player1 == game.winner else -1
-    rating_adjustment1 = get_rating_adjustment(player1.rating, player2.rating,
-      len(player1.games), len(player2.games), result)
-    rating_adjustment2 = get_rating_adjustment(player2.rating, player1.rating,
-      len(player2.games), len(player1.games), result * -1)
+    # Player's ratings are -1 unless they have played a rated game.
+    if player1.rating == -1:
+      player1.rating = leaderboard_default_rating
+    if player2.rating == -1:
+      player2.rating = leaderboard_default_rating
+
+    rating_adjustment1 = int(get_rating_adjustment(player1.rating, player2.rating,
+      len(player1.games), len(player2.games), result))
+    rating_adjustment2 = int(get_rating_adjustment(player2.rating, player1.rating,
+      len(player2.games), len(player1.games), result * -1))
     if result == 1:
       resultQualitative = "won"
     elif result == 0:
@@ -156,7 +180,7 @@ class LeaderboardList():
       Returns the result of addGame.
     """
     game = self.addGame(gamereport)
-    if game and len(game.players) == 2:
+    if game and self.verifyGame(gamereport):
       self.rateGame(game)
     else:
       self.lastRated = ""
@@ -170,8 +194,29 @@ class LeaderboardList():
     board = {}
     players = db.query(Player).order_by(Player.rating.desc()).limit(100).all()
     for rank, player in enumerate(players):
+      # Don't send uninitialized ratings.
+      if player.rating == -1:
+        continue
       board[player.jid] = {'name': '@'.join(player.jid.split('@')[:-1]), 'rating': str(player.rating)}
     return board
+  def getRatingList(self, nicks):
+    """
+    Returns a rating list of players
+    currently in the lobby by nick
+    because the client can't link
+    JID to nick conveniently.
+    """
+    ratinglist = {}
+    for JID in nicks.keys():
+      players = db.query(Player).filter_by(jid=str(JID))
+      if players.first():
+        if players.first().rating == -1:
+          ratinglist[nicks[JID]] = {'name': nicks[JID], 'rating': ''}
+        else:
+          ratinglist[nicks[JID]] = {'name': nicks[JID], 'rating': str(players.first().rating)}
+      else:
+        ratinglist[nicks[JID]] = {'name': nicks[JID], 'rating': ''}
+    return ratinglist
 
 ## Class to tracks all games in the lobby ##
 class GameList():
@@ -233,15 +278,18 @@ class ReportManager():
       appendIndex = len(self.interimReportTracker)
       self.interimReportTracker.append(cleanRawGameReport)
       # Initilize the JIDs and store the initial JID.
-      JIDs = [None] * self.getNumPlayers(rawGameReport)
-      JIDs[int(rawGameReport["playerID"])-1] = str(JID)
+      numPlayers = self.getNumPlayers(rawGameReport)
+      JIDs = [None] * numPlayers
+      if numPlayers - int(rawGameReport["playerID"]) > -1:
+        JIDs[int(rawGameReport["playerID"])-1] = str(JID)
       self.interimJIDTracker.append(JIDs)
     else:
       # We get the index at which the JIDs coresponding to the game are stored.
       index = self.interimReportTracker.index(cleanRawGameReport)
       # We insert the new report JID into the acending list of JIDs for the game.
       JIDs = self.interimJIDTracker[index]
-      JIDs[int(rawGameReport["playerID"])-1] = str(JID)
+      if len(JIDs) - int(rawGameReport["playerID"]) > -1:
+        JIDs[int(rawGameReport["playerID"])-1] = str(JID)
       self.interimJIDTracker[index] = JIDs
 
     self.checkFull()
@@ -329,14 +377,16 @@ class GameListXmppPlugin(ElementBase):
       data[key] = item
     return data
 
-## Class for custom boardlist stanza extension ##
+## Class for custom boardlist and ratinglist stanza extension ##
 class BoardListXmppPlugin(ElementBase):
   name = 'query'
   namespace = 'jabber:iq:boardlist'
-  interfaces = ('board')
+  interfaces = set(('board', 'command'))
   sub_interfaces = interfaces
   plugin_attrib = 'boardlist'
-
+  def addCommand(self, command):
+    commandXml = ET.fromstring("<command>%s</command>" % command)
+    self.xml.append(commandXml)
   def addItem(self, name, rating):
     itemXml = ET.Element("board", {"name": name, "rating": rating})
     self.xml.append(itemXml)
@@ -382,7 +432,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
 
     # Store mapping of nicks and XmppIDs, attached via presence stanza
     self.nicks = {}
-    
+
     self.lastLeft = ""
 
     register_stanza_plugin(Iq, GameListXmppPlugin)
@@ -401,10 +451,11 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
                                        StanzaPath('iq/gamereport'),
                                        self.iqhandler,
                                        instream=True))
-    self.add_event_handler("session_start", self.start)
+
     self.add_event_handler("session_start", self.start)
     self.add_event_handler("muc::%s::got_online" % self.room, self.muc_online)
     self.add_event_handler("muc::%s::got_offline" % self.room, self.muc_offline)
+    self.add_event_handler("groupchat_message", self.muc_message)
 
   def start(self, event):
     """
@@ -453,6 +504,15 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
       if str(presence['muc']['jid']) in self.nicks:
         del self.nicks[str(presence['muc']['jid'])]
 
+  def muc_message(self, msg):
+    """
+    Process new messages from the chatroom.
+    """
+    if msg['mucnick'] != self.nick and self.nick.lower() in msg['body'].lower():
+      self.send_message(mto=msg['from'].bare,
+                        mbody="I (%s) am the administrative bot in this lobby and cannot participate in any games." % self.nick,
+                        mtype='groupchat')
+
   def iqhandler(self, iq):
     """
     Handle the custom stanzas
@@ -467,28 +527,47 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
       """
       # Send lists/register on leaderboard; depreciated once muc_online
       #  can send lists/register automatically on joining the room.
-      try:
-        self.sendGameList(iq['from'])
-        self.leaderboard.getOrCreatePlayer(iq['from'])
-        self.sendBoardList(iq['from'])
-      except:
-        traceback.print_exc()
-        logging.error("Failed to process list request from %s" % iq['from'].bare)
+      if 'gamelist' in iq.plugins:
+        try:
+          self.sendGameList(iq['from'])
+        except:
+          traceback.print_exc()
+          logging.error("Failed to process gamelist request from %s" % iq['from'].bare)
+      elif 'boardlist' in iq.plugins:
+        command = iq['boardlist']['command']
+        if command == 'getleaderboard':
+          try:
+            self.leaderboard.getOrCreatePlayer(iq['from'])
+            self.sendBoardList(iq['from'])
+          except:
+            traceback.print_exc()
+            logging.error("Failed to process leaderboardlist request from %s" % iq['from'].bare)
+        elif command == 'getratinglist':
+          try:
+            self.leaderboard.getOrCreatePlayer(iq['from'])
+            self.sendRatingList(iq['from'])
+          except:
+            traceback.print_exc()
+            logging.error("Failed to process ratinglist request from %s" % iq['from'].bare)
+        else:
+          logging.error("Failed to process boardlist request from %s" % iq['from'].bare)
+      else:
+        logging.error("Unknown 'get' type stanza request from %s" % iq['from'].bare)
     elif iq['type'] == 'result':
       """
       Iq successfully received
       """
       pass
     elif iq['type'] == 'set':
-      if 'gamelist|en' in iq.values:
+      if 'gamelist' in iq.plugins:
         """
         Register-update / unregister a game
         """
-        command = iq['gamelist|en']['command']
+        command = iq['gamelist']['command']
         if command == 'register':
           # Add game
           try:
-            self.gameList.addGame(iq['from'], iq['gamelist|en']['game'])
+            self.gameList.addGame(iq['from'], iq['gamelist']['game'])
             self.sendGameList()
           except:
             traceback.print_exc()
@@ -505,23 +584,24 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         elif command == 'changestate':
           # Change game status (waiting/running)
           try:
-            self.gameList.changeGameState(iq['from'], iq['gamelist|en']['game'])
+            self.gameList.changeGameState(iq['from'], iq['gamelist']['game'])
             self.sendGameList()
           except:
             traceback.print_exc()
             logging.error("Failed to process changestate data")
         else:
           logging.error("Failed to process command '%s' received from %s" % command, iq['from'].bare)
-      elif 'gamereport|en' in iq.values:
+      elif 'gamereport' in iq.plugins:
         """
         Client is reporting end of game statistics
         """
         try:
-          self.reportManager.addReport(iq['from'], iq['gamereport|en']['game'])
+          self.reportManager.addReport(iq['from'], iq['gamereport']['game'])
           if self.leaderboard.getLastRatedMessage() != "":
             self.send_message(mto=self.room, mbody=self.leaderboard.getLastRatedMessage(), mtype="groupchat",
               mnick=self.nick)
-          self.sendBoardList()
+            self.sendBoardList()
+            self.sendRatingList()
         except:
           traceback.print_exc()
           logging.error("Failed to update game statistics for %s" % iq['from'].bare)
@@ -534,18 +614,40 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
       If no target is passed the gamelist is broadcasted
         to all clients.
     """
-    if to != "":
+    games = self.gameList.getAllGames()
+    if to == "":
+      for JID in self.nicks.keys():
+        stz = GameListXmppPlugin()
+
+        ## Pull games and add each to the stanza        
+        for JIDs in games:
+          g = games[JIDs]
+          # Only send the games that are in the 'init' state and games
+          # that are in the 'waiting' state which the receiving player is in. TODO
+          if g['state'] == 'init' or (g['state'] == 'waiting' and self.nicks[str(JID)] in g['players-init']):
+            stz.addGame(g)
+
+        ## Set additional IQ attributes
+        iq = self.Iq()
+        iq['type'] = 'result'
+        iq['to'] = JID
+        iq.setPayload(stz)
+
+        ## Try sending the stanza
+        try:
+          iq.send(block=False, now=True)
+        except:
+          logging.error("Failed to send game list")
+    else:
       ## Check recipient exists
       if str(to) not in self.nicks:
-        logging.error("No player with the XmPP ID '%s' known" % str(to))
+        logging.error("No player with the XmPP ID '%s' known to send gamelist to." % str(to))
         return
-
       stz = GameListXmppPlugin()
 
       ## Pull games and add each to the stanza
-      games = self.gameList.getAllGames()
-      for JID in games:
-        g = games[JID]
+      for JIDs in games:
+        g = games[JIDs]
         # Only send the games that are in the 'init' state and games
         # that are in the 'waiting' state which the receiving player is in. TODO
         if g['state'] == 'init' or (g['state'] == 'waiting' and self.nicks[str(to)] in g['players-init']):
@@ -559,12 +661,9 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
 
       ## Try sending the stanza
       try:
-        iq.send()
+        iq.send(block=False, now=True)
       except:
         logging.error("Failed to send game list")
-    else:
-      for JID in self.nicks.keys():
-        self.sendGameList(JID)
 
   def sendBoardList(self, to = ""):
     """
@@ -572,33 +671,73 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
       If no target is passed the boardlist is broadcasted
         to all clients.
     """
-    if to != "":
-      ## Check recipiant exists
+    ## Pull leaderboard data and add it to the stanza  
+    board = self.leaderboard.getBoard()
+    stz = BoardListXmppPlugin()
+    iq = self.Iq()
+    iq['type'] = 'result'
+    for i in board:
+      stz.addItem(board[i]['name'], board[i]['rating'])
+    stz.addCommand('boardlist')
+    iq.setPayload(stz)
+    if to == "":    
+      for JID in self.nicks.keys():
+        ## Set additional IQ attributes
+        iq['to'] = JID
+        ## Try sending the stanza
+        try:
+          iq.send(block=False, now=True)
+        except:
+          logging.error("Failed to send leaderboard list")
+    else:
+      ## Check recipient exists
       if str(to) not in self.nicks:
-        logging.error("No player with the XmPP ID '%s' known" % str(to))
+        logging.error("No player with the XmPP ID '%s' known to send boardlist to" % str(to))
         return
-
-      stz = BoardListXmppPlugin()
-
-      ## Pull leaderboard data and add it to the stanza
-      board = self.leaderboard.getBoard()
-      for i in board:
-        stz.addItem(board[i]['name'], board[i]['rating'])
-
-      ## Set aditional IQ attributes
-      iq = self.Iq()
-      iq['type'] = 'result'
+      ## Set additional IQ attributes
       iq['to'] = to
-      iq.setPayload(stz)
-
       ## Try sending the stanza
       try:
-        iq.send()
+        iq.send(block=False, now=True)
       except:
         logging.error("Failed to send leaderboard list")
-    else:
+        
+  def sendRatingList(self, to = ""):
+    """
+      Send the rating list.
+      If no target is passed the rating list is broadcasted
+        to all clients.
+    """
+    ## Pull rating list data and add it to the stanza  
+    ratinglist = self.leaderboard.getRatingList(self.nicks)
+    stz = BoardListXmppPlugin()
+    iq = self.Iq()
+    iq['type'] = 'result'
+    for i in ratinglist:
+      stz.addItem(ratinglist[i]['name'], ratinglist[i]['rating'])
+    stz.addCommand('ratinglist')
+    iq.setPayload(stz)
+    if to == "":    
       for JID in self.nicks.keys():
-        self.sendBoardList(JID)
+        ## Set additional IQ attributes
+        iq['to'] = JID
+        ## Try sending the stanza
+        try:
+          iq.send(block=False, now=True)
+        except:
+          logging.error("Failed to send rating list")
+    else:
+      ## Check recipient exists
+      if str(to) not in self.nicks:
+        logging.error("No player with the XmPP ID '%s' known to send ratinglist to" % str(to))
+        return
+      ## Set additional IQ attributes
+      iq['to'] = to
+      ## Try sending the stanza
+      try:
+        iq.send(block=False, now=True)
+      except:
+        logging.error("Failed to send rating list")
 
 ## Main Program ##
 if __name__ == '__main__':
@@ -637,7 +776,7 @@ if __name__ == '__main__':
 
   # Setup logging.
   logging.basicConfig(level=opts.loglevel,
-                      format='%(levelname)-8s %(message)s')
+                      format='%(asctime)s        %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
   # XpartaMuPP
   xmpp = XpartaMuPP(opts.xlogin+'@'+opts.xdomain+'/CC', opts.xpassword, opts.xroom+'@conference.'+opts.xdomain, opts.xnickname)
@@ -648,6 +787,6 @@ if __name__ == '__main__':
   xmpp.register_plugin('xep_0199') # XMPP Ping
 
   if xmpp.connect():
-    xmpp.process(block=False)
+    xmpp.process(threaded=False)
   else:
     logging.error("Unable to connect")
