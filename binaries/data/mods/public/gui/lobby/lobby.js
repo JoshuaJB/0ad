@@ -6,6 +6,8 @@ var g_specialKey = Math.random();
 var g_spamMonitor = {};
 var g_timestamp = Engine.ConfigDB_GetValue("user", "lobby.chattimestamp") == "true";
 var g_mapSizes = {};
+var g_userRating = "UNR"; // Rating of user, defaults to Unrated
+var g_modPrefix = "@";
 // Block spammers for 30 seconds.
 var SPAM_BLOCK_LENGTH = 30;
 
@@ -155,6 +157,9 @@ function updatePlayerList()
 	var cleanPlayerList = Engine.GetPlayerList();
 	for (var i = 0; i < cleanPlayerList.length; i++)
 	{
+		// Identify current user's rating.
+		if (cleanPlayerList[i].name == g_Name && cleanPlayerList[i].rating)
+			g_userRating = cleanPlayerList[i].rating;
 		// Add a "-" for unrated players.
 		if (!cleanPlayerList[i].rating)
 			cleanPlayerList[i].rating = "-";
@@ -164,7 +169,10 @@ function updatePlayerList()
 		playerList.push(name);
 		presenceList.push(status);
 		nickList.push(cleanPlayerList[i].name);
-		ratingList.push(String("  " + rating));
+		var ratingSpaces = "  ";
+		for (var index = 0; index < 4 - Math.ceil(Math.log(cleanPlayerList[i].rating) / Math.LN10); index++)
+			ratingSpaces += "  ";
+		ratingList.push(String(ratingSpaces + rating));
 	}
 	playersBox.list_name = playerList;
 	playersBox.list_status = presenceList;
@@ -311,7 +319,9 @@ function formatPlayerListEntry(nickname, presence, rating, role)
 	if (rating == "-")
 		rating = "    -";
 	var formattedStatus = '[color="' + color + '"]' + status + "[/color]";
-	var formattedRating = '[color="' + color + '"]' + rating + "[/color]"; 
+	var formattedRating = '[color="' + color + '"]' + rating + "[/color]";
+	if (role == "moderator")
+		nickname = g_modPrefix + nickname;
 	var formattedName = colorPlayerName(nickname);
 
 	// Give moderators special formatting.
@@ -401,8 +411,17 @@ function joinSelectedGame()
 		// Send IP to host so they can try hole punching to our IP.
 		Engine.SendIP(g_GameList[g].host);
 		// Open Multiplayer connection window with join option.
-		Engine.PushGuiPage("page_gamesetup_mp.xml", { multiplayerGameType: "join", name: sname, ip: sip });
+		Engine.PushGuiPage("page_gamesetup_mp.xml", { multiplayerGameType: "join", name: sname, ip: sip, rating: g_userRating });
 	}
+}
+
+/**
+ * Start the hosting process.
+ */
+function hostGame()
+{
+	// Open Multiplayer connection window with host option.
+	Engine.PushGuiPage("page_gamesetup_mp.xml", { multiplayerGameType: "host", name: g_Name, rating: g_userRating });
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -838,7 +857,7 @@ function repeatString(times, string) {
 }
 
 // Some names are special and should always appear in certain colors.
-var fixedColors = { "system": repeatString(7, "255.0.0."), "WFGbot": repeatString(6, "255.24.24."),
+var fixedColors = { "system": repeatString(7, "255.0.0."), "@WFGbot": repeatString(7, "255.24.24."),
 					"pyrogenesis": repeatString(2, "97.0.0.") + repeatString(2, "124.0.0.") + "138.0.0." +
 						repeatString(2, "174.0.0.") + repeatString(2, "229.40.0.") + repeatString(2, "243.125.15.") };
 function colorPlayerName(playername)
@@ -849,7 +868,7 @@ function colorPlayerName(playername)
 	return ('[color="' + playername.split("").map(function (c, i) color.slice(i * 3, i * 3 + 3).join(" ") + '"]' + c + '[/color][color="')
 				.join("") + '"]').slice(0, -10);
 	}
-	return '[color="' + getPlayerColor(playername) + '"]' + playername + '[/color]';
+	return '[color="' + getPlayerColor(playername.replace(g_modPrefix, "")) + '"]' + playername + '[/color]';
 }
 
 // Ensure `value` is between 0 and 1.

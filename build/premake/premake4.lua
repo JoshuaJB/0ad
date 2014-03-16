@@ -27,6 +27,7 @@ newoption { trigger = "use-shared-glooxwrapper", description = "Use prebuilt glo
 newoption { trigger = "bindir", description = "Directory for executables (typically '/usr/games'); default is to be relocatable" }
 newoption { trigger = "datadir", description = "Directory for data files (typically '/usr/share/games/0ad'); default is ../data/ relative to executable" }
 newoption { trigger = "libdir", description = "Directory for libraries (typically '/usr/lib/games/0ad'); default is ./ relative to executable" }
+newoption { trigger = "jenkins-tests", description = "configure cxxtest to use the XmlPrinter runner which produces jenkins-compatible output" }
 
 -- Root directory of project checkout relative to this .lua file
 rootdir = "../.."
@@ -79,7 +80,7 @@ if os.is("windows") then
 	has_broken_pch = false
 else
 
-	lcxxtestpath = rootdir.."/build/bin/cxxtestgen.pl"
+	lcxxtestpath = rootdir.."/libraries/source/cxxtest-4.3/bin/cxxtestgen"
 
 	if os.is("linux") and arch == "amd64" then
 		nasmformat "elf64"
@@ -370,7 +371,7 @@ function project_set_build_flags()
 				if _ACTION == "gmake" then
 					linkoptions { "-Wl,-rpath,'$$ORIGIN'" } 
 				elseif _ACTION == "codeblocks" then
-					linkoptions { "-Wl,-R\\\\$$ORIGIN" }
+					linkoptions { "-Wl,-R\\\\$$$ORIGIN" }
 				end
 			end
 		end
@@ -1021,27 +1022,15 @@ function setup_atlas_projects()
 
 	setup_atlas_project("AtlasObject", "StaticLib",
 	{	-- src
-		"."
+		".",
+		"../../../third_party/jsonspirit"
+		
 	},{	-- include
+		"../../../third_party/jsonspirit"
 	},{	-- extern_libs
 		"boost",
 		"libxml2",
-		"spidermonkey",
 		"wxwidgets"
-	},{	-- extra_params
-		no_pch = 1
-	})
-
-	setup_atlas_project("AtlasScript", "StaticLib",
-	{	-- src
-		"."
-	},{	-- include
-		".."
-	},{	-- extern_libs
-		"boost",
-		"spidermonkey",
-		"valgrind",
-		"wxwidgets",
 	},{	-- extra_params
 		no_pch = 1
 	})
@@ -1076,8 +1065,7 @@ function setup_atlas_projects()
 		"ScenarioEditor/Tools/Common",
 	}
 	atlas_extra_links = {
-		"AtlasObject",
-		"AtlasScript",
+		"AtlasObject"
 	}
 
 	atlas_extern_libs = {
@@ -1087,7 +1075,6 @@ function setup_atlas_projects()
 		--"ffmpeg", -- disabled for now because it causes too many build difficulties
 		"libxml2",
 		"sdl",	-- key definitions
-		"spidermonkey",
 		"wxwidgets",
 		"zlib",
 	}
@@ -1117,10 +1104,6 @@ function setup_atlas_frontend_project (project_name)
 
 	local target_type = get_main_project_target_type()
 	project_create(project_name, target_type)
-	project_add_extern_libs({
-		"spidermonkey",
-	},
-	target_type)
 	project_add_x11_dirs()
 
 	local source_root = rootdir.."/source/tools/atlas/AtlasFrontends/"
@@ -1260,10 +1243,15 @@ function configure_cxxtestgen()
 	-- Define the options used for cxxtestgen
 	local lcxxtestoptions = "--have-std"
 	local lcxxtestrootoptions = "--have-std"
-	if os.is("windows") then
-		lcxxtestrootoptions = lcxxtestrootoptions .. " --gui=PsTestWrapper --runner=Win32ODSPrinter"
+
+	if _OPTIONS["jenkins-tests"] then
+		lcxxtestrootoptions = lcxxtestrootoptions .. " --gui=PsTestWrapper --runner=XmlPrinter"
 	else
-		lcxxtestrootoptions = lcxxtestrootoptions .. " --gui=PsTestWrapper --runner=ErrorPrinter"
+		if os.is("windows") then
+			lcxxtestrootoptions = lcxxtestrootoptions .. " --gui=PsTestWrapper --runner=Win32ODSPrinter"
+		else
+			lcxxtestrootoptions = lcxxtestrootoptions .. " --gui=PsTestWrapper --runner=ErrorPrinter"
+		end
 	end
 
 	-- Precompiled headers - the header is added to all generated .cpp files

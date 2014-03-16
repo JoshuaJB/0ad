@@ -275,12 +275,6 @@ function getActionInfo(action, target)
 			data.target = target;
 			cursor = "action-build";
 		}
-		else if (targetState.needsRepair && allyOwned)
-		{
-			data.command = "repair";
-			data.target = target;
-			cursor = "action-repair";
-		}
 		else if (hasClass(entState, "Market") && hasClass(targetState, "Market") && entState.id != targetState.id &&
 				(!hasClass(entState, "NavalMarket") || hasClass(targetState, "NavalMarket")) && !enemyOwned)
 		{
@@ -305,6 +299,12 @@ function getActionInfo(action, target)
 				else // Foundation or cannot produce traders
 					tooltip += "\nExpected gain: " + getTradingTooltip(gain);
 			}
+		}
+		else if (targetState.needsRepair && allyOwned)
+		{
+			data.command = "repair";
+			data.target = target;
+			cursor = "action-repair";
 		}
 
 		// Don't allow the rally point to be set on any of the currently selected entities (used for unset)
@@ -2101,7 +2101,12 @@ function findIdleUnit(classes)
 
 	for (var i = 0; i < classes.length; ++i)
 	{
-		var data = { idleClass: classes[currIdleClass], prevUnit: lastIdleUnit, limit: 1 };
+		var data = { 
+			"idleClass": classes[currIdleClass],
+			"prevUnit": lastIdleUnit,
+			"limit": 1,
+			"excludeUnits": []
+		};
 		if (append)
 			data.excludeUnits = g_Selection.toList();
 
@@ -2122,7 +2127,8 @@ function findIdleUnit(classes)
 			{
 				g_Selection.addList([lastIdleUnit]);
 				var position = GetEntityState(lastIdleUnit).position;
-				Engine.CameraMoveTo(position.x, position.z);
+				if (position)
+					Engine.CameraMoveTo(position.x, position.z);
 				return;
 			}
 

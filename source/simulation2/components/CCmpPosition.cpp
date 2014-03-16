@@ -32,6 +32,7 @@
 #include "maths/Vector3D.h"
 #include "maths/Vector2D.h"
 #include "ps/CLogger.h"
+#include "ICmpTerritoryManager.h"
 
 /**
  * Basic ICmpPosition implementation.
@@ -75,6 +76,8 @@ public:
 	bool m_RelativeToGround; // whether m_YOffset is relative to terrain/water plane, or an absolute height
 
 	entity_angle_t m_RotX, m_RotY, m_RotZ;
+
+	player_id_t m_Territory;
 
 	// not serialized:
 	float m_InterpolatedRotX, m_InterpolatedRotY, m_InterpolatedRotZ;
@@ -134,6 +137,7 @@ public:
 		m_RotX = m_RotY = m_RotZ = entity_angle_t::FromInt(0);
 		m_InterpolatedRotX = m_InterpolatedRotY = m_InterpolatedRotZ = 0.f;
 		m_LastInterpolatedRotX = m_LastInterpolatedRotZ = 0.f;
+		m_Territory = INVALID_PLAYER;
 
 		m_NeedInitialXZRotation = false;
 	}
@@ -152,6 +156,7 @@ public:
 			serialize.NumberFixed_Unbounded("last x", m_LastX);
 			serialize.NumberFixed_Unbounded("last z", m_LastZ);
 		}
+		serialize.NumberI32_Unbounded("territory", m_Territory);
 		serialize.NumberFixed_Unbounded("rot x", m_RotX);
 		serialize.NumberFixed_Unbounded("rot y", m_RotY);
 		serialize.NumberFixed_Unbounded("rot z", m_RotZ);
@@ -197,6 +202,7 @@ public:
 			deserialize.NumberFixed_Unbounded("last x", m_LastX);
 			deserialize.NumberFixed_Unbounded("last z", m_LastZ);
 		}
+		deserialize.NumberI32_Unbounded("territory", m_Territory);
 		deserialize.NumberFixed_Unbounded("rot x", m_RotX);
 		deserialize.NumberFixed_Unbounded("rot y", m_RotY);
 		deserialize.NumberFixed_Unbounded("rot z", m_RotZ);
@@ -556,6 +562,28 @@ public:
 			m_LastZ = m_Z;
 			m_LastYOffset = m_YOffset;
 
+
+			// warn when a position change also causes a territory change under the entity
+			if (m_InWorld)
+			{
+				player_id_t newTerritory;
+				CmpPtr<ICmpTerritoryManager> cmpTerritoryManager(GetSystemEntity());
+				if (cmpTerritoryManager)
+					newTerritory = cmpTerritoryManager->GetOwner(m_X, m_Z);
+				else
+					newTerritory = INVALID_PLAYER;
+				if (newTerritory != m_Territory)
+				{
+					m_Territory = newTerritory;
+					CMessageTerritoryPositionChanged msg(GetEntityId(), m_Territory);
+					GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
+				}
+			}
+			else if (m_Territory != INVALID_PLAYER)
+			{
+				CMessageTerritoryPositionChanged msg(GetEntityId(), m_Territory);
+				GetSimContext().GetComponentManager().PostMessage(GetEntityId(), msg);
+			}
 			break;
 		}
 	}

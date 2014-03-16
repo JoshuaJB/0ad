@@ -346,9 +346,20 @@ var UnitFsmSpec = {
 			return;
 		}
 
+		// Check if we need to move     TODO implement a better way to know if we are on the shoreline
+		var needToMove = true;
+		var cmpPosition = Engine.QueryInterface(this.entity, IID_Position);
+		if (this.lastShorelinePosition && cmpPosition && (this.lastShorelinePosition.x == cmpPosition.GetPosition().x)
+			&& (this.lastShorelinePosition.z == cmpPosition.GetPosition().z))
+		{
+			// we were already on the shoreline, and have not moved since
+			if (DistanceBetweenEntities(this.entity, this.order.data.target) < 50)
+				needToMove = false;
+		} 
+
 		// TODO: what if the units are on a cliff ? the ship will go below the cliff
 		// and the units won't be able to garrison. Should go to the nearest (accessible) shore
-		if (this.MoveToTarget(this.order.data.target))
+		if (needToMove && this.MoveToTarget(this.order.data.target))
 		{
 			this.SetNextState("INDIVIDUAL.PICKUP.APPROACHING");
 		}
@@ -1625,7 +1636,7 @@ var UnitFsmSpec = {
 				},
 
 				"Timer": function(msg) {
-					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack))
+					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack, this.order.data.attackType))
 					{
 						this.StopMoving();
 						this.FinishOrder();
@@ -1921,7 +1932,7 @@ var UnitFsmSpec = {
 				},
 
 				"Timer": function(msg) {
-					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack))
+					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Attack, this.order.data.attackType))
 					{
 						this.StopMoving();
 						this.FinishOrder();
@@ -2319,7 +2330,7 @@ var UnitFsmSpec = {
 				},
 
 				"Timer": function(msg) {
-					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Heal))
+					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Heal, null))
 					{
 						this.StopMoving();
 						this.FinishOrder();
@@ -2419,7 +2430,7 @@ var UnitFsmSpec = {
 					this.StopTimer();
 				},
 				"Timer": function(msg) {
-					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Heal))
+					if (this.ShouldAbandonChase(this.order.data.target, this.order.data.force, IID_Heal, null))
 					{
 						this.StopMoving();
 						this.FinishOrder();
@@ -2773,6 +2784,10 @@ var UnitFsmSpec = {
 								// If a pickup has been requested, remove it
 								if (this.pickup)
 								{
+									var cmpHolderPosition = Engine.QueryInterface(target, IID_Position);
+									var cmpHolderUnitAI = Engine.QueryInterface(target, IID_UnitAI);
+									if (cmpHolderUnitAI && cmpHolderPosition)
+										cmpHolderUnitAI.lastShorelinePosition = cmpHolderPosition.GetPosition();
 									Engine.PostMessage(this.pickup, MT_PickupCanceled, { "entity": this.entity });
 									delete this.pickup;
 								}
@@ -3423,6 +3438,8 @@ UnitAI.prototype.FinishOrder = function()
 	else
 	{
 		this.SetNextState("IDLE");
+
+		Engine.PostMessage(this.entity, MT_UnitAIOrderDataChanged, { "to": this.GetOrderData() });
 
 		// Check if there are queued formation orders
 		if (this.IsFormationMember())
@@ -4479,7 +4496,7 @@ UnitAI.prototype.RespondToHealableEntities = function(ents)
 /**
  * Returns true if we should stop following the target entity.
  */
-UnitAI.prototype.ShouldAbandonChase = function(target, force, iid)
+UnitAI.prototype.ShouldAbandonChase = function(target, force, iid, type)
 {
 	// Forced orders shouldn't be interrupted.
 	if (force)
@@ -4492,8 +4509,8 @@ UnitAI.prototype.ShouldAbandonChase = function(target, force, iid)
 		var cmpAttack = Engine.QueryInterface(target, IID_Attack);
 		if (cmpUnitAI && cmpAttack)
 		{
-			for each (var type in cmpAttack.GetAttackTypes())
-				if (cmpUnitAI.CheckTargetAttackRange(this.isGuardOf, type))
+			for each (var targetType in cmpAttack.GetAttackTypes())
+				if (cmpUnitAI.CheckTargetAttackRange(this.isGuardOf, targetType))
 					return false;
 		}
 	}
@@ -4501,7 +4518,7 @@ UnitAI.prototype.ShouldAbandonChase = function(target, force, iid)
 	// Stop if we're in hold-ground mode and it's too far from the holding point
 	if (this.GetStance().respondHoldGround)
 	{
-		if (!this.CheckTargetDistanceFromHeldPosition(target, iid, this.order.data.attackType))
+		if (!this.CheckTargetDistanceFromHeldPosition(target, iid, type))
 			return true;
 	}
 
@@ -4999,7 +5016,12 @@ UnitAI.prototype.SetupTradeRoute = function(target, source, route, queued)
 			}
 
 			if (this.IsFormationController())
+			{
 				this.CallMemberFunction("AddOrder", ["Trade", data, queued]);
+				var cmpFormation = Engine.QueryInterface(this.entity, IID_Formation);
+				if (cmpFormation)
+					cmpFormation.Disband();
+			}
 			else
 				this.AddOrder("Trade", data, queued);
 		}

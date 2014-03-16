@@ -129,14 +129,9 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 		// pNearest will after this point at the hovered object, possibly NULL
 		pNearest = FindObjectUnderMouse();
 
-		// Is placed in the UpdateMouseOver function
-		//if (ev->ev.type == SDL_MOUSEMOTION && pNearest)
-		//	pNearest->ScriptEvent("mousemove");
-
 		// Now we'll call UpdateMouseOver on *all* objects,
 		//  we'll input the one hovered, and they will each
 		//  update their own data and send messages accordingly
-		
 		GUI<IGUIObject*>::RecurseObject(GUIRR_HIDDEN | GUIRR_GHOST, m_BaseObject, 
 										&IGUIObject::UpdateMouseOver, 
 										pNearest);
@@ -232,10 +227,10 @@ InReaction CGUI::HandleEvent(const SDL_Event_* ev)
 			GUI<>::RecurseObject(GUIRR_HIDDEN, m_BaseObject, 
 									&IGUIObject::ResetStates);
 
-			// It will have reset the mouse over of the current hovered, so we'll
-			//  have to restore that
-			if (pNearest)
-				pNearest->m_MouseHovering = true;
+			// Since the hover state will have been reset, we reload it.
+			GUI<IGUIObject*>::RecurseObject(GUIRR_HIDDEN | GUIRR_GHOST, m_BaseObject, 
+											&IGUIObject::UpdateMouseOver, 
+											pNearest);
 		}
 	}
 	catch (PSERROR_GUI& e)
@@ -1631,7 +1626,7 @@ void CGUI::Xeromyces_ReadStyle(XMBElement Element, CXeromyces* pFile)
 	CStr name;
 	
 	//
-	//	Read Attributes
+	// Read Attributes
 	//
 
 	// Now we can iterate all attributes and store
@@ -1650,7 +1645,7 @@ void CGUI::Xeromyces_ReadStyle(XMBElement Element, CXeromyces* pFile)
 	}
 
 	//
-	//	Add to CGUI
+	// Add to CGUI
 	//
 
 	m_Styles[name] = style;
@@ -1661,9 +1656,15 @@ void CGUI::Xeromyces_ReadScrollBarStyle(XMBElement Element, CXeromyces* pFile)
 	// style object we're adding
 	SGUIScrollBarStyle scrollbar;
 	CStr name;
-	
+
+	// Setup some defaults.
+	scrollbar.m_MinimumBarSize = 0.f;
+	// Using 1.0e10 as a substitute for infinity
+	scrollbar.m_MaximumBarSize = 1.0e10;
+	scrollbar.m_UseEdgeButtons = false;
+
 	//
-	//	Read Attributes
+	// Read Attributes
 	//
 
 	// Now we can iterate all attributes and store

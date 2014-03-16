@@ -234,7 +234,11 @@ function reportPerformance(time)
 	Engine.SubmitUserReport("profile", 3, JSON.stringify(data));
 }
 
-function resignGame()
+/**
+ * Resign a player.
+ * @param leaveGameAfterResign If player is quitting after resignation.
+ */
+function resignGame(leaveGameAfterResign)
 {
 	var simState = GetSimState();
 
@@ -249,10 +253,17 @@ function resignGame()
 	});
 
 	global.music.setState(global.music.states.DEFEAT);
-	resumeGame();
+	
+	// Resume the game if not resigning.
+	if (!leaveGameAfterResign)
+		resumeGame();
 }
 
-function leaveGame()
+/**
+ * Leave the game
+ * @param willRejoin If player is going to be rejoining a networked game.
+ */
+function leaveGame(willRejoin)
 {
 	var extendedSimState = Engine.GuiInterfaceCall("GetExtendedSimulationState");
 	var playerState = extendedSimState.players[Engine.GetPlayerID()];
@@ -273,15 +284,14 @@ function leaveGame()
 	}
 	else // "active"
 	{
-		gameResult = "You have abandoned the game.";
-
-		// Tell other players that we have given up and been defeated
-		Engine.PostNetworkCommand({
-			"type": "defeat-player",
-			"playerId": Engine.GetPlayerID()
-		});
-
 		global.music.setState(global.music.states.DEFEAT);
+		if (willRejoin)
+			gameResult = "You have left the game.";
+		else
+		{
+			gameResult = "You have abandoned the game.";
+			resignGame(true);
+		}
 	}
 
 	stopAmbient();
@@ -934,6 +944,10 @@ function reportGame(extendedSimState)
 	// Tribute
 	playerStatistics.tributesSent = "";
 	playerStatistics.tributesReceived = "";
+	// Total	
+	playerStatistics.economyScore = "";
+	playerStatistics.militaryScore = "";
+	playerStatistics.totalScore = "";
 	// Various
 	playerStatistics.treasuresCollected = "";
 	playerStatistics.feminisation = "";
@@ -963,7 +977,14 @@ function reportGame(extendedSimState)
 		for each (var buildingCounterType in buildingsCountersTypes)
 			for each (var buildingsClass in buildingsClasses)
 				playerStatistics[buildingCounterType][buildingsClass] += player.statistics[buildingCounterType][buildingsClass] + ",";
-
+		var total = 0;
+		for each (var res in player.statistics.resourcesGathered)
+			total += res;
+		playerStatistics.economyScore += total + ",";
+		playerStatistics.militaryScore += Math.round((player.statistics.enemyUnitsKilledValue +
+			player.statistics.enemyBuildingsDestroyedValue) / 10)  + ",";
+		playerStatistics.totalScore += (total + Math.round((player.statistics.enemyUnitsKilledValue +
+			player.statistics.enemyBuildingsDestroyedValue) / 10)) + ",";
 		playerStatistics.tradeIncome += player.statistics.tradeIncome + ",";
 		playerStatistics.tributesSent += player.statistics.tributesSent + ",";
 		playerStatistics.tributesReceived += player.statistics.tributesReceived + ",";
@@ -981,6 +1002,9 @@ function reportGame(extendedSimState)
 	reportObject.teams = teams;
 	reportObject.teamsLocked = String(teamsLocked);
 	reportObject.mapName = mapName;
+	reportObject.economyScore = playerStatistics.economyScore;
+	reportObject.militaryScore = playerStatistics.militaryScore;
+	reportObject.totalScore = playerStatistics.totalScore;
 	for each (var rct in resourcesCounterTypes)
 	{
 		for each (var rt in resourcesTypes)

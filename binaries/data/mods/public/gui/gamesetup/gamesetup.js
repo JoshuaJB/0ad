@@ -600,6 +600,8 @@ function cancelSetup()
 	}
 }
 
+var lastXmppClientPoll = Date.now();
+
 function onTick()
 {
 	// First tick happens before first render, so don't load yet
@@ -628,6 +630,13 @@ function onTick()
 
 			handleNetMessage(message);
 		}
+	}
+
+	// If the lobby is running, wake it up every 10 seconds so we stay connected.
+	if (Engine.HasXmppClient() && (Date.now() - lastXmppClientPoll) > 10000)
+	{
+		Engine.RecvXmppClient();
+		lastXmppClientPoll = Date.now();
 	}
 }
 
@@ -826,13 +835,13 @@ function launchGame()
 	//  (this is synchronized because we're the host)
 	var cultures = [];
 	for each (var civ in g_CivData)
-		if (civ.Culture !== undefined && cultures.indexOf(civ.Culture) < 0 && (civ.SelectableInGameSetup === undefined || civ.SelectableInGameSetup))
+		if (civ.Culture !== undefined && cultures.indexOf(civ.Culture) < 0 && civ.SelectableInGameSetup !== false)
 			cultures.push(civ.Culture);
 	var allcivs = new Array(cultures.length);
 	for (var i = 0; i < allcivs.length; ++i)
 		allcivs[i] = [];
 	for each (var civ in g_CivData)
-		if (civ.Culture !== undefined && (civ.SelectableInGameSetup === undefined || civ.SelectableInGameSetup))
+		if (civ.Culture !== undefined && civ.SelectableInGameSetup !== false)
 			allcivs[cultures.indexOf(civ.Culture)].push(civ.Code);
 
 	const romanNumbers = [undefined, "I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
@@ -1467,6 +1476,7 @@ function addChatMessage(msg)
 
 function toggleMoreOptions()
 {
+	Engine.GetGUIObjectByName("moreOptionsFade").hidden = !Engine.GetGUIObjectByName("moreOptionsFade").hidden;
 	Engine.GetGUIObjectByName("moreOptions").hidden = !Engine.GetGUIObjectByName("moreOptions").hidden;
 }
 
