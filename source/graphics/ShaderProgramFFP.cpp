@@ -87,6 +87,13 @@ public:
 		{
 			pglActiveTextureARB((int)(GL_TEXTURE0+index));
 			glBindTexture(GL_TEXTURE_2D, tex);
+#if !CONFIG2_GLES
+	if (tex) {
+		glEnable(GL_TEXTURE_2D);
+	} else {
+		glDisable(GL_TEXTURE_2D);
+	}
+#endif
 		}
 	}
 
@@ -289,7 +296,7 @@ public:
 			glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
 			glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
 			// Overridden implementation of Uniform() sets GL_OBJECT_PLANE values
-			
+
 			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_MODULATE);
 			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_PREVIOUS);
 			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB_ARB, GL_SRC_COLOR);
@@ -434,6 +441,83 @@ public:
 		glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
 		glPopMatrix();
+	}
+};
+
+class CShaderProgramFFP_GuiMinimap : public CShaderProgramFFP
+{
+protected:
+	CShaderDefines m_Defines;
+	// Uniforms
+	enum
+	{
+		ID_transform,
+		ID_textureTransform,
+	};
+public:
+	CShaderProgramFFP_GuiMinimap(const CShaderDefines& defines) :
+		CShaderProgramFFP(STREAM_POS | STREAM_UV0)
+	{
+		m_Defines = defines;
+		SetUniformIndex("transform", ID_transform);
+		SetUniformIndex("baseTex", 0);
+	}
+
+	virtual void Uniform(Binding id, const CMatrix3D& v)
+	{
+		if (id.second == ID_textureTransform)
+		{
+			glMatrixMode(GL_TEXTURE);
+			glLoadMatrixf(&v._11);
+		}
+		else if (id.second == ID_transform)
+		{
+			//glMatrixMode(GL_MODELVIEW);
+			//glPushMatrix();
+			//glLoadMatrixf(&v._11);
+		}
+	}
+
+	virtual void Bind()
+	{
+		BindClientStates();
+		if (m_Defines.GetInt("MINIMAP_BASE"))
+		{
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		else if (m_Defines.GetInt("MINIMAP_LOS"))
+		{
+			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_REPLACE);
+			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_PRIMARY_COLOR_ARB);
+			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB_ARB, GL_SRC_COLOR);
+			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA_ARB, GL_REPLACE);
+			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA_ARB, GL_TEXTURE);
+			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA_ARB, GL_ONE_MINUS_SRC_ALPHA);
+			glColor3f(0.0f, 0.0f, 0.0f);
+		}
+		//CShaderProgramFFP_Gui_Base::Bind();
+
+		//pglActiveTextureARB(GL_TEXTURE0);
+		//glEnable(GL_TEXTURE_2D);
+		//glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	}
+
+	virtual void Unbind()
+	{
+		/*if (m_Defines.GetInt("MINIMAP_BASE"))
+			glDisable(GL_BLEND);
+		else if (m_Defines.GetInt("MINIMAP_LOS"))
+			glDisable(GL_BLEND);*/
+		UnbindClientStates();
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
+		//pglActiveTextureARB(GL_TEXTURE0);
+		//glDisable(GL_TEXTURE_2D);
+
+		//CShaderProgramFFP_Gui_Base::Unbind();
 	}
 };
 
@@ -1017,6 +1101,8 @@ public:
 		return new CShaderProgramFFP_GuiGrayscale();
 	if (id == "gui_solid")
 		return new CShaderProgramFFP_GuiSolid();
+	if (id == "minimap")
+		return new CShaderProgramFFP_GuiMinimap(defines);
 	if (id == "solid")
 		return new CShaderProgramFFP_GuiSolid(); // works for non-GUI objects too
 	if (id == "model")

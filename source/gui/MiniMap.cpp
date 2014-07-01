@@ -302,21 +302,30 @@ void CMiniMap::DrawViewRect()
 	glScissor((int)x, g_Renderer.GetHeight()-(int)y, (int)m_CachedActualSize.GetWidth(), (int)m_CachedActualSize.GetHeight());
 	glEnable(GL_SCISSOR_TEST);
 	glEnable(GL_LINE_SMOOTH);
+
+	CShaderTechniquePtr solidTech = g_Renderer.GetShaderManager().LoadEffect(str_gui_solid);
+	solidTech->BeginPass();
+	CShaderProgramPtr shader = solidTech->GetShader();
+
+	float viewVerts[] = {
+		ViewRect[0][0], -ViewRect[0][1],
+		ViewRect[1][0], -ViewRect[1][1],
+		ViewRect[2][0], -ViewRect[2][1],
+		ViewRect[3][0], -ViewRect[3][1]
+	};
+	shader->VertexPointer(2, GL_FLOAT, 0, viewVerts);
+
+	//shader->Uniform(str_transform, GetDefaultGuiMatrix());
+
+	shader->Uniform(str_color, 1.0f, 0.3f, 0.3f, 1.0f);
+	shader->AssertPointersBound();
 	glLineWidth(2.0f);
-	glColor3f(1.0f, 0.3f, 0.3f);
+	glDrawArrays(GL_LINE_LOOP, 0, 4);
 
-	// Draw the viewing rectangle with the ScEd's conversion algorithm
-	glBegin(GL_LINE_LOOP);
-	glVertex2f(ViewRect[0][0], -ViewRect[0][1]);
-	glVertex2f(ViewRect[1][0], -ViewRect[1][1]);
-	glVertex2f(ViewRect[2][0], -ViewRect[2][1]);
-	glVertex2f(ViewRect[3][0], -ViewRect[3][1]);
-	glEnd();
+	solidTech->EndPass();
 
-	// restore state
 	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_LINE_SMOOTH);
-	glLineWidth(1.0f);
 }
 
 struct MinimapUnitVertex
@@ -370,28 +379,11 @@ void CMiniMap::DrawTexture(CShaderProgramPtr shader, float coordMax, float angle
 		x, y, z
 	};
 
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
-		shader->TexCoordPointer(GL_TEXTURE0, 2, GL_FLOAT, 0, quadTex);
-		shader->VertexPointer(3, GL_FLOAT, 0, quadVerts);
-		shader->AssertPointersBound();
-	}
-	else
-	{
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glEnableClientState(GL_VERTEX_ARRAY);
-
-		glTexCoordPointer(2, GL_FLOAT, 0, quadTex);
-		glVertexPointer(3, GL_FLOAT, 0, quadVerts);
-	}
+	shader->TexCoordPointer(GL_TEXTURE0, 2, GL_FLOAT, 0, quadTex);
+	shader->VertexPointer(3, GL_FLOAT, 0, quadVerts);
+	shader->AssertPointersBound();
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_FIXED)
-	{
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
 }
 
 // TODO: render the minimap in a framebuffer and just draw the frambuffer texture
@@ -412,8 +404,8 @@ void CMiniMap::Draw()
 	ENSURE(cmpRangeManager);
 
 	// Set our globals in case they hadn't been set before
-	m_Camera      = g_Game->GetView()->GetCamera();
-	m_Terrain     = g_Game->GetWorld()->GetTerrain();
+	m_Camera = g_Game->GetView()->GetCamera();
+	m_Terrain = g_Game->GetWorld()->GetTerrain();
 	m_Width  = (u32)(m_CachedActualSize.right - m_CachedActualSize.left);
 	m_Height = (u32)(m_CachedActualSize.bottom - m_CachedActualSize.top);
 	m_MapSize = m_Terrain->GetVerticesPerSide();
@@ -427,7 +419,7 @@ void CMiniMap::Draw()
 	// only update 2x / second
 	// (note: since units only move a few pixels per second on the minimap,
 	// we can get away with infrequent updates; this is slow)
-	// TODO: store frequency in a config file?
+	// TODO: Update all but camera at same speed as simulation
 	static double last_time;
 	const double cur_time = timer_Time();
 	const bool doUpdate = cur_time - last_time > 0.5;
@@ -438,29 +430,26 @@ void CMiniMap::Draw()
 			RebuildTerrainTexture();
 	}
 
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glLoadIdentity();
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	CMatrix3D matrix = GetDefaultGuiMatrix();
-	glLoadMatrixf(&matrix._11);
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		CMatrix3D matrix = GetDefaultGuiMatrix();
+		glLoadMatrixf(&matrix._11);
 
 	// Disable depth updates to prevent apparent z-fighting-related issues
 	// with some drivers causing units to get drawn behind the texture
 	glDepthMask(0);
-	
+
 	CShaderProgramPtr shader;
 	CShaderTechniquePtr tech;
-	
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
-		CShaderDefines defines;
-		defines.Add(str_MINIMAP_BASE, str_1);
-		tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), defines);
-		tech->BeginPass();
-		shader = tech->GetShader();
-	}
+
+	CShaderDefines baseDefines;
+	baseDefines.Add(str_MINIMAP_BASE, str_1);
+	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), baseDefines);
+	tech->BeginPass();
+	shader = tech->GetShader();
 
 	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
 	const float x2 = m_CachedActualSize.right, y2 = m_CachedActualSize.top;
@@ -469,80 +458,70 @@ void CMiniMap::Draw()
 	const float angle = GetAngle();
 
 	// Draw the main textured quad
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-		shader->BindTexture(str_baseTex, m_TerrainTexture);
-	else
-		g_Renderer.BindTexture(0, m_TerrainTexture);
-	
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	shader->BindTexture(str_baseTex, m_TerrainTexture);
+	const CMatrix3D baseTransform = GetDefaultGuiMatrix();
+	CMatrix3D baseTextureTransform;
+	baseTextureTransform.SetIdentity();
+	shader->Uniform(str_transform, baseTransform);
+	shader->Uniform(str_textureTransform, baseTextureTransform);
 	DrawTexture(shader, texCoordMax, angle, x, y, x2, y2, z);
-
 
 	// Draw territory boundaries
 	CTerritoryTexture& territoryTexture = g_Game->GetView()->GetTerritoryTexture();
-	
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-		shader->BindTexture(str_baseTex, territoryTexture.GetTexture());
-	else
-		territoryTexture.BindTexture(0);
-	
+
+	shader->BindTexture(str_baseTex, territoryTexture.GetTexture());
+
+	const CMatrix3D *territoryTransform = territoryTexture.GetMinimapTextureMatrix();
+	shader->Uniform(str_transform, baseTransform);
+	shader->Uniform(str_textureTransform, *territoryTransform);
+
 	glEnable(GL_BLEND);
-	glMatrixMode(GL_TEXTURE);
-	glLoadMatrixf(territoryTexture.GetMinimapTextureMatrix());
-	glMatrixMode(GL_MODELVIEW);
+		//glMatrixMode(GL_TEXTURE);
+		//glLoadMatrixf(&(territoryTexture.GetMinimapTextureMatrix()->_11));
+		glMatrixMode(GL_MODELVIEW);
 
 	DrawTexture(shader, 1.0f, angle, x, y, x2, y2, z);
 
-	glMatrixMode(GL_TEXTURE);
-	glLoadIdentity();
-	glMatrixMode(GL_MODELVIEW);
-	glDisable(GL_BLEND);
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+	//glDisable(GL_BLEND);
 
+	tech->EndPass();
 
 	// Draw the LOS quad in black, using alpha values from the LOS texture
 	CLOSTexture& losTexture = g_Game->GetView()->GetLOSTexture();
-	
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
-		tech->EndPass();
 
-		CShaderDefines defines;
-		defines.Add(str_MINIMAP_LOS, str_1);
-		tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), defines);
-		tech->BeginPass();
-		shader = tech->GetShader();
-		shader->BindTexture(str_baseTex, losTexture.GetTexture());
-	}
-	else
-	{
-		losTexture.BindTexture(0);
-	}
-	
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_REPLACE);
-	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_PRIMARY_COLOR_ARB);
-	glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB_ARB, GL_SRC_COLOR);
-	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA_ARB, GL_REPLACE);
-	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA_ARB, GL_TEXTURE);
-	glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA_ARB, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_BLEND);
+	CShaderDefines losDefines;
+	losDefines.Add(str_MINIMAP_LOS, str_1);
+	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), losDefines);
+	tech->BeginPass();
+	shader = tech->GetShader();
+	shader->BindTexture(str_baseTex, losTexture.GetTexture());
+
+	//glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glColor3f(0.0f, 0.0f, 0.0f);
 
-	glMatrixMode(GL_TEXTURE);
-	glLoadMatrixf(losTexture.GetMinimapTextureMatrix());
-	glMatrixMode(GL_MODELVIEW);
+	const CMatrix3D *losTransform = losTexture.GetMinimapTextureMatrix();
+	shader->Uniform(str_transform, baseTransform);
+	shader->Uniform(str_textureTransform, *losTransform);
+
+		//glMatrixMode(GL_TEXTURE);
+		glLoadMatrixf(&(losTransform->_11));
+		glMatrixMode(GL_MODELVIEW);
 
 	DrawTexture(shader, 1.0f, angle, x, y, x2, y2, z);
 
-	glMatrixMode(GL_TEXTURE);
-	glLoadIdentity();
-	glMatrixMode(GL_MODELVIEW);
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
 
 	glDisable(GL_BLEND);
-	
+
+	tech->EndPass();
+
+	/***** END CONVERTED *****/
+
+
 	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
 	{
 		tech->EndPass();
@@ -555,6 +534,7 @@ void CMiniMap::Draw()
 	}
 	
 	// Set up the matrix for drawing points and lines
+	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glTranslatef(x, y, z);
 	// Rotate around the center of the map
@@ -635,7 +615,7 @@ void CMiniMap::Draw()
 	}
 
 	if (m_EntitiesDrawn > 0)
-	{		
+	{
 		// Don't enable GL_POINT_SMOOTH because it's far too slow
 		// (~70msec/frame on a GF4 rendering a thousand points)
 		glPointSize(3.f);
@@ -665,7 +645,6 @@ void CMiniMap::Draw()
 			glDrawElements(GL_POINTS, (GLsizei)(m_EntitiesDrawn), GL_UNSIGNED_SHORT, indexBase);
 		}
 
-		
 		g_Renderer.GetStats().m_DrawCalls++;
 		CVertexBuffer::Unbind();
 	}
@@ -692,16 +671,14 @@ void CMiniMap::Draw()
 	DrawViewRect();
 
 	glPopMatrix();
-	
+
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
-	
+
 	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
 		tech->EndPass();
-	}
 
 	// Reset everything back to normal
 	glPointSize(1.0f);
