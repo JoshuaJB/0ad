@@ -460,6 +460,7 @@ public:
 	{
 		m_Defines = defines;
 		SetUniformIndex("transform", ID_transform);
+		SetUniformIndex("textureTransform", ID_textureTransform);
 		SetUniformIndex("baseTex", 0);
 	}
 
@@ -472,14 +473,18 @@ public:
 		}
 		else if (id.second == ID_transform)
 		{
-			//glMatrixMode(GL_MODELVIEW);
-			//glPushMatrix();
-			//glLoadMatrixf(&v._11);
+			glMatrixMode(GL_MODELVIEW);
+			glLoadMatrixf(&v._11);
 		}
 	}
 
 	virtual void Bind()
 	{
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
 		BindClientStates();
 		if (m_Defines.GetInt("MINIMAP_BASE"))
 		{
@@ -514,6 +519,10 @@ public:
 		UnbindClientStates();
 		glMatrixMode(GL_TEXTURE);
 		glLoadIdentity();
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
 		//pglActiveTextureARB(GL_TEXTURE0);
 		//glDisable(GL_TEXTURE_2D);
 

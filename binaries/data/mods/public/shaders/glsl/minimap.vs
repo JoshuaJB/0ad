@@ -22,9 +22,7 @@ uniform mat4 textureTransform;
 void main()
 {
   #if MINIMAP_BASE || MINIMAP_LOS
-    gl_Position = transform/*gl_ModelViewProjectionMatrix */ * vec4(a_vertex, 1.0);
-    //vec4 temp = transform[0] * vec4(a_uv0, 0.0, 0.0);
-    //v_tex = temp.xy;
+    gl_Position = transform * vec4(a_vertex, 1.0);
     v_tex = (textureTransform * vec4(a_uv0, 0.0, 1.0)).xy;
   #endif
 

@@ -430,16 +430,14 @@ void CMiniMap::Draw()
 			RebuildTerrainTexture();
 	}
 
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		CMatrix3D matrix = GetDefaultGuiMatrix();
-		glLoadMatrixf(&matrix._11);
+	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
+	const float x2 = m_CachedActualSize.right, y2 = m_CachedActualSize.top;
+	const float z = GetBufferedZ();
+	const float texCoordMax = (float)(m_MapSize - 1) / (float)m_TextureSize;
+	const float angle = GetAngle();
 
 	// Disable depth updates to prevent apparent z-fighting-related issues
-	// with some drivers causing units to get drawn behind the texture
+	//  with some drivers causing units to get drawn behind the texture
 	glDepthMask(0);
 
 	CShaderProgramPtr shader;
@@ -451,12 +449,6 @@ void CMiniMap::Draw()
 	tech->BeginPass();
 	shader = tech->GetShader();
 
-	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
-	const float x2 = m_CachedActualSize.right, y2 = m_CachedActualSize.top;
-	const float z = GetBufferedZ();
-	const float texCoordMax = (float)(m_MapSize - 1) / (float)m_TextureSize;
-	const float angle = GetAngle();
-
 	// Draw the main textured quad
 	shader->BindTexture(str_baseTex, m_TerrainTexture);
 	const CMatrix3D baseTransform = GetDefaultGuiMatrix();
@@ -464,29 +456,20 @@ void CMiniMap::Draw()
 	baseTextureTransform.SetIdentity();
 	shader->Uniform(str_transform, baseTransform);
 	shader->Uniform(str_textureTransform, baseTextureTransform);
+
 	DrawTexture(shader, texCoordMax, angle, x, y, x2, y2, z);
 
 	// Draw territory boundaries
+	glEnable(GL_BLEND);
+
 	CTerritoryTexture& territoryTexture = g_Game->GetView()->GetTerritoryTexture();
 
 	shader->BindTexture(str_baseTex, territoryTexture.GetTexture());
-
 	const CMatrix3D *territoryTransform = territoryTexture.GetMinimapTextureMatrix();
 	shader->Uniform(str_transform, baseTransform);
 	shader->Uniform(str_textureTransform, *territoryTransform);
 
-	glEnable(GL_BLEND);
-		//glMatrixMode(GL_TEXTURE);
-		//glLoadMatrixf(&(territoryTexture.GetMinimapTextureMatrix()->_11));
-		glMatrixMode(GL_MODELVIEW);
-
 	DrawTexture(shader, 1.0f, angle, x, y, x2, y2, z);
-
-		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
-	//glDisable(GL_BLEND);
-
 	tech->EndPass();
 
 	// Draw the LOS quad in black, using alpha values from the LOS texture
@@ -499,28 +482,27 @@ void CMiniMap::Draw()
 	shader = tech->GetShader();
 	shader->BindTexture(str_baseTex, losTexture.GetTexture());
 
-	//glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	const CMatrix3D *losTransform = losTexture.GetMinimapTextureMatrix();
 	shader->Uniform(str_transform, baseTransform);
 	shader->Uniform(str_textureTransform, *losTransform);
 
-		//glMatrixMode(GL_TEXTURE);
-		glLoadMatrixf(&(losTransform->_11));
-		glMatrixMode(GL_MODELVIEW);
-
 	DrawTexture(shader, 1.0f, angle, x, y, x2, y2, z);
-
-		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
+	tech->EndPass();
 
 	glDisable(GL_BLEND);
 
-	tech->EndPass();
-
 	/***** END CONVERTED *****/
 
+
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		CMatrix3D matrix = GetDefaultGuiMatrix();
+		glLoadMatrixf(&matrix._11);
 
 	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
 	{
@@ -631,7 +613,7 @@ void CMiniMap::Draw()
 			shader->AssertPointersBound();
 		}
 		else
-		{	
+		{
 			glEnableClientState(GL_VERTEX_ARRAY);
 			glEnableClientState(GL_COLOR_ARRAY);
 
