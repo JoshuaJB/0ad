@@ -280,26 +280,26 @@ void CMiniMap::DrawViewRect()
 	float h = 16384.f * HEIGHT_SCALE;
 
 	CVector3D hitPt[4];
-	hitPt[0]=m_Camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), h);
-	hitPt[1]=m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), h);
-	hitPt[2]=m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, h);
-	hitPt[3]=m_Camera->GetWorldCoordinates(0, 0, h);
+	hitPt[0] = m_Camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), h);
+	hitPt[1] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), h);
+	hitPt[2] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, h);
+	hitPt[3] = m_Camera->GetWorldCoordinates(0, 0, h);
 
 	float ViewRect[4][2];
 	const float invTileMapSize = 1.0f/float(TERRAIN_TILE_SIZE*m_MapSize);
-	for (int i=0;i<4;i++) {
+	for (int i = 0; i < 4; i++) {
 		// convert to minimap space
-		const float px=hitPt[i].X;
-		const float pz=hitPt[i].Z;
-		ViewRect[i][0]=(m_CachedActualSize.GetWidth()*px*invTileMapSize);
-		ViewRect[i][1]=(m_CachedActualSize.GetHeight()*pz*invTileMapSize);
+		const float px = hitPt[i].X;
+		const float pz = hitPt[i].Z;
+		ViewRect[i][0] = (m_CachedActualSize.GetWidth()*px*invTileMapSize);
+		ViewRect[i][1] = (m_CachedActualSize.GetHeight()*pz*invTileMapSize);
 	}
 
 	// Enable Scissoring as to restrict the rectangle
 	// to only the mini-map below by retrieving the mini-maps
 	// screen coords.
 	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
-	glScissor((int)x, g_Renderer.GetHeight()-(int)y, (int)m_CachedActualSize.GetWidth(), (int)m_CachedActualSize.GetHeight());
+	glScissor((int)x, g_Renderer.GetHeight() - (int)y, (int)m_CachedActualSize.GetWidth(), (int)m_CachedActualSize.GetHeight());
 	glEnable(GL_SCISSOR_TEST);
 	glEnable(GL_LINE_SMOOTH);
 
@@ -504,28 +504,23 @@ void CMiniMap::Draw()
 		CMatrix3D matrix = GetDefaultGuiMatrix();
 		glLoadMatrixf(&matrix._11);
 
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
-		tech->EndPass();
+	CShaderDefines pointDefines;
+	pointDefines.Add(str_MINIMAP_POINT, str_1);
+	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), pointDefines);
+	tech->BeginPass();
+	shader = tech->GetShader();
 
-		CShaderDefines defines;
-		defines.Add(str_MINIMAP_POINT, str_1);
-		tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), defines);
-		tech->BeginPass();
-		shader = tech->GetShader();
-	}
-	
-	// Set up the matrix for drawing points and lines
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	glTranslatef(x, y, z);
-	// Rotate around the center of the map
-	glTranslatef((x2-x)/2.f, (y2-y)/2.f, 0.f);
-	// Scale square maps to fit in circular minimap area
-	float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
-	glScalef(unitScale, unitScale, 1.f);
-	glRotatef(angle * 180.f/M_PI, 0.f, 0.f, 1.f);
-	glTranslatef(-(x2-x)/2.f, -(y2-y)/2.f, 0.f);
+		// Set up the matrix for drawing points and lines
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glTranslatef(x, y, z);
+		// Rotate around the center of the map
+		glTranslatef((x2-x)/2.f, (y2-y)/2.f, 0.f);
+		// Scale square maps to fit in circular minimap area
+		float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
+		glScalef(unitScale, unitScale, 1.f);
+		glRotatef(angle * 180.f/M_PI, 0.f, 0.f, 1.f);
+		glTranslatef(-(x2-x)/2.f, -(y2-y)/2.f, 0.f);
 
 	PROFILE_START("minimap units");
 
@@ -606,22 +601,11 @@ void CMiniMap::Draw()
 		u8* base = m_VertexArray.Bind();
 		const GLsizei stride = (GLsizei)m_VertexArray.GetStride();
 
-		if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-		{
-			shader->VertexPointer(2, GL_FLOAT, stride, base + m_AttributePos.offset);
-			shader->ColorPointer(4, GL_UNSIGNED_BYTE, stride, base + m_AttributeColor.offset);
-			shader->AssertPointersBound();
-		}
-		else
-		{
-			glEnableClientState(GL_VERTEX_ARRAY);
-			glEnableClientState(GL_COLOR_ARRAY);
+		shader->VertexPointer(2, GL_FLOAT, stride, base + m_AttributePos.offset);
+		shader->ColorPointer(4, GL_UNSIGNED_BYTE, stride, base + m_AttributeColor.offset);
+		// This seems to fail with fixed-function?
+		shader->AssertPointersBound();
 
-			glDisable(GL_TEXTURE_2D);
-			glVertexPointer(2, GL_FLOAT, stride, base + m_AttributePos.offset);
-			glColorPointer(4, GL_UNSIGNED_BYTE, stride, base + m_AttributeColor.offset);
-		}
-		
 		if (!g_Renderer.m_SkipSubmit)
 		{
 			glDrawElements(GL_POINTS, (GLsizei)(m_EntitiesDrawn), GL_UNSIGNED_SHORT, indexBase);
@@ -633,22 +617,14 @@ void CMiniMap::Draw()
 
 	PROFILE_END("minimap units");
 
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-	{
-		tech->EndPass();
+	tech->EndPass();
 
-		CShaderDefines defines;
-		defines.Add(str_MINIMAP_LINE, str_1);
-		tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), defines);
-		tech->BeginPass();
-		shader = tech->GetShader();
-	}
-	else
-	{
-		glEnable(GL_TEXTURE_2D);
-		glDisableClientState(GL_VERTEX_ARRAY);
-		glDisableClientState(GL_COLOR_ARRAY);
-	}
+	// Do we even use this shader???
+	CShaderDefines lineDefines;
+	lineDefines.Add(str_MINIMAP_LINE, str_1);
+	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), lineDefines);
+	tech->BeginPass();
+	shader = tech->GetShader();
 
 	DrawViewRect();
 
@@ -659,7 +635,7 @@ void CMiniMap::Draw()
 	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
 
-	if (g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
+	if (true)//g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
 		tech->EndPass();
 
 	// Reset everything back to normal

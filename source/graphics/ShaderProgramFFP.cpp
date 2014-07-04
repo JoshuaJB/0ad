@@ -503,19 +503,23 @@ public:
 			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA_ARB, GL_ONE_MINUS_SRC_ALPHA);
 			glColor3f(0.0f, 0.0f, 0.0f);
 		}
-		//CShaderProgramFFP_Gui_Base::Bind();
+		else if (m_Defines.GetInt("MINIMAP_POINT"))
+		{
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glEnableClientState(GL_COLOR_ARRAY);
 
-		//pglActiveTextureARB(GL_TEXTURE0);
-		//glEnable(GL_TEXTURE_2D);
-		//glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+			glDisable(GL_TEXTURE_2D);
+		}
 	}
 
 	virtual void Unbind()
 	{
-		/*if (m_Defines.GetInt("MINIMAP_BASE"))
-			glDisable(GL_BLEND);
-		else if (m_Defines.GetInt("MINIMAP_LOS"))
-			glDisable(GL_BLEND);*/
+		if (m_Defines.GetInt("MINIMAP_POINT"))
+		{
+			glEnable(GL_TEXTURE_2D);
+			glDisableClientState(GL_VERTEX_ARRAY);
+			glDisableClientState(GL_COLOR_ARRAY);
+		}
 		UnbindClientStates();
 		glMatrixMode(GL_TEXTURE);
 		glLoadIdentity();
@@ -523,10 +527,6 @@ public:
 		glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
 		glPopMatrix();
-		//pglActiveTextureARB(GL_TEXTURE0);
-		//glDisable(GL_TEXTURE_2D);
-
-		//CShaderProgramFFP_Gui_Base::Unbind();
 	}
 };
 
