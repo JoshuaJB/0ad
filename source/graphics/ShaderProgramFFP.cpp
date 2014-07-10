@@ -88,11 +88,10 @@ public:
 			pglActiveTextureARB((int)(GL_TEXTURE0+index));
 			glBindTexture(GL_TEXTURE_2D, tex);
 #if !CONFIG2_GLES
-	if (tex) {
+	if (tex)
 		glEnable(GL_TEXTURE_2D);
-	} else {
+	else
 		glDisable(GL_TEXTURE_2D);
-	}
 #endif
 		}
 	}
@@ -456,12 +455,21 @@ protected:
 	};
 public:
 	CShaderProgramFFP_GuiMinimap(const CShaderDefines& defines) :
-		CShaderProgramFFP(STREAM_POS | STREAM_UV0)
+		CShaderProgramFFP(0) // We set the streamflags during initialization.
 	{
 		m_Defines = defines;
 		SetUniformIndex("transform", ID_transform);
 		SetUniformIndex("textureTransform", ID_textureTransform);
-		SetUniformIndex("baseTex", 0);
+
+		if (m_Defines.GetInt("MINIMAP_BASE") || m_Defines.GetInt("MINIMAP_LOS"))
+		{
+			SetUniformIndex("baseTex", 0);
+			m_StreamFlags = STREAM_POS | STREAM_UV0;
+		}
+		else if (m_Defines.GetInt("MINIMAP_POINT"))
+			m_StreamFlags = STREAM_POS | STREAM_COLOR;
+		else
+			m_StreamFlags = STREAM_POS;
 	}
 
 	virtual void Uniform(Binding id, const CMatrix3D& v)
@@ -485,6 +493,7 @@ public:
 		glLoadIdentity();
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
+
 		BindClientStates();
 		if (m_Defines.GetInt("MINIMAP_BASE"))
 		{

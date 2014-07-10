@@ -27,11 +27,11 @@ void main()
   #endif
 
   #if MINIMAP_POINT
-    gl_Position = /*transform*/gl_ModelViewProjectionMatrix * vec4(a_vertex, 0.0, 1.0);
+    gl_Position = transform * vec4(a_vertex, 0.0, 1.0);
     color = a_color;
   #endif
 
   #if MINIMAP_LINE
-    gl_Position = /*transform*/gl_ModelViewProjectionMatrix * vec4(a_vertex, 0.0, 1.0);
+    gl_Position = transform * vec4(a_vertex, 0.0, 1.0);
   #endif
 }

@@ -303,9 +303,12 @@ void CMiniMap::DrawViewRect()
 	glEnable(GL_SCISSOR_TEST);
 	glEnable(GL_LINE_SMOOTH);
 
-	CShaderTechniquePtr solidTech = g_Renderer.GetShaderManager().LoadEffect(str_gui_solid);
-	solidTech->BeginPass();
-	CShaderProgramPtr shader = solidTech->GetShader();
+	CShaderDefines lineDefines;
+	lineDefines.Add(str_MINIMAP_LINE, str_1);
+	CShaderTechniquePtr tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), lineDefines);
+	tech->BeginPass();
+	CShaderProgramPtr shader = tech->GetShader();
+	shader->Uniform(str_transform, GetDefaultGuiMatrix());
 
 	float viewVerts[] = {
 		ViewRect[0][0], -ViewRect[0][1],
@@ -317,12 +320,12 @@ void CMiniMap::DrawViewRect()
 
 	//shader->Uniform(str_transform, GetDefaultGuiMatrix());
 
-	shader->Uniform(str_color, 1.0f, 0.3f, 0.3f, 1.0f);
+	//shader->Uniform(str_color, 1.0f, 0.3f, 0.3f, 1.0f);
 	shader->AssertPointersBound();
 	glLineWidth(2.0f);
 	glDrawArrays(GL_LINE_LOOP, 0, 4);
 
-	solidTech->EndPass();
+	tech->EndPass();
 
 	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_LINE_SMOOTH);
@@ -493,34 +496,43 @@ void CMiniMap::Draw()
 
 	glDisable(GL_BLEND);
 
-	/***** END CONVERTED *****/
-
-
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		CMatrix3D matrix = GetDefaultGuiMatrix();
-		glLoadMatrixf(&matrix._11);
-
 	CShaderDefines pointDefines;
 	pointDefines.Add(str_MINIMAP_POINT, str_1);
 	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), pointDefines);
 	tech->BeginPass();
 	shader = tech->GetShader();
+	shader->Uniform(str_transform, baseTransform);
 
+// TODO: Port to using uniforms.
+	bool oldTransform = false;
+	float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
+	if (oldTransform)
+	{
 		// Set up the matrix for drawing points and lines
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		glTranslatef(x, y, z);
 		// Rotate around the center of the map
-		glTranslatef((x2-x)/2.f, (y2-y)/2.f, 0.f);
+		glTranslatef((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
 		// Scale square maps to fit in circular minimap area
-		float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
 		glScalef(unitScale, unitScale, 1.f);
 		glRotatef(angle * 180.f/M_PI, 0.f, 0.f, 1.f);
 		glTranslatef(-(x2-x)/2.f, -(y2-y)/2.f, 0.f);
+	}
+	else
+	{
+		CMatrix3D unitMatrix = GetDefaultGuiMatrix();
+		unitMatrix.PostTranslate(x, y, z);
+		unitMatrix.PostTranslate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
+		unitMatrix.Scale(unitScale, unitScale, 1.f);
+		unitMatrix.RotateZ(angle);
+		unitMatrix.PostTranslate(-(x2 - x) / 2.f, -(y2 - y) / 2.f, 0.f);
+					glMatrixMode(GL_MODELVIEW);
+					glPushMatrix();
+					glLoadMatrixf(&unitMatrix._11);
+		//shader->Uniform(str_transform, unitMatrix);
+	}
+// End TODO
 
 	PROFILE_START("minimap units");
 
@@ -532,14 +544,13 @@ void CMiniMap::Draw()
 
 	if (doUpdate)
 	{
-
 		VertexArrayIterator<float[2]> attrPos = m_AttributePos.GetIterator<float[2]>();
 		VertexArrayIterator<u8[4]> attrColor = m_AttributeColor.GetIterator<u8[4]>();
 
 		m_EntitiesDrawn = 0;
 		MinimapUnitVertex v;
 		std::vector<MinimapUnitVertex> pingingVertices;
-		pingingVertices.reserve(MAX_ENTITIES_DRAWN/2);
+		pingingVertices.reserve(MAX_ENTITIES_DRAWN / 2);
 
 		const double time = timer_Time();
 
@@ -603,7 +614,6 @@ void CMiniMap::Draw()
 
 		shader->VertexPointer(2, GL_FLOAT, stride, base + m_AttributePos.offset);
 		shader->ColorPointer(4, GL_UNSIGNED_BYTE, stride, base + m_AttributeColor.offset);
-		// This seems to fail with fixed-function?
 		shader->AssertPointersBound();
 
 		if (!g_Renderer.m_SkipSubmit)
@@ -619,24 +629,10 @@ void CMiniMap::Draw()
 
 	tech->EndPass();
 
-	// Do we even use this shader???
-	CShaderDefines lineDefines;
-	lineDefines.Add(str_MINIMAP_LINE, str_1);
-	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), lineDefines);
-	tech->BeginPass();
-	shader = tech->GetShader();
-
 	DrawViewRect();
 
-	glPopMatrix();
-
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
-
-	if (true)//g_Renderer.GetRenderPath() == CRenderer::RP_SHADER)
-		tech->EndPass();
+	//if (oldTransform)
+		glPopMatrix();
 
 	// Reset everything back to normal
 	glPointSize(1.0f);
