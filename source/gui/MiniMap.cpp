@@ -69,7 +69,7 @@ CMiniMap::CMiniMap() :
 	AddSetting(GUIST_CStr,		"tooltip_style");
 	m_Clicking = false;
 	m_MouseHovering = false;
-	
+
 	// Get the maximum height for unit passage in water.
 	CParamNode externalParamNode;
 	CParamNode::LoadXML(externalParamNode, L"simulation/data/pathfinder.xml");
@@ -78,7 +78,7 @@ CMiniMap::CMiniMap() :
 		m_ShallowPassageHeight = pathingSettings.GetChild("default").GetChild("MaxWaterDepth").ToFloat();
 	else
 		m_ShallowPassageHeight = 0.0f;
-		
+
 	m_AttributePos.type = GL_FLOAT;
 	m_AttributePos.elems = 2;
 	m_VertexArray.AddAttribute(&m_AttributePos);
@@ -94,13 +94,11 @@ CMiniMap::CMiniMap() :
 	m_IndexArray.Layout();
 	VertexArrayIterator<u16> index = m_IndexArray.GetIterator();
 	for (u16 i = 0; i < MAX_ENTITIES_DRAWN; ++i)
-	{
 		*index++ = i;
-	}
 	m_IndexArray.Upload();
 	m_IndexArray.FreeBackingStore();
-	
-	
+
+
 	VertexArrayIterator<float[2]> attrPos = m_AttributePos.GetIterator<float[2]>();
 	VertexArrayIterator<u8[4]> attrColor = m_AttributeColor.GetIterator<u8[4]>();
 	for (u16 i = 0; i < MAX_ENTITIES_DRAWN; i++)
@@ -113,9 +111,9 @@ CMiniMap::CMiniMap() :
 
 		(*attrPos)[0] = -10000.0f;
 		(*attrPos)[1] = -10000.0f;
-		
+
 		++attrPos;
-		
+
 	}
 	m_VertexArray.Upload();
 
@@ -261,23 +259,18 @@ void CMiniMap::FireWorldClickEvent(int button, int clicks)
 	UNUSED2(clicks);
 }
 
-#if CONFIG2_GLES
-#warning TODO: implement minimap for GLES
-void CMiniMap::Draw()
-{
-}
-#else
-
-// render view rect : John M. Mena
-// This sets up and draws the rectangle on the mini-map
-// which represents the view of the camera in the world.
-void CMiniMap::DrawViewRect()
+// This sets up and draws the rectangle on the minimap
+//  which represents the view of the camera in the world.
+void CMiniMap::DrawViewRect(CMatrix3D transform)
 {
 	// Compute the camera frustum intersected with a fixed-height plane.
 	// TODO: Currently we hard-code the height, so this'll be dodgy when maps aren't the
 	// expected height - how can we make it better without the view rect wobbling in
 	// size while the player scrolls?
 	float h = 16384.f * HEIGHT_SCALE;
+	const float width = m_CachedActualSize.GetWidth();
+	const float height = m_CachedActualSize.GetHeight();
+	const float invTileMapSize = 1.0f / float(TERRAIN_TILE_SIZE * m_MapSize);
 
 	CVector3D hitPt[4];
 	hitPt[0] = m_Camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), h);
@@ -286,29 +279,11 @@ void CMiniMap::DrawViewRect()
 	hitPt[3] = m_Camera->GetWorldCoordinates(0, 0, h);
 
 	float ViewRect[4][2];
-	const float invTileMapSize = 1.0f/float(TERRAIN_TILE_SIZE*m_MapSize);
 	for (int i = 0; i < 4; i++) {
 		// convert to minimap space
-		const float px = hitPt[i].X;
-		const float pz = hitPt[i].Z;
-		ViewRect[i][0] = (m_CachedActualSize.GetWidth()*px*invTileMapSize);
-		ViewRect[i][1] = (m_CachedActualSize.GetHeight()*pz*invTileMapSize);
+		ViewRect[i][0] = (width * hitPt[i].X * invTileMapSize);
+		ViewRect[i][1] = (height * hitPt[i].Z * invTileMapSize);
 	}
-
-	// Enable Scissoring as to restrict the rectangle
-	// to only the mini-map below by retrieving the mini-maps
-	// screen coords.
-	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
-	glScissor((int)x, g_Renderer.GetHeight() - (int)y, (int)m_CachedActualSize.GetWidth(), (int)m_CachedActualSize.GetHeight());
-	glEnable(GL_SCISSOR_TEST);
-	glEnable(GL_LINE_SMOOTH);
-
-	CShaderDefines lineDefines;
-	lineDefines.Add(str_MINIMAP_LINE, str_1);
-	CShaderTechniquePtr tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), lineDefines);
-	tech->BeginPass();
-	CShaderProgramPtr shader = tech->GetShader();
-	shader->Uniform(str_transform, GetDefaultGuiMatrix());
 
 	float viewVerts[] = {
 		ViewRect[0][0], -ViewRect[0][1],
@@ -316,19 +291,30 @@ void CMiniMap::DrawViewRect()
 		ViewRect[2][0], -ViewRect[2][1],
 		ViewRect[3][0], -ViewRect[3][1]
 	};
-	shader->VertexPointer(2, GL_FLOAT, 0, viewVerts);
 
-	//shader->Uniform(str_transform, GetDefaultGuiMatrix());
-
-	//shader->Uniform(str_color, 1.0f, 0.3f, 0.3f, 1.0f);
-	shader->AssertPointersBound();
+	// Enable Scissoring to restrict the rectangle to only the minimap.
+	glScissor((int)m_CachedActualSize.left, g_Renderer.GetHeight() - (int)m_CachedActualSize.bottom, (int)width, (int)height);
+	glEnable(GL_SCISSOR_TEST);
 	glLineWidth(2.0f);
-	glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+	CShaderDefines lineDefines;
+	lineDefines.Add(str_MINIMAP_LINE, str_1);
+	CShaderTechniquePtr tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), lineDefines);
+	tech->BeginPass();
+	CShaderProgramPtr shader = tech->GetShader();
+	shader->Uniform(str_transform, transform);
+	shader->Uniform(str_color, 1.0f, 0.3f, 0.3f, 1.0f);
+
+	shader->VertexPointer(2, GL_FLOAT, 0, viewVerts);
+	shader->AssertPointersBound();
+
+	if (!g_Renderer.m_SkipSubmit)
+		glDrawArrays(GL_LINE_LOOP, 0, 4);
 
 	tech->EndPass();
 
+	glLineWidth(1.0f);
 	glDisable(GL_SCISSOR_TEST);
-	glDisable(GL_LINE_SMOOTH);
 }
 
 struct MinimapUnitVertex
@@ -386,7 +372,8 @@ void CMiniMap::DrawTexture(CShaderProgramPtr shader, float coordMax, float angle
 	shader->VertexPointer(3, GL_FLOAT, 0, quadVerts);
 	shader->AssertPointersBound();
 
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	if (!g_Renderer.m_SkipSubmit)
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 // TODO: render the minimap in a framebuffer and just draw the frambuffer texture
@@ -399,7 +386,7 @@ void CMiniMap::Draw()
 
 	// The terrain isn't actually initialized until the map is loaded, which
 	// happens when the game is started, so abort until then.
-	if(!(GetGUI() && g_Game && g_Game->IsGameStarted()))
+	if (!(GetGUI() && g_Game && g_Game->IsGameStarted()))
 		return;
 
 	CSimulation2* sim = g_Game->GetSimulation2();
@@ -415,7 +402,7 @@ void CMiniMap::Draw()
 	m_TextureSize = (GLsizei)round_up_to_pow2((size_t)m_MapSize);
 	m_MapScale = (cmpRangeManager->GetLosCircular() ? 1.f : 1.414f);
 
-	if(!m_TerrainTexture || g_GameRestarted)
+	if (!m_TerrainTexture || g_GameRestarted)
 		CreateTextures();
 
 
@@ -426,10 +413,10 @@ void CMiniMap::Draw()
 	static double last_time;
 	const double cur_time = timer_Time();
 	const bool doUpdate = cur_time - last_time > 0.5;
-	if(doUpdate)
+	if (doUpdate)
 	{	
 		last_time = cur_time;
-		if(m_TerrainDirty)
+		if (m_TerrainDirty)
 			RebuildTerrainTexture();
 	}
 
@@ -438,9 +425,10 @@ void CMiniMap::Draw()
 	const float z = GetBufferedZ();
 	const float texCoordMax = (float)(m_MapSize - 1) / (float)m_TextureSize;
 	const float angle = GetAngle();
+	const float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
 
 	// Disable depth updates to prevent apparent z-fighting-related issues
-	//  with some drivers causing units to get drawn behind the texture
+	//  with some drivers causing units to get drawn behind the texture.
 	glDepthMask(0);
 
 	CShaderProgramPtr shader;
@@ -496,6 +484,8 @@ void CMiniMap::Draw()
 
 	glDisable(GL_BLEND);
 
+	PROFILE_START("minimap units");
+
 	CShaderDefines pointDefines;
 	pointDefines.Add(str_MINIMAP_POINT, str_1);
 	tech = g_Renderer.GetShaderManager().LoadEffect(str_minimap, g_Renderer.GetSystemShaderDefines(), pointDefines);
@@ -503,44 +493,22 @@ void CMiniMap::Draw()
 	shader = tech->GetShader();
 	shader->Uniform(str_transform, baseTransform);
 
-// TODO: Port to using uniforms.
-	bool oldTransform = false;
-	float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
-	if (oldTransform)
-	{
-		// Set up the matrix for drawing points and lines
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-		glTranslatef(x, y, z);
-		// Rotate around the center of the map
-		glTranslatef((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
-		// Scale square maps to fit in circular minimap area
-		glScalef(unitScale, unitScale, 1.f);
-		glRotatef(angle * 180.f/M_PI, 0.f, 0.f, 1.f);
-		glTranslatef(-(x2-x)/2.f, -(y2-y)/2.f, 0.f);
-	}
-	else
-	{
-		CMatrix3D unitMatrix;
-		unitMatrix.SetIdentity();
-		// Center the minimap on the origin of the axis of rotation.
-		unitMatrix.PostTranslate(-(x2 - x) / 2.f, -(y2 - y) / 2.f, 0.f);
-		// Rotate the map.
-		unitMatrix.RotateZ(angle);
-		// Scale square maps to fit.
-		unitMatrix.Scale(unitScale, unitScale, 1.f);
-		/*** These last two translate calls don't seem to do what they're supposed to do! ***/
-		// Move the minimap back to it's starting position.
-		unitMatrix.PostTranslate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
-		// Move the minimap to it's final location.
-		unitMatrix.PostTranslate(x, y, z);
-		unitMatrix *= GetDefaultGuiMatrix();
-		shader->Uniform(str_transform, unitMatrix);
-	}
-// End TODO
-
-	PROFILE_START("minimap units");
-
+	CMatrix3D unitMatrix;
+	unitMatrix.SetIdentity();
+	// Center the minimap on the origin of the axis of rotation.
+	unitMatrix.Translate(-(x2 - x) / 2.f, -(y2 - y) / 2.f, 0.f);
+	// Rotate the map.
+	unitMatrix.RotateZ(angle);
+	// Scale square maps to fit.
+	unitMatrix.Scale(unitScale, unitScale, 1.f);
+	// Move the minimap back to it's starting position.
+	unitMatrix.Translate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
+	// Move the minimap to it's final location.
+	unitMatrix.Translate(x, y, z);
+	// Apply the gui matrix.
+	unitMatrix *= GetDefaultGuiMatrix();
+	// Load the transform into the shader.
+	shader->Uniform(str_transform, unitMatrix);
 
 	const float sx = (float)m_Width / ((m_MapSize - 1) * TERRAIN_TILE_SIZE);
 	const float sy = (float)m_Height / ((m_MapSize - 1) * TERRAIN_TILE_SIZE);
@@ -557,12 +525,10 @@ void CMiniMap::Draw()
 		std::vector<MinimapUnitVertex> pingingVertices;
 		pingingVertices.reserve(MAX_ENTITIES_DRAWN / 2);
 
-		const double time = timer_Time();
-
-		if (time > m_NextBlinkTime)
+		if (cur_time > m_NextBlinkTime)
 		{
 			m_BlinkState = !m_BlinkState;
-			m_NextBlinkTime = time + m_HalfBlinkDuration;
+			m_NextBlinkTime = cur_time + m_HalfBlinkDuration;
 		}
 
 		entity_pos_t posX, posZ;
@@ -575,16 +541,15 @@ void CMiniMap::Draw()
 				if (vis != ICmpRangeManager::VIS_HIDDEN)
 				{
 					v.a = 255;
-					v.x = posX.ToFloat()*sx;
-					v.y = -posZ.ToFloat()*sy;
-					
+					v.x = posX.ToFloat() * sx;
+					v.y = -posZ.ToFloat() * sy;
+
 					// Check minimap pinging to indicate something
-					if (m_BlinkState && cmpMinimap->CheckPing(time, m_PingDuration))
+					if (m_BlinkState && cmpMinimap->CheckPing(cur_time, m_PingDuration))
 					{
 						v.r = 255; // ping color is white
 						v.g = 255;
 						v.b = 255;
-
 						pingingVertices.push_back(v);
 					}
 					else
@@ -609,8 +574,6 @@ void CMiniMap::Draw()
 
 	if (m_EntitiesDrawn > 0)
 	{
-		// Don't enable GL_POINT_SMOOTH because it's far too slow
-		// (~70msec/frame on a GF4 rendering a thousand points)
 		glPointSize(3.f);
 
 		u8* indexBase = m_IndexArray.Bind();
@@ -622,30 +585,23 @@ void CMiniMap::Draw()
 		shader->AssertPointersBound();
 
 		if (!g_Renderer.m_SkipSubmit)
-		{
 			glDrawElements(GL_POINTS, (GLsizei)(m_EntitiesDrawn), GL_UNSIGNED_SHORT, indexBase);
-		}
 
 		g_Renderer.GetStats().m_DrawCalls++;
 		CVertexBuffer::Unbind();
-	}
 
-	PROFILE_END("minimap units");
+		glPointSize(1.0f);
+	}
 
 	tech->EndPass();
 
-	DrawViewRect();
+	DrawViewRect(unitMatrix);
 
-	if (oldTransform)
-		glPopMatrix();
+	PROFILE_END("minimap units");
 
-	// Reset everything back to normal
-	glPointSize(1.0f);
-	glEnable(GL_TEXTURE_2D);
+	// Reset depth mask
 	glDepthMask(1);
 }
-
-#endif // CONFIG2_GLES
 
 void CMiniMap::CreateTextures()
 {

@@ -22,10 +22,8 @@
 #endif
 
 #if MINIMAP_LINE
-  MOV result.color.r, 1.0;
-  MOV result.color.g, 0.3;
-  MOV result.color.b, 0.3;
-  MOV result.color.w, 1.0;
+  PARAM color = program.local[1];
+  MOV result.color, color;
 #endif
 
 END

@@ -87,12 +87,6 @@ public:
 		{
 			pglActiveTextureARB((int)(GL_TEXTURE0+index));
 			glBindTexture(GL_TEXTURE_2D, tex);
-#if !CONFIG2_GLES
-	if (tex)
-		glEnable(GL_TEXTURE_2D);
-	else
-		glDisable(GL_TEXTURE_2D);
-#endif
 		}
 	}
 
@@ -452,14 +446,16 @@ protected:
 	{
 		ID_transform,
 		ID_textureTransform,
+		ID_color,
 	};
 public:
 	CShaderProgramFFP_GuiMinimap(const CShaderDefines& defines) :
-		CShaderProgramFFP(0) // We set the streamflags during initialization.
+		CShaderProgramFFP(0) // We set the streamflags later, during initialization.
 	{
 		m_Defines = defines;
 		SetUniformIndex("transform", ID_transform);
 		SetUniformIndex("textureTransform", ID_textureTransform);
+		SetUniformIndex("color", ID_color);
 
 		if (m_Defines.GetInt("MINIMAP_BASE") || m_Defines.GetInt("MINIMAP_LOS"))
 		{
@@ -486,23 +482,38 @@ public:
 		}
 	}
 
+	virtual void Uniform(Binding id, float v0, float v1, float v2, float v3)
+	{
+		if (id.second == ID_color)
+			glColor4f(v0, v1, v2, v3);
+	}
+
 	virtual void Bind()
 	{
+		// Setup matrix environment
 		glMatrixMode(GL_PROJECTION);
 		glPushMatrix();
 		glLoadIdentity();
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
+		glLoadIdentity();
+		glMatrixMode(GL_TEXTURE);
+		glPushMatrix();
+		glLoadIdentity();
 
 		BindClientStates();
+
+		// Setup texture environment
 		if (m_Defines.GetInt("MINIMAP_BASE"))
 		{
+			glEnable(GL_TEXTURE_2D);
 			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
 		else if (m_Defines.GetInt("MINIMAP_LOS"))
 		{
+			glEnable(GL_TEXTURE_2D);
 			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
 			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB_ARB, GL_REPLACE);
 			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB_ARB, GL_PRIMARY_COLOR_ARB);
@@ -514,24 +525,36 @@ public:
 		}
 		else if (m_Defines.GetInt("MINIMAP_POINT"))
 		{
+			glDisable(GL_TEXTURE_2D);
 			glEnableClientState(GL_VERTEX_ARRAY);
 			glEnableClientState(GL_COLOR_ARRAY);
-
-			glDisable(GL_TEXTURE_2D);
+		}
+		else if (m_Defines.GetInt("MINIMAP_LINE"))
+		{
+			// JoshuaJB 13.7.2014: This doesn't seem to do anything on my drivers.
+			glEnable(GL_LINE_SMOOTH);
 		}
 	}
 
 	virtual void Unbind()
 	{
+		// Reset texture environment
 		if (m_Defines.GetInt("MINIMAP_POINT"))
 		{
 			glEnable(GL_TEXTURE_2D);
 			glDisableClientState(GL_VERTEX_ARRAY);
 			glDisableClientState(GL_COLOR_ARRAY);
 		}
+		else if (m_Defines.GetInt("MINIMAP_LINE"))
+		{
+			glDisable(GL_LINE_SMOOTH);
+		}
+
 		UnbindClientStates();
+
+		// Clear matrix stack
 		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
+		glPopMatrix();
 		glMatrixMode(GL_PROJECTION);
 		glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);
