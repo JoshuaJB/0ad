@@ -521,16 +521,21 @@ void CMiniMap::Draw()
 	}
 	else
 	{
-		CMatrix3D unitMatrix = GetDefaultGuiMatrix();
-		unitMatrix.PostTranslate(x, y, z);
-		unitMatrix.PostTranslate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
-		unitMatrix.Scale(unitScale, unitScale, 1.f);
-		unitMatrix.RotateZ(angle);
+		CMatrix3D unitMatrix;
+		unitMatrix.SetIdentity();
+		// Center the minimap on the origin of the axis of rotation.
 		unitMatrix.PostTranslate(-(x2 - x) / 2.f, -(y2 - y) / 2.f, 0.f);
-					glMatrixMode(GL_MODELVIEW);
-					glPushMatrix();
-					glLoadMatrixf(&unitMatrix._11);
-		//shader->Uniform(str_transform, unitMatrix);
+		// Rotate the map.
+		unitMatrix.RotateZ(angle);
+		// Scale square maps to fit.
+		unitMatrix.Scale(unitScale, unitScale, 1.f);
+		/*** These last two translate calls don't seem to do what they're supposed to do! ***/
+		// Move the minimap back to it's starting position.
+		unitMatrix.PostTranslate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
+		// Move the minimap to it's final location.
+		unitMatrix.PostTranslate(x, y, z);
+		unitMatrix *= GetDefaultGuiMatrix();
+		shader->Uniform(str_transform, unitMatrix);
 	}
 // End TODO
 
@@ -631,7 +636,7 @@ void CMiniMap::Draw()
 
 	DrawViewRect();
 
-	//if (oldTransform)
+	if (oldTransform)
 		glPopMatrix();
 
 	// Reset everything back to normal
