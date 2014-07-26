@@ -261,13 +261,14 @@ void CMiniMap::FireWorldClickEvent(int button, int clicks)
 
 // This sets up and draws the rectangle on the minimap
 //  which represents the view of the camera in the world.
-void CMiniMap::DrawViewRect(CMatrix3D transform)
+void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 {
 	// Compute the camera frustum intersected with a fixed-height plane.
 	// TODO: Currently we hard-code the height, so this'll be dodgy when maps aren't the
 	// expected height - how can we make it better without the view rect wobbling in
 	// size while the player scrolls?
-	float h = 16384.f * HEIGHT_SCALE;
+	const float h = 16384.f * HEIGHT_SCALE;
+	const int LINE_WIDTH = 5;
 	const float width = m_CachedActualSize.GetWidth();
 	const float height = m_CachedActualSize.GetHeight();
 	const float invTileMapSize = 1.0f / float(TERRAIN_TILE_SIZE * m_MapSize);
@@ -278,24 +279,35 @@ void CMiniMap::DrawViewRect(CMatrix3D transform)
 	hitPt[2] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, h);
 	hitPt[3] = m_Camera->GetWorldCoordinates(0, 0, h);
 
-	float ViewRect[4][2];
-	for (int i = 0; i < 4; i++) {
-		// convert to minimap space
-		ViewRect[i][0] = (width * hitPt[i].X * invTileMapSize);
-		ViewRect[i][1] = (height * hitPt[i].Z * invTileMapSize);
+	float viewVerts[20];
+	// Convert to minimap space
+	for (int i = 0; i < 4; i++)
+	{
+		// Outer X vertex coordinate
+		viewVerts[i * 4] = width * hitPt[i].X * invTileMapSize;
+		// Outer Y vertex coordinate
+		viewVerts[i * 4 + 1] = -1 * height * hitPt[i].Z * invTileMapSize;
+		// Inner X vertex coordinate
+		viewVerts[i * 4 + 2] = viewVerts[i * 4] + cos(-GetAngle() - 5 * M_PI / 4 - i * M_PI / 2) * LINE_WIDTH * sqrt(2);
+		// Inner Y vertex coordinate
+		viewVerts[i * 4 + 3] = viewVerts[i * 4 + 1] + sin(-GetAngle() - 5 * M_PI / 4 - i * M_PI / 2) * LINE_WIDTH * sqrt(2);
+		// Inner X vertex coordinate
+		LOGWARNING(L"%f", atan((viewVerts[(3 - i) * 4 + 1] - viewVerts[i * 4 + 1]) / (viewVerts[i * 4] - viewVerts[(3 - i) * 4])) * 180 / M_PI);
+		double angleAdjustment = + 5 * M_PI / 4 - 0 * M_PI / 2 + atan((viewVerts[(3 - i) * 4 + 1] - viewVerts[i * 4 + 1]) / (viewVerts[i * 4] - viewVerts[(3 - i) * 4])) / 2.f;
+		viewVerts[i * 4 + 2] = viewVerts[i * 4] + cos(-GetAngle() + angleAdjustment) * LINE_WIDTH * sqrt(2);
+		// Inner Y vertex coordinate
+		viewVerts[i * 4 + 3] = viewVerts[i * 4 + 1] + sin(-GetAngle() + angleAdjustment) * LINE_WIDTH * sqrt(2);
 	}
-
-	float viewVerts[] = {
-		ViewRect[0][0], -ViewRect[0][1],
-		ViewRect[1][0], -ViewRect[1][1],
-		ViewRect[2][0], -ViewRect[2][1],
-		ViewRect[3][0], -ViewRect[3][1]
-	};
+	// Copy and append the first set of vertices to the end of the vertex array so as to draw a loop.
+	viewVerts[16] = viewVerts[0];
+	viewVerts[17] = viewVerts[1];
+	viewVerts[18] = viewVerts[2];
+	viewVerts[19] = viewVerts[3];
 
 	// Enable Scissoring to restrict the rectangle to only the minimap.
 	glScissor((int)m_CachedActualSize.left, g_Renderer.GetHeight() - (int)m_CachedActualSize.bottom, (int)width, (int)height);
 	glEnable(GL_SCISSOR_TEST);
-	glLineWidth(2.0f);
+	//glLineWidth(2.0f);
 
 	CShaderDefines lineDefines;
 	lineDefines.Add(str_MINIMAP_LINE, str_1);
@@ -309,11 +321,11 @@ void CMiniMap::DrawViewRect(CMatrix3D transform)
 	shader->AssertPointersBound();
 
 	if (!g_Renderer.m_SkipSubmit)
-		glDrawArrays(GL_LINE_LOOP, 0, 4);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 10);
 
 	tech->EndPass();
 
-	glLineWidth(1.0f);
+	//glLineWidth(1.0f);
 	glDisable(GL_SCISSOR_TEST);
 }
 
@@ -350,13 +362,13 @@ void CMiniMap::DrawTexture(CShaderProgramPtr shader, float coordMax, float angle
 	const float m = coordMax / 2.f;
 
 	float quadTex[] = {
-		m*(-c + s + 1.f), m*(-c + -s + 1.f),
-		m*(c + s + 1.f), m*(-c + s + 1.f),
-		m*(c + -s + 1.f), m*(c + s + 1.f),
+		m * (-c + s + 1.f), m * (-c + -s + 1.f),
+		m * (c + s + 1.f), m * (-c + s + 1.f),
+		m * (c + -s + 1.f), m * (c + s + 1.f),
 
-		m*(c + -s + 1.f), m*(c + s + 1.f),
-		m*(-c + -s + 1.f), m*(c + -s + 1.f),
-		m*(-c + s + 1.f), m*(-c + -s + 1.f)
+		m * (c + -s + 1.f), m * (c + s + 1.f),
+		m * (-c + -s + 1.f), m * (c + -s + 1.f),
+		m * (-c + s + 1.f), m * (-c + -s + 1.f)
 	};
 	float quadVerts[] = {
 		x, y, z,
