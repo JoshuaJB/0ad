@@ -177,6 +177,9 @@ static InReaction MainInputHandler(const SDL_Event_* ev)
 // dispatch all pending events to the various receivers.
 static void PumpEvents()
 {
+	JSContext* cx = g_GUI->GetScriptInterface()->GetContext();
+	JSAutoRequest rq(cx);
+	
 	PROFILE3("dispatch events");
 
 	SDL_Event_ ev;
@@ -185,8 +188,8 @@ static void PumpEvents()
 		PROFILE2("event");
 		if (g_GUI)
 		{
-			JS::Value tmpVal;
-			ScriptInterface::ToJSVal(g_GUI->GetScriptInterface()->GetContext(), tmpVal, ev);
+			JS::RootedValue tmpVal(cx);
+			ScriptInterface::ToJSVal(cx, &tmpVal, ev);
 			std::string data = g_GUI->GetScriptInterface()->StringifyJSON(tmpVal);
 			PROFILE2_ATTR("%s", data.c_str());
 		}
@@ -439,7 +442,7 @@ static void RunGameOrAtlas(int argc, const char* argv[])
 		{
 			CReplayPlayer replay;
 			replay.Load(args.Get("replay"));
-			replay.Replay();
+			replay.Replay(args.Has("serializationtest"));
 		}
 
 		g_VFS.reset();
