@@ -27,7 +27,8 @@ struct ScriptInterface_NativeWrapper {
 	#define OVERLOADS(z, i, data) \
 		template<TYPENAME_T0_HEAD(z,i)  typename F> \
 		static void call(JSContext* cx, JS::MutableHandleValue rval, F fptr  T0_A0(z,i)) { \
-			ScriptInterface::ToJSVal<R>(cx, rval, fptr(ScriptInterface::GetScriptInterfaceAndCBData(cx) A0_TAIL(z,i))); \
+			ScriptInterface* pScriptInterface = ScriptInterface::GetScriptInterfaceAndCBData(cx)->pScriptInterface; \
+			pScriptInterface->AssignOrToJSVal<R>(rval, fptr(ScriptInterface::GetScriptInterfaceAndCBData(cx) A0_TAIL(z,i))); \
 		}
 
 	BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
@@ -53,7 +54,8 @@ struct ScriptInterface_NativeMethodWrapper {
 	#define OVERLOADS(z, i, data) \
 		template<TYPENAME_T0_HEAD(z,i)  typename F> \
 		static void call(JSContext* cx, JS::MutableHandleValue rval, TC* c, F fptr  T0_A0(z,i)) { \
-			ScriptInterface::ToJSVal<R>(cx, rval, (c->*fptr)( A0(z,i) )); \
+			ScriptInterface* pScriptInterface = ScriptInterface::GetScriptInterfaceAndCBData(cx)->pScriptInterface; \
+			pScriptInterface->AssignOrToJSVal<R>(rval, (c->*fptr)( A0(z,i) )); \
 		}
 
 	BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
@@ -111,8 +113,9 @@ BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
 		JS::CallArgs args = JS::CallArgsFromVp(argc, vp); \
 		JSAutoRequest rq(cx); \
 		SCRIPT_PROFILE \
-		if (ScriptInterface::GetClass(JS_THIS_OBJECT(cx, vp)) != CLS) return false; \
-		TC* c = static_cast<TC*>(ScriptInterface::GetPrivate(JS_THIS_OBJECT(cx, vp))); \
+		JS::RootedObject thisObj(cx, JS_THIS_OBJECT(cx, vp)); \
+		if (ScriptInterface::GetClass(thisObj) != CLS) return false; \
+		TC* c = static_cast<TC*>(ScriptInterface::GetPrivate(thisObj)); \
 		if (! c) return false; \
 		BOOST_PP_REPEAT_##z (i, CONVERT_ARG, ~) \
 		JS::RootedValue rval(cx); \
@@ -123,20 +126,19 @@ BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
 BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
 #undef OVERLOADS
 
-#define TO_JS_VAL(z, i, data) ToJSVal(cx, argv.handleAt(i), a##i);
+#define ASSIGN_OR_TO_JS_VAL(z, i, data) AssignOrToJSVal(argv.handleAt(i), a##i);
 
 #define OVERLOADS(z, i, data) \
 template<typename R TYPENAME_T0_TAIL(z, i)> \
-bool ScriptInterface::CallFunction(jsval val, const char* name, T0_A0_CONST_REF(z,i) R& ret) \
+bool ScriptInterface::CallFunction(JS::HandleValue val, const char* name, T0_A0_CONST_REF(z,i) R& ret) \
 { \
 	JSContext* cx = GetContext(); \
 	JSAutoRequest rq(cx); \
 	JS::RootedValue jsRet(cx); \
-	JS::RootedValue val1(cx, val); \
 	JS::AutoValueVector argv(cx); \
 	argv.resize(i); \
-	BOOST_PP_REPEAT_##z (i, TO_JS_VAL, ~) \
-	bool ok = CallFunction_(val1, name, argv.length(), argv.begin(), &jsRet); \
+	BOOST_PP_REPEAT_##z (i, ASSIGN_OR_TO_JS_VAL, ~) \
+	bool ok = CallFunction_(val, name, argv.length(), argv.begin(), &jsRet); \
 	if (!ok) \
 		return false; \
 	return FromJSVal(cx, jsRet, ret); \
@@ -146,22 +148,39 @@ BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
 
 #define OVERLOADS(z, i, data) \
 template<typename R TYPENAME_T0_TAIL(z, i)> \
-bool ScriptInterface::CallFunction(jsval val, const char* name, T0_A0_CONST_REF(z,i) JS::Rooted<R>* ret) \
+bool ScriptInterface::CallFunction(JS::HandleValue val, const char* name, T0_A0_CONST_REF(z,i) JS::Rooted<R>* ret) \
 { \
 	JSContext* cx = GetContext(); \
 	JSAutoRequest rq(cx); \
 	JS::MutableHandle<R> jsRet(ret); \
-	JS::RootedValue val1(cx, val); \
 	JS::AutoValueVector argv(cx); \
 	argv.resize(i); \
-	BOOST_PP_REPEAT_##z (i, TO_JS_VAL, ~) \
-	bool ok = CallFunction_(val1, name, argv.length(), argv.begin(), jsRet); \
+	BOOST_PP_REPEAT_##z (i, ASSIGN_OR_TO_JS_VAL, ~) \
+	bool ok = CallFunction_(val, name, argv.length(), argv.begin(), jsRet); \
 	if (!ok) \
 		return false; \
 	return true; \
 }
 BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
 #undef OVERLOADS
+
+#define OVERLOADS(z, i, data) \
+template<typename R TYPENAME_T0_TAIL(z, i)> \
+bool ScriptInterface::CallFunction(JS::HandleValue val, const char* name, T0_A0_CONST_REF(z,i) JS::MutableHandle<R> ret) \
+{ \
+	JSContext* cx = GetContext(); \
+	JSAutoRequest rq(cx); \
+	JS::AutoValueVector argv(cx); \
+	argv.resize(i); \
+	BOOST_PP_REPEAT_##z (i, ASSIGN_OR_TO_JS_VAL, ~) \
+	bool ok = CallFunction_(val, name, argv.length(), argv.begin(), ret); \
+	if (!ok) \
+		return false; \
+	return true; \
+}
+BOOST_PP_REPEAT(SCRIPT_INTERFACE_MAX_ARGS, OVERLOADS, ~)
+#undef OVERLOADS
+#undef ASSIGN_OR_TO_JS_VAL
 
 // Clean up our mess
 #undef SCRIPT_PROFILE

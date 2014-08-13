@@ -42,8 +42,8 @@ public:
 	virtual const char* GetScriptGlobalHandlerName() const { return globalHandlerName.c_str(); }
 	virtual jsval ToJSVal(ScriptInterface& UNUSED(scriptInterface)) const { return msg.get(); }
 
-	CMessageScripted(int mtid, const std::string& name, const CScriptValRooted& msg) :
-		mtid(mtid), handlerName("On" + name), globalHandlerName("OnGlobal" + name), msg(msg)
+	CMessageScripted(ScriptInterface& scriptInterface, int mtid, const std::string& name, JS::HandleValue msg) :
+		mtid(mtid), handlerName("On" + name), globalHandlerName("OnGlobal" + name), msg(scriptInterface.GetContext(), msg)
 	{
 	}
 
@@ -147,11 +147,13 @@ bool CComponentManager::LoadScript(const VfsPath& filename, bool hotload)
 	return ok;
 }
 
-void CComponentManager::Script_RegisterComponentType_Common(ScriptInterface::CxPrivate* pCxPrivate, int iid, std::string cname, CScriptVal ctor, bool reRegister, bool systemComponent)
+void CComponentManager::Script_RegisterComponentType_Common(ScriptInterface::CxPrivate* pCxPrivate, int iid, std::string cname, CScriptVal ctor1, bool reRegister, bool systemComponent)
 {
 	CComponentManager* componentManager = static_cast<CComponentManager*> (pCxPrivate->pCBData);
 	JSContext* cx = componentManager->m_ScriptInterface.GetContext();
 	JSAutoRequest rq(cx);
+	
+	JS::RootedValue ctor(cx, ctor1.get()); // TODO: Get Handle parameter directly with SpiderMonkey 31
 
 	// Find the C++ component that wraps the interface
 	int cidWrapper = componentManager->GetScriptWrapper(iid);
@@ -231,11 +233,11 @@ void CComponentManager::Script_RegisterComponentType_Common(ScriptInterface::CxP
 
 	std::string schema = "<empty/>";
 	{
-		CScriptValRooted prototype;
-		if (componentManager->m_ScriptInterface.GetProperty(ctor.get(), "prototype", prototype) &&
-			componentManager->m_ScriptInterface.HasProperty(prototype.get(), "Schema"))
+		JS::RootedValue prototype(cx);
+		if (componentManager->m_ScriptInterface.GetProperty(ctor, "prototype", &prototype) &&
+			componentManager->m_ScriptInterface.HasProperty(prototype, "Schema"))
 		{
-			componentManager->m_ScriptInterface.GetProperty(prototype.get(), "Schema", schema);
+			componentManager->m_ScriptInterface.GetProperty(prototype, "Schema", schema);
 		}
 	}
 
@@ -256,7 +258,7 @@ void CComponentManager::Script_RegisterComponentType_Common(ScriptInterface::CxP
 
 	// Find all the ctor prototype's On* methods, and subscribe to the appropriate messages:
 	JS::RootedValue protoVal(cx);
-	if (!componentManager->m_ScriptInterface.GetPropertyJS(ctor.get(), "prototype", &protoVal))
+	if (!componentManager->m_ScriptInterface.GetProperty(ctor, "prototype", &protoVal))
 		return; // error
 
 	std::vector<std::string> methods;
@@ -414,25 +416,29 @@ std::vector<IComponent*> CComponentManager::Script_GetComponentsWithInterface(Sc
 	return ret;
 }
 
-CMessage* CComponentManager::ConstructMessage(int mtid, CScriptVal data)
+CMessage* CComponentManager::ConstructMessage(int mtid, JS::HandleValue data)
 {
 	if (mtid == MT__Invalid || mtid > (int)m_MessageTypeIdsByName.size()) // (IDs start at 1 so use '>' here)
 		LOGERROR(L"PostMessage with invalid message type ID '%d'", mtid);
 
 	if (mtid < MT__LastNative)
 	{
-		return CMessageFromJSVal(mtid, m_ScriptInterface, data.get());
+		return CMessageFromJSVal(mtid, m_ScriptInterface, data);
 	}
 	else
 	{
-		return new CMessageScripted(mtid, m_MessageTypeNamesById[mtid],
-				CScriptValRooted(m_ScriptInterface.GetContext(), data));
+		return new CMessageScripted(m_ScriptInterface, mtid, m_MessageTypeNamesById[mtid], data);
 	}
 }
 
-void CComponentManager::Script_PostMessage(ScriptInterface::CxPrivate* pCxPrivate, int ent, int mtid, CScriptVal data)
+void CComponentManager::Script_PostMessage(ScriptInterface::CxPrivate* pCxPrivate, int ent, int mtid, CScriptVal data1)
 {
 	CComponentManager* componentManager = static_cast<CComponentManager*> (pCxPrivate->pCBData);
+	
+	JSContext* cx = componentManager->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	// TODO: With ESR31 we should be able to take JS::HandleValue directly
+	JS::RootedValue data(cx, data1.get());
 
 	CMessage* msg = componentManager->ConstructMessage(mtid, data);
 	if (!msg)
@@ -443,9 +449,14 @@ void CComponentManager::Script_PostMessage(ScriptInterface::CxPrivate* pCxPrivat
 	delete msg;
 }
 
-void CComponentManager::Script_BroadcastMessage(ScriptInterface::CxPrivate* pCxPrivate, int mtid, CScriptVal data)
+void CComponentManager::Script_BroadcastMessage(ScriptInterface::CxPrivate* pCxPrivate, int mtid, CScriptVal data1)
 {
 	CComponentManager* componentManager = static_cast<CComponentManager*> (pCxPrivate->pCBData);
+	
+	JSContext* cx = componentManager->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	// TODO: With ESR31 we should be able to take JS::HandleValue directly
+	JS::RootedValue data(cx, data1.get());
 
 	CMessage* msg = componentManager->ConstructMessage(mtid, data);
 	if (!msg)
@@ -706,6 +717,9 @@ void CComponentManager::AddSystemComponents(bool skipScriptedComponents, bool sk
 
 IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTypeId cid)
 {
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
 	std::map<ComponentTypeId, ComponentType>::const_iterator it = m_ComponentTypesById.find(cid);
 	if (it == m_ComponentTypesById.end())
 	{
@@ -727,11 +741,14 @@ IComponent* CComponentManager::ConstructComponent(CEntityHandle ent, ComponentTy
 	std::map<entity_id_t, IComponent*>& emap2 = m_ComponentsByTypeId[cid];
 
 	// If this is a scripted component, construct the appropriate JS object first
-	jsval obj = JSVAL_NULL;
+	JS::RootedValue obj(cx);
+	// TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	JS::RootedValue tmpCtor(cx, ct.ctor.get());
 	if (ct.type == CT_Script)
 	{
-		obj = m_ScriptInterface.CallConstructor(ct.ctor.get(), 0, JSVAL_VOID);
-		if (JSVAL_IS_VOID(obj))
+		JS::AutoValueVector argv(cx); // TODO: With SpiderMonkey 31, we can pass JS::HandleValueArray::empty()
+		m_ScriptInterface.CallConstructor(tmpCtor, argv, &obj);
+		if (obj.isNull())
 		{
 			LOGERROR(L"Script component constructor failed");
 			return NULL;
@@ -1139,13 +1156,16 @@ CScriptVal CComponentManager::Script_ReadCivJSONFile(ScriptInterface::CxPrivate*
 	return ReadJSONFile(pCxPrivate, L"civs", fileName);
 }
 
-CScriptVal CComponentManager::ReadJSONFile(ScriptInterface::CxPrivate* pCxPrivate, std::wstring filePath, std::wstring fileName)
+JS::Value CComponentManager::ReadJSONFile(ScriptInterface::CxPrivate* pCxPrivate, std::wstring filePath, std::wstring fileName)
 {
 	CComponentManager* componentManager = static_cast<CComponentManager*> (pCxPrivate->pCBData);
+	JSContext* cx = pCxPrivate->pScriptInterface->GetContext();
+	JSAutoRequest rq(cx);
 
 	VfsPath path = VfsPath(filePath) / fileName;
-
-	return componentManager->GetScriptInterface().ReadJSONFile(path).get();
+	JS::RootedValue out(cx);
+	componentManager->GetScriptInterface().ReadJSONFile(path, &out);
+	return out.get();
 }
 	
 Status CComponentManager::FindJSONFilesCallback(const VfsPath& pathname, const CFileInfo& UNUSED(fileInfo), const uintptr_t cbData)

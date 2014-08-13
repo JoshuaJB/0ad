@@ -849,15 +849,6 @@ m.HQ.prototype.findEconomicCCLocation = function(gameState, template, resource, 
 
 	Engine.ProfileStop();
 
-/*	if (m.DebugEnabled())
-	{
-		gameState.sharedScript.CCResourceMaps["wood"].dumpIm("woodMap.png", 300);
-		gameState.sharedScript.CCResourceMaps["stone"].dumpIm("stoneMap.png", 300);
-		gameState.sharedScript.CCResourceMaps["metal"].dumpIm("metalMap.png", 300);
-		locateMap.dumpIm("cc_placement_base_" + best[1] + ".png",300);
-		obstructions.dumpIm("cc_placement_base_" + best[1] + "_obs.png", 20);
-	} */
-
 	var cut = 60;
 	if (fromStrategic)  // be less restrictive
 		cut = 30;
@@ -1701,8 +1692,8 @@ m.HQ.prototype.canBuild = function(gameState, structure)
 	if (!template.available(gameState))
 		return false;
 	var limits = gameState.getEntityLimits();
-	for (var limitClass in limits)
-		if (template.hasClass(limitClass) && gameState.getOwnStructures().filter(API3.Filters.byClass(limitClass)).length >= limits[limitClass])
+	for (var limitedClass in limits)
+		if (template.hasClass(limitedClass) && gameState.getEntityCounts()[limitedClass] >= limits[limitedClass])
 			return false;
 
 	return true;
@@ -1942,6 +1933,18 @@ m.HQ.prototype.update = function(gameState, queues, events)
 		this.attackManager.update(gameState, queues, events);
 
 	Engine.ProfileStop();
+};
+
+m.HQ.prototype.getHolder = function(gameState, ent)
+{
+	var found = undefined;
+	gameState.getEntities().forEach(function (holder) {
+		if (found || !holder.isGarrisonHolder())
+			return;
+		if (holder._entity.garrisoned.indexOf(ent.id()) !== -1)
+			found = holder;
+	});
+	return found;
 };
 
 return m;

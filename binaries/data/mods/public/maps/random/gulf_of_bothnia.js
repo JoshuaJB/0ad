@@ -173,7 +173,10 @@ var playerAngle = new Array(numPlayers);
 var startAngle = -PI/6;
 for (var i = 0; i < numPlayers; i++)
 {
-	playerAngle[i] = startAngle + i*TWO_PI/(numPlayers-1)*2/3;
+	if (numPlayers == 1)
+		playerAngle[i] = startAngle + TWO_PI/3;
+	else
+		playerAngle[i] = startAngle + i*TWO_PI/(numPlayers-1)*2/3;
 	playerX[i] = 0.5 + 0.35*cos(playerAngle[i]);
 	playerZ[i] = 0.5 + 0.35*sin(playerAngle[i]);
 }
@@ -513,7 +516,8 @@ setSunRotation(randFloat(0, TWO_PI));
 setSunElevation(randFloat(PI/ 6, PI / 4));
 
 setWaterColour(0.035,0.098,0.314);
-setWaterWaviness(10.0);
+setWaterWaviness(5.0);
+setWaterType("lake");
 setWaterMurkiness(0.88);
 
 // Export map data

@@ -26,37 +26,53 @@ CComponentTypeScript::CComponentTypeScript(ScriptInterface& scriptInterface, jsv
 	m_ScriptInterface(scriptInterface), m_Instance(CScriptValRooted(scriptInterface.GetContext(), instance))
 {
 	// Cache the property detection for efficiency
-	m_HasCustomSerialize = m_ScriptInterface.HasProperty(m_Instance.get(), "Serialize");
-	m_HasCustomDeserialize = m_ScriptInterface.HasProperty(m_Instance.get(), "Deserialize");
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade
+	m_HasCustomSerialize = m_ScriptInterface.HasProperty(tmpInstance, "Serialize");
+	m_HasCustomDeserialize = m_ScriptInterface.HasProperty(tmpInstance, "Deserialize");
 
 	m_HasNullSerialize = false;
 	if (m_HasCustomSerialize)
 	{
-		CScriptVal val;
-		if (m_ScriptInterface.GetProperty(m_Instance.get(), "Serialize", val) && JSVAL_IS_NULL(val.get()))
+		JS::RootedValue val(cx);
+		if (m_ScriptInterface.GetProperty(tmpInstance, "Serialize", &val) && val.isNull())
 			m_HasNullSerialize = true;
 	}
 }
 
 void CComponentTypeScript::Init(const CParamNode& paramNode, entity_id_t ent)
 {
-	m_ScriptInterface.SetProperty(m_Instance.get(), "entity", (int)ent, true, false);
-	m_ScriptInterface.SetProperty(m_Instance.get(), "template", paramNode, true, false);
-	m_ScriptInterface.CallFunctionVoid(m_Instance.get(), "Init");
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	m_ScriptInterface.SetProperty(tmpInstance, "entity", (int)ent, true, false);
+	m_ScriptInterface.SetProperty(tmpInstance, "template", paramNode, true, false);
+	m_ScriptInterface.CallFunctionVoid(tmpInstance, "Init");
 }
 
 void CComponentTypeScript::Deinit()
-{
-	m_ScriptInterface.CallFunctionVoid(m_Instance.get(), "Deinit");
+{	
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade
+	m_ScriptInterface.CallFunctionVoid(tmpInstance, "Deinit");
 }
 
 void CComponentTypeScript::HandleMessage(const CMessage& msg, bool global)
 {
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
 	const char* name = global ? msg.GetScriptGlobalHandlerName() : msg.GetScriptHandlerName();
 
-	CScriptVal msgVal = msg.ToJSValCached(m_ScriptInterface);
+	JS::RootedValue msgVal(cx, msg.ToJSValCached(m_ScriptInterface));
 
-	if (!m_ScriptInterface.CallFunctionVoid(m_Instance.get(), name, msgVal))
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	if (!m_ScriptInterface.CallFunctionVoid(tmpInstance, name, msgVal))
 		LOGERROR(L"Script message handler %hs failed", name);
 }
 
@@ -65,35 +81,43 @@ void CComponentTypeScript::Serialize(ISerializer& serialize)
 	// If the component set Serialize = null, then do no work here
 	if (m_HasNullSerialize)
 		return;
+	
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
 
 	// Support a custom "Serialize" function, which returns a new object that will be
 	// serialized instead of the component itself
 	if (m_HasCustomSerialize)
 	{
-		CScriptVal val;
-		if (!m_ScriptInterface.CallFunction(m_Instance.get(), "Serialize", val))
+		JS::RootedValue val(cx);
+		if (!m_ScriptInterface.CallFunction(tmpInstance, "Serialize", &val))
 			LOGERROR(L"Script Serialize call failed");
-		serialize.ScriptVal("object", val);
+		serialize.ScriptVal("object", &val);
 	}
 	else
 	{
-		serialize.ScriptVal("object", m_Instance.get());
+		serialize.ScriptVal("object", &tmpInstance);
 	}
 }
 
 void CComponentTypeScript::Deserialize(const CParamNode& paramNode, IDeserializer& deserialize, entity_id_t ent)
-{
+{	
+	JSContext* cx = m_ScriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpInstance(cx, m_Instance.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
 	// Support a custom "Deserialize" function, to which we pass the deserialized data
 	// instead of automatically adding the deserialized properties onto the object
 	if (m_HasCustomDeserialize)
 	{
-		CScriptVal val;
+		JS::RootedValue val(cx);
 
 		// If Serialize = null, we'll still call Deserialize but with undefined argument
 		if (!m_HasNullSerialize)
-			deserialize.ScriptVal("object", val);
+			deserialize.ScriptVal("object", &val);
 
-		if (!m_ScriptInterface.CallFunctionVoid(m_Instance.get(), "Deserialize", val))
+		if (!m_ScriptInterface.CallFunctionVoid(tmpInstance, "Deserialize", val))
 			LOGERROR(L"Script Deserialize call failed");
 	}
 	else
@@ -102,10 +126,10 @@ void CComponentTypeScript::Deserialize(const CParamNode& paramNode, IDeserialize
 		{
 			// Use ScriptObjectAppend so we don't lose the carefully-constructed
 			// prototype/parent of this object
-			deserialize.ScriptObjectAppend("object", m_Instance.getRef());
+			deserialize.ScriptObjectAppend("object", tmpInstance);
 		}
 	}
 
-	m_ScriptInterface.SetProperty(m_Instance.get(), "entity", (int)ent, true, false);
-	m_ScriptInterface.SetProperty(m_Instance.get(), "template", paramNode, true, false);
+	m_ScriptInterface.SetProperty(tmpInstance, "entity", (int)ent, true, false);
+	m_ScriptInterface.SetProperty(tmpInstance, "template", paramNode, true, false);
 }

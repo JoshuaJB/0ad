@@ -50,25 +50,33 @@ public:
 
 	virtual void Serialize(ISerializer& serialize)
 	{
+		JSContext* cx = GetSimContext().GetScriptInterface().GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue tmpRoot(cx); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade
 		serialize.NumberU32_Unbounded("num commands", (u32)m_LocalQueue.size());
 		for (size_t i = 0; i < m_LocalQueue.size(); ++i)
 		{
+			tmpRoot.set(m_LocalQueue[i].data.get());
 			serialize.NumberI32_Unbounded("player", m_LocalQueue[i].player);
-			serialize.ScriptVal("data", m_LocalQueue[i].data.get());
+			serialize.ScriptVal("data", &tmpRoot);
 		}
 	}
 
 	virtual void Deserialize(const CParamNode& UNUSED(paramNode), IDeserializer& deserialize)
 	{
+		JSContext* cx = GetSimContext().GetScriptInterface().GetContext();
+		JSAutoRequest rq(cx);
+	
 		u32 numCmds;
 		deserialize.NumberU32_Unbounded("num commands", numCmds);
 		for (size_t i = 0; i < numCmds; ++i)
 		{
 			i32 player;
-			CScriptValRooted data;
+			JS::RootedValue data(cx);
 			deserialize.NumberI32_Unbounded("player", player);
-			deserialize.ScriptVal("data", data);
-			SimulationCommand c = { player, data };
+			deserialize.ScriptVal("data", &data);
+			SimulationCommand c = { player, CScriptValRooted(cx, data) };
 			m_LocalQueue.push_back(c);
 		}
 	}
@@ -81,12 +89,16 @@ public:
 		m_LocalQueue.push_back(c);
 	}
 
-	virtual void PostNetworkCommand(CScriptVal cmd)
+	virtual void PostNetworkCommand(CScriptVal cmd1)
 	{
 		JSContext* cx = GetSimContext().GetScriptInterface().GetContext();
+		JSAutoRequest rq(cx);
+		
+		// TODO: With ESR31 we should be able to take JS::HandleValue directly
+		JS::RootedValue cmd(cx, cmd1.get());
 
 		PROFILE2_EVENT("post net command");
-		PROFILE2_ATTR("command: %s", GetSimContext().GetScriptInterface().StringifyJSON(cmd.get(), false).c_str());
+		PROFILE2_ATTR("command: %s", GetSimContext().GetScriptInterface().StringifyJSON(&cmd, false).c_str());
 
 		// TODO: would be nicer to not use globals
 		if (g_Game && g_Game->GetTurnManager())
@@ -96,20 +108,23 @@ public:
 	virtual void FlushTurn(const std::vector<SimulationCommand>& commands)
 	{
 		ScriptInterface& scriptInterface = GetSimContext().GetScriptInterface();
-
+		JSContext* cx = scriptInterface.GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue global(cx, scriptInterface.GetGlobalObject());
 		std::vector<SimulationCommand> localCommands;
 		m_LocalQueue.swap(localCommands);
 
 		for (size_t i = 0; i < localCommands.size(); ++i)
 		{
-			bool ok = scriptInterface.CallFunctionVoid(scriptInterface.GetGlobalObject(), "ProcessCommand", localCommands[i].player, localCommands[i].data);
+			bool ok = scriptInterface.CallFunctionVoid(global, "ProcessCommand", localCommands[i].player, localCommands[i].data);
 			if (!ok)
 				LOGERROR(L"Failed to call ProcessCommand() global script function");
 		}
 
 		for (size_t i = 0; i < commands.size(); ++i)
 		{
-			bool ok = scriptInterface.CallFunctionVoid(scriptInterface.GetGlobalObject(), "ProcessCommand", commands[i].player, commands[i].data);
+			bool ok = scriptInterface.CallFunctionVoid(global, "ProcessCommand", commands[i].player, commands[i].data);
 			if (!ok)
 				LOGERROR(L"Failed to call ProcessCommand() global script function");
 		}

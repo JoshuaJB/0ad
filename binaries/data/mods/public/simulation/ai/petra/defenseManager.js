@@ -342,7 +342,7 @@ m.DefenseManager.prototype.checkEvents = function(gameState, events)
 		if (target.hasClass("Ship"))    // TODO integrate ships later   need to be sure it is accessible
 			continue;
 
-		if (target.hasClass("Support") && target.healthLevel() < 0.4)
+		if (target.hasClass("Support") && target.healthLevel() < 0.4 && !target.getMetadata(PlayerID, "transport"))
 		{
 			this.garrisonUnitForHealing(gameState, target);
 			continue;
@@ -387,13 +387,6 @@ m.DefenseManager.prototype.garrisonRangedUnitsInside = function(gameState, targe
 		}
 		if (gameState.ai.accessibility.getAccessValue(ent.position()) !== index)
 			return;
-		var army = ent.getMetadata(PlayerID, "PartOfArmy");
-		if (army !== undefined)
-		{
-			army = self.getArmy(army);
-			if (army !== undefined)
-				army.removeOwn(gameState, ent.id(), ent);
-		}
 		garrisonManager.garrison(gameState, ent, target, "protection");
 	});
 };

@@ -101,7 +101,7 @@ public:
 
 	static bool LoadDefaultScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts);
 	static bool LoadScripts(CComponentManager& componentManager, std::set<VfsPath>* loadedScripts, const VfsPath& path);
-	static bool LoadTriggerScripts(CComponentManager& componentManager, const CScriptValRooted& mapSettings);
+	static bool LoadTriggerScripts(CComponentManager& componentManager, JS::HandleValue mapSettings);
 	Status ReloadChangedFile(const VfsPath& path);
 
 	static Status ReloadChangedFileCB(void* param, const VfsPath& path)
@@ -152,11 +152,14 @@ public:
 	static std::vector<SimulationCommand> CloneCommandsFromOtherContext(ScriptInterface& oldScript, ScriptInterface& newScript,
 		const std::vector<SimulationCommand>& commands)
 	{
+		JSContext* cxOld = oldScript.GetContext();
+		JSAutoRequest rqOld(cxOld);
+		
 		std::vector<SimulationCommand> newCommands = commands;
 		for (size_t i = 0; i < newCommands.size(); ++i)
 		{
-			newCommands[i].data = CScriptValRooted(newScript.GetContext(),
-				newScript.CloneValueFromOtherContext(oldScript, newCommands[i].data.get()));
+			JS::RootedValue tmpOldCommand(cxOld, newCommands[i].data.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+			newCommands[i].data = CScriptValRooted(newScript.GetContext(), newScript.CloneValueFromOtherContext(oldScript, tmpOldCommand));
 		}
 		return newCommands;
 	}
@@ -190,13 +193,13 @@ bool CSimulation2Impl::LoadScripts(CComponentManager& componentManager, std::set
 	return ok;
 }
 
-bool CSimulation2Impl::LoadTriggerScripts(CComponentManager& componentManager, const CScriptValRooted& mapSettings)
+bool CSimulation2Impl::LoadTriggerScripts(CComponentManager& componentManager, JS::HandleValue mapSettings)
 {
 	bool ok = true;
-	if (componentManager.GetScriptInterface().HasProperty(mapSettings.get(), "TriggerScripts"))
+	if (componentManager.GetScriptInterface().HasProperty(mapSettings, "TriggerScripts"))
 	{
 		std::vector<std::string> scriptNames;
-		componentManager.GetScriptInterface().GetProperty(mapSettings.get(), "TriggerScripts", scriptNames);
+		componentManager.GetScriptInterface().GetProperty(mapSettings, "TriggerScripts", scriptNames);
 		for (u32 i = 0; i < scriptNames.size(); ++i)
 		{
 			std::string scriptName = "maps/" + scriptNames[i];
@@ -355,29 +358,50 @@ void CSimulation2Impl::Update(int turnLength, const std::vector<SimulationComman
 		ResetComponentState(secondaryComponentManager, false, false);
 
 		// Load the trigger scripts after we have loaded the simulation.
-		ENSURE(LoadTriggerScripts(secondaryComponentManager, m_MapSettings));
+		{
+			JSContext* cx1 = m_ComponentManager.GetScriptInterface().GetContext();
+			JSAutoRequest rq1(cx1);
+			// TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+			JS::RootedValue tmpMapSettings(cx1, m_MapSettings.get());
+
+			JSContext* cx2 = secondaryComponentManager.GetScriptInterface().GetContext();
+			JSAutoRequest rq2(cx2);
+			JS::RootedValue mapSettingsCloned(cx2, 
+				secondaryComponentManager.GetScriptInterface().CloneValueFromOtherContext(
+					m_ComponentManager.GetScriptInterface(), tmpMapSettings));
+			ENSURE(LoadTriggerScripts(secondaryComponentManager, mapSettingsCloned));
+		}
 
 		// Load the map into the secondary simulation
 
 		LDR_BeginRegistering();
 		CMapReader* mapReader = new CMapReader; // automatically deletes itself
 
-		// TODO: this duplicates CWorld::RegisterInit and could probably be cleaned up a bit
-		std::string mapType;
-		m_ComponentManager.GetScriptInterface().GetProperty(m_InitAttributes.get(), "mapType", mapType);
-		if (mapType == "random")
+		// These braces limit the scope of rq and cx (mainly because we're working with different contexts here).
+		// TODO: Check after the upgrade to SpiderMonkey ESR31 if m_InitAtrributes can be made a PersistentRooted<T>
+		// and check if we even need a request in this case.
 		{
-			// TODO: support random map scripts
-			debug_warn(L"Serialization test mode only supports scenarios");
-		}
-		else
-		{
-			std::wstring mapFile;
-			m_ComponentManager.GetScriptInterface().GetProperty(m_InitAttributes.get(), "map", mapFile);
+			// TODO: this duplicates CWorld::RegisterInit and could probably be cleaned up a bit
+			JSContext* cx = m_ComponentManager.GetScriptInterface().GetContext();
+			JSAutoRequest rq(cx);
+			
+			std::string mapType;
+			JS::RootedValue tmpInitAttributes(cx, m_InitAttributes.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+			m_ComponentManager.GetScriptInterface().GetProperty(tmpInitAttributes, "mapType", mapType);
+			if (mapType == "random")
+			{
+				// TODO: support random map scripts
+				debug_warn(L"Serialization test mode only supports scenarios");
+			}
+			else
+			{
+				std::wstring mapFile;
+				m_ComponentManager.GetScriptInterface().GetProperty(tmpInitAttributes, "map", mapFile);
 
-			VfsPath mapfilename = VfsPath(mapFile).ChangeExtension(L".pmp");
-			mapReader->LoadMap(mapfilename, CScriptValRooted(), &secondaryTerrain, NULL, NULL, NULL, NULL, NULL, NULL,
-				NULL, NULL, &secondaryContext, INVALID_PLAYER, true); // throws exception on failure
+				VfsPath mapfilename = VfsPath(mapFile).ChangeExtension(L".pmp");
+				mapReader->LoadMap(mapfilename, CScriptValRooted(), &secondaryTerrain, NULL, NULL, NULL, NULL, NULL, NULL,
+					NULL, NULL, &secondaryContext, INVALID_PLAYER, true); // throws exception on failure
+			}
 		}
 		LDR_EndRegistering();
 		ENSURE(LDR_NonprogressiveLoad() == INFO::OK);
@@ -625,12 +649,18 @@ ScriptInterface& CSimulation2::GetScriptInterface() const
 
 void CSimulation2::ReplaceSkirmishGlobals()
 {
-	GetScriptInterface().CallFunctionVoid(GetScriptInterface().GetGlobalObject(), "ReplaceSkirmishGlobals");
+	JSContext* cx = GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	JS::RootedValue global(cx, GetScriptInterface().GetGlobalObject());
+	GetScriptInterface().CallFunctionVoid(global, "ReplaceSkirmishGlobals");
 }
 
 void CSimulation2::InitGame(const CScriptVal& data)
 {
-	GetScriptInterface().CallFunctionVoid(GetScriptInterface().GetGlobalObject(), "InitGame", data);
+	JSContext* cx = GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	JS::RootedValue global(cx, GetScriptInterface().GetGlobalObject());
+	GetScriptInterface().CallFunctionVoid(global, "InitGame", data);
 }
 
 void CSimulation2::Update(int turnLength)
@@ -694,7 +724,12 @@ CScriptValRooted CSimulation2::GetInitAttributes()
 
 void CSimulation2::SetMapSettings(const std::string& settings)
 {
-	m->m_MapSettings = m->m_ComponentManager.GetScriptInterface().ParseJSON(settings);
+	JSContext* cx = m->m_ComponentManager.GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	// TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	JS::RootedValue tmpMapSettings(cx);
+	m->m_ComponentManager.GetScriptInterface().ParseJSON(settings, &tmpMapSettings);
+	m->m_MapSettings = CScriptValRooted(cx, tmpMapSettings); 
 }
 
 void CSimulation2::SetMapSettings(const CScriptValRooted& settings)
@@ -704,7 +739,11 @@ void CSimulation2::SetMapSettings(const CScriptValRooted& settings)
 
 std::string CSimulation2::GetMapSettingsString()
 {
-	return m->m_ComponentManager.GetScriptInterface().StringifyJSON(m->m_MapSettings.get());
+	JSContext* cx = m->m_ComponentManager.GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	// TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	JS::RootedValue tmpMapSettings(cx, m->m_MapSettings.get());
+	return m->m_ComponentManager.GetScriptInterface().StringifyJSON(&tmpMapSettings);
 }
 
 CScriptVal CSimulation2::GetMapSettings()
@@ -714,19 +753,28 @@ CScriptVal CSimulation2::GetMapSettings()
 
 void CSimulation2::LoadPlayerSettings(bool newPlayers)
 {
-	GetScriptInterface().CallFunctionVoid(GetScriptInterface().GetGlobalObject(), "LoadPlayerSettings", m->m_MapSettings, newPlayers);
+	JSContext* cx = GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	JS::RootedValue global(cx, GetScriptInterface().GetGlobalObject());
+	GetScriptInterface().CallFunctionVoid(global, "LoadPlayerSettings", m->m_MapSettings, newPlayers);
 }
 
 void CSimulation2::LoadMapSettings()
 {
+	JSContext* cx = GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue global(cx, GetScriptInterface().GetGlobalObject());
+	JS::RootedValue tmpMapSettings(cx, m->m_MapSettings.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade
+	
 	// Initialize here instead of in Update()
-	GetScriptInterface().CallFunctionVoid(GetScriptInterface().GetGlobalObject(), "LoadMapSettings", m->m_MapSettings);
+	GetScriptInterface().CallFunctionVoid(global, "LoadMapSettings", tmpMapSettings);
 
 	if (!m->m_StartupScript.empty())
 		GetScriptInterface().LoadScript(L"map startup script", m->m_StartupScript);
 
 	// Load the trigger scripts after we have loaded the simulation and the map.
-	m->LoadTriggerScripts(m->m_ComponentManager, m->m_MapSettings);
+	m->LoadTriggerScripts(m->m_ComponentManager, tmpMapSettings);
 }
 
 int CSimulation2::ProgressiveLoad()
@@ -881,12 +929,14 @@ std::string CSimulation2::ReadJSON(VfsPath path)
 std::string CSimulation2::GetAIData()
 {
 	ScriptInterface& scriptInterface = GetScriptInterface();
+	JSContext* cx = scriptInterface.GetContext();
+	JSAutoRequest rq(cx);
 	std::vector<CScriptValRooted> aiData = ICmpAIManager::GetAIs(scriptInterface);
 	
 	// Build single JSON string with array of AI data
-	CScriptValRooted ais;
-	if (!scriptInterface.Eval("({})", ais) || !scriptInterface.SetProperty(ais.get(), "AIData", aiData))
+	JS::RootedValue ais(cx);
+	if (!scriptInterface.Eval("({})", &ais) || !scriptInterface.SetProperty(ais, "AIData", aiData))
 		return std::string();
 	
-	return scriptInterface.StringifyJSON(ais.get());
+	return scriptInterface.StringifyJSON(&ais);
 }

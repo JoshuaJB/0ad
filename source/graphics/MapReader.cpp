@@ -386,11 +386,18 @@ PSRETURN CMapSummaryReader::LoadMap(const VfsPath& pathname)
 
 CScriptValRooted CMapSummaryReader::GetMapSettings(ScriptInterface& scriptInterface)
 {
-	CScriptValRooted data;
-	scriptInterface.Eval("({})", data);
+	JSContext* cx = scriptInterface.GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue data(cx);
+	scriptInterface.Eval("({})", &data);
 	if (!m_ScriptSettings.empty())
-		scriptInterface.SetProperty(data.get(), "settings", scriptInterface.ParseJSON(m_ScriptSettings), false);
-	return data;
+	{
+		JS::RootedValue scriptSettingsVal(cx);
+		scriptInterface.ParseJSON(m_ScriptSettings, &scriptSettingsVal);
+		scriptInterface.SetProperty(data, "settings", scriptSettingsVal, false);
+	}
+	return CScriptValRooted(cx, data);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1253,6 +1260,9 @@ int CMapReader::LoadRMSettings()
 
 int CMapReader::GenerateMap()
 {
+	JSContext* cx = pSimulation2->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	
 	if (!m_MapGen)
 	{
 		// Initialize map generator
@@ -1263,8 +1273,10 @@ int CMapReader::GenerateMap()
 		if (m_ScriptFile.length())
 			scriptPath = L"maps/random/"+m_ScriptFile;
 
+		// TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+		JS::RootedValue tmpScriptSettings(cx, m_ScriptSettings.get());
 		// Stringify settings to pass across threads
-		std::string scriptSettings = pSimulation2->GetScriptInterface().StringifyJSON(m_ScriptSettings.get());
+		std::string scriptSettings = pSimulation2->GetScriptInterface().StringifyJSON(&tmpScriptSettings);
 		
 		// Try to generate map
 		m_MapGen->GenerateMap(scriptPath, scriptSettings);
@@ -1283,15 +1295,17 @@ int CMapReader::GenerateMap()
 		shared_ptr<ScriptInterface::StructuredClone> results = m_MapGen->GetResults();
 
 		// Parse data into simulation context
-		CScriptValRooted data(pSimulation2->GetScriptInterface().GetContext(), pSimulation2->GetScriptInterface().ReadStructuredClone(results));
-		if (data.undefined())
+		JS::RootedValue data(cx); 
+		pSimulation2->GetScriptInterface().ReadStructuredClone(results, &data);
+		
+		if (data.isUndefined())
 		{
 			// RMS failed - return to main menu
 			throw PSERROR_Game_World_MapLoadFailed("Error generating random map.\nCheck application log for details.");
 		}
 		else
 		{
-			m_MapData = data;
+			m_MapData = CScriptValRooted(cx, data);
 		}
 	}
 	else
@@ -1311,7 +1325,9 @@ int CMapReader::GenerateMap()
 int CMapReader::ParseTerrain()
 {
 	TIMER(L"ParseTerrain");
-
+	JSContext* cx = pSimulation2->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	
 	// parse terrain from map data
 	//	an error here should stop the loading process
 #define GET_TERRAIN_PROPERTY(val, prop, out)\
@@ -1319,17 +1335,18 @@ int CMapReader::ParseTerrain()
 		{	LOGERROR(L"CMapReader::ParseTerrain() failed to get '%hs' property", #prop);\
 			throw PSERROR_Game_World_MapLoadFailed("Error parsing terrain data.\nCheck application log for details"); }
 
+	JS::RootedValue tmpMapData(cx, m_MapData.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
 	u32 size;
-	GET_TERRAIN_PROPERTY(m_MapData.get(), size, size)
+	GET_TERRAIN_PROPERTY(tmpMapData, size, size)
 
 	m_PatchesPerSide = size / PATCH_SIZE;
 
 	// flat heightmap of u16 data
-	GET_TERRAIN_PROPERTY(m_MapData.get(), height, m_Heightmap)
+	GET_TERRAIN_PROPERTY(tmpMapData, height, m_Heightmap)
 
 	// load textures
 	std::vector<std::string> textureNames;
-	GET_TERRAIN_PROPERTY(m_MapData.get(), textureNames, textureNames)
+	GET_TERRAIN_PROPERTY(tmpMapData, textureNames, textureNames)
 	num_terrain_tex = textureNames.size();
 
 	while (cur_terrain_tex < num_terrain_tex)
@@ -1344,14 +1361,14 @@ int CMapReader::ParseTerrain()
 	// build tile data
 	m_Tiles.resize(SQR(size));
 
-	CScriptValRooted tileData;
-	GET_TERRAIN_PROPERTY(m_MapData.get(), tileData, tileData)
+	JS::RootedValue tileData(cx);
+	GET_TERRAIN_PROPERTY(tmpMapData, tileData, &tileData)
 
 	// parse tile data object into flat arrays
 	std::vector<u16> tileIndex;
 	std::vector<u16> tilePriority;
-	GET_TERRAIN_PROPERTY(tileData.get(), index, tileIndex);
-	GET_TERRAIN_PROPERTY(tileData.get(), priority, tilePriority);
+	GET_TERRAIN_PROPERTY(tileData, index, tileIndex);
+	GET_TERRAIN_PROPERTY(tileData, priority, tilePriority);
 
 	ENSURE(SQR(size) == tileIndex.size() && SQR(size) == tilePriority.size());
 
@@ -1385,11 +1402,15 @@ int CMapReader::ParseTerrain()
 int CMapReader::ParseEntities()
 {
 	TIMER(L"ParseEntities");
+	JSContext* cx = pSimulation2->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpMapData(cx, m_MapData.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
 
 	// parse entities from map data
 	std::vector<Entity> entities;
 
-	if (!pSimulation2->GetScriptInterface().GetProperty(m_MapData.get(), "entities", entities))
+	if (!pSimulation2->GetScriptInterface().GetProperty(tmpMapData, "entities", entities))
 		LOGWARNING(L"CMapReader::ParseEntities() failed to get 'entities' property");
 
 	CSimulation2& sim = *pSimulation2;
@@ -1448,15 +1469,19 @@ int CMapReader::ParseEntities()
 int CMapReader::ParseEnvironment()
 {
 	// parse environment settings from map data
+	JSContext* cx = pSimulation2->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue tmpMapData(cx, m_MapData.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
 
 #define GET_ENVIRONMENT_PROPERTY(val, prop, out)\
 	if (!pSimulation2->GetScriptInterface().GetProperty(val, #prop, out))\
 		LOGWARNING(L"CMapReader::ParseEnvironment() failed to get '%hs' property", #prop);
 
-	CScriptValRooted envObj;
-	GET_ENVIRONMENT_PROPERTY(m_MapData.get(), Environment, envObj)
+	JS::RootedValue envObj(cx);
+	GET_ENVIRONMENT_PROPERTY(tmpMapData, Environment, &envObj)
 
-	if (envObj.undefined())
+	if (envObj.isUndefined())
 	{
 		LOGWARNING(L"CMapReader::ParseEnvironment(): Environment settings not found");
 		return 0;
@@ -1467,35 +1492,35 @@ int CMapReader::ParseEnvironment()
 		pPostproc->SetPostEffect(L"default");
 
 	std::wstring skySet;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), SkySet, skySet)
+	GET_ENVIRONMENT_PROPERTY(envObj, SkySet, skySet)
 	if (pSkyMan)
 		pSkyMan->SetSkySet(skySet);
 
 	CColor sunColor;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), SunColour, sunColor)
+	GET_ENVIRONMENT_PROPERTY(envObj, SunColour, sunColor)
 	m_LightEnv.m_SunColor = RGBColor(sunColor.r, sunColor.g, sunColor.b);
 
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), SunElevation, m_LightEnv.m_Elevation)
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), SunRotation, m_LightEnv.m_Rotation)
+	GET_ENVIRONMENT_PROPERTY(envObj, SunElevation, m_LightEnv.m_Elevation)
+	GET_ENVIRONMENT_PROPERTY(envObj, SunRotation, m_LightEnv.m_Rotation)
 	
 	CColor terrainAmbientColor;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), TerrainAmbientColour, terrainAmbientColor)
+	GET_ENVIRONMENT_PROPERTY(envObj, TerrainAmbientColour, terrainAmbientColor)
 	m_LightEnv.m_TerrainAmbientColor = RGBColor(terrainAmbientColor.r, terrainAmbientColor.g, terrainAmbientColor.b);
 
 	CColor unitsAmbientColor;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), UnitsAmbientColour, unitsAmbientColor)
+	GET_ENVIRONMENT_PROPERTY(envObj, UnitsAmbientColour, unitsAmbientColor)
 	m_LightEnv.m_UnitsAmbientColor = RGBColor(unitsAmbientColor.r, unitsAmbientColor.g, unitsAmbientColor.b);
 
 	// Water properties
-	CScriptValRooted waterObj;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), Water, waterObj)
+	JS::RootedValue waterObj(cx);
+	GET_ENVIRONMENT_PROPERTY(envObj, Water, &waterObj)
 
-	CScriptValRooted waterBodyObj;
-	GET_ENVIRONMENT_PROPERTY(waterObj.get(), WaterBody, waterBodyObj)
+	JS::RootedValue waterBodyObj(cx);
+	GET_ENVIRONMENT_PROPERTY(waterObj, WaterBody, &waterBodyObj)
 
 	// Water level - necessary
 	float waterHeight;
-	GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Height, waterHeight)
+	GET_ENVIRONMENT_PROPERTY(waterBodyObj, Height, waterHeight)
 
 	CmpPtr<ICmpWaterManager> cmpWaterManager(*pSimulation2, SYSTEM_ENTITY);
 	ENSURE(cmpWaterManager);
@@ -1504,39 +1529,39 @@ int CMapReader::ParseEnvironment()
 	// If we have graphics, get rest of settings
 	if (pWaterMan)
 	{
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Type, pWaterMan->m_WaterType)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Type, pWaterMan->m_WaterType)
 		if (pWaterMan->m_WaterType == L"default")
 			pWaterMan->m_WaterType = L"ocean";
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Colour, pWaterMan->m_WaterColor)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Tint, pWaterMan->m_WaterTint)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Waviness, pWaterMan->m_Waviness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), Murkiness, pWaterMan->m_Murkiness)
-		GET_ENVIRONMENT_PROPERTY(waterBodyObj.get(), WindAngle, pWaterMan->m_WindAngle)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Colour, pWaterMan->m_WaterColor)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Tint, pWaterMan->m_WaterTint)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Waviness, pWaterMan->m_Waviness)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, Murkiness, pWaterMan->m_Murkiness)
+		GET_ENVIRONMENT_PROPERTY(waterBodyObj, WindAngle, pWaterMan->m_WindAngle)
 	}
 
-	CScriptValRooted fogObject;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), Fog, fogObject);
+	JS::RootedValue fogObject(cx);
+	GET_ENVIRONMENT_PROPERTY(envObj, Fog, &fogObject);
 
-	GET_ENVIRONMENT_PROPERTY(fogObject.get(), FogFactor, m_LightEnv.m_FogFactor);
-	GET_ENVIRONMENT_PROPERTY(fogObject.get(), FogThickness, m_LightEnv.m_FogMax);
+	GET_ENVIRONMENT_PROPERTY(fogObject, FogFactor, m_LightEnv.m_FogFactor);
+	GET_ENVIRONMENT_PROPERTY(fogObject, FogThickness, m_LightEnv.m_FogMax);
 
 	CColor fogColor;
-	GET_ENVIRONMENT_PROPERTY(fogObject.get(), FogColor, fogColor);
+	GET_ENVIRONMENT_PROPERTY(fogObject, FogColor, fogColor);
 	m_LightEnv.m_FogColor = RGBColor(fogColor.r, fogColor.g, fogColor.b);
 
-	CScriptValRooted postprocObject;
-	GET_ENVIRONMENT_PROPERTY(envObj.get(), Postproc, postprocObject);
+	JS::RootedValue postprocObject(cx);
+	GET_ENVIRONMENT_PROPERTY(envObj, Postproc, &postprocObject);
 
 	std::wstring postProcEffect;
-	GET_ENVIRONMENT_PROPERTY(postprocObject.get(), PostprocEffect, postProcEffect);
+	GET_ENVIRONMENT_PROPERTY(postprocObject, PostprocEffect, postProcEffect);
 
 	if (pPostproc)
 		pPostproc->SetPostEffect(postProcEffect);
 
-	GET_ENVIRONMENT_PROPERTY(postprocObject.get(), Brightness, m_LightEnv.m_Brightness);
-	GET_ENVIRONMENT_PROPERTY(postprocObject.get(), Contrast, m_LightEnv.m_Contrast);
-	GET_ENVIRONMENT_PROPERTY(postprocObject.get(), Saturation, m_LightEnv.m_Saturation);
-	GET_ENVIRONMENT_PROPERTY(postprocObject.get(), Bloom, m_LightEnv.m_Bloom);
+	GET_ENVIRONMENT_PROPERTY(postprocObject, Brightness, m_LightEnv.m_Brightness);
+	GET_ENVIRONMENT_PROPERTY(postprocObject, Contrast, m_LightEnv.m_Contrast);
+	GET_ENVIRONMENT_PROPERTY(postprocObject, Saturation, m_LightEnv.m_Saturation);
+	GET_ENVIRONMENT_PROPERTY(postprocObject, Bloom, m_LightEnv.m_Bloom);
 
 	m_LightEnv.CalculateSunDirection();
 
@@ -1547,6 +1572,8 @@ int CMapReader::ParseEnvironment()
 
 int CMapReader::ParseCamera()
 {
+	JSContext* cx = pSimulation2->GetScriptInterface().GetContext();
+	JSAutoRequest rq(cx);
 	// parse camera settings from map data
 	// defaults if we don't find player starting camera
 	float declination = DEGTORAD(30.f), rotation = DEGTORAD(-45.f);
@@ -1556,17 +1583,18 @@ int CMapReader::ParseCamera()
 	if (!pSimulation2->GetScriptInterface().GetProperty(val, #prop, out))\
 		LOGWARNING(L"CMapReader::ParseCamera() failed to get '%hs' property", #prop);
 
-	CScriptValRooted cameraObj;
-	GET_CAMERA_PROPERTY(m_MapData.get(), Camera, cameraObj)
+	JS::RootedValue tmpMapData(cx, m_MapData.get()); // TODO: Check if this temporary root can be removed after SpiderMonkey 31 upgrade 
+	JS::RootedValue cameraObj(cx);
+	GET_CAMERA_PROPERTY(tmpMapData, Camera, &cameraObj)
 
-	if (!cameraObj.undefined())
+	if (!cameraObj.isUndefined())
 	{	// If camera property exists, read values
 		CFixedVector3D pos;
-		GET_CAMERA_PROPERTY(cameraObj.get(), Position, pos)
+		GET_CAMERA_PROPERTY(cameraObj, Position, pos)
 		translation = pos;
 
-		GET_CAMERA_PROPERTY(cameraObj.get(), Rotation, rotation)
-		GET_CAMERA_PROPERTY(cameraObj.get(), Declination, declination)
+		GET_CAMERA_PROPERTY(cameraObj, Rotation, rotation)
+		GET_CAMERA_PROPERTY(cameraObj, Declination, declination)
 	}
 #undef GET_CAMERA_PROPERTY
 

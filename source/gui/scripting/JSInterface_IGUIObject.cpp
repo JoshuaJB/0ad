@@ -189,7 +189,6 @@ JSBool JSI_IGUIObject::getProperty(JSContext* cx, JS::HandleObject obj, JS::Hand
 				vp.setObject(*obj);
 				try
 				{
-					ScriptInterface* pScriptInterface = ScriptInterface::GetScriptInterfaceAndCBData(cx)->pScriptInterface;
 				#define P(x, y, z) pScriptInterface->SetProperty(vp, #z, area.x.y, false, true)
 					P(pixel,	left,	left);
 					P(pixel,	top,	top);
@@ -335,8 +334,9 @@ JSBool JSI_IGUIObject::setProperty(JSContext* cx, JS::HandleObject obj, JS::Hand
 			return JS_FALSE;
 		}
 
+		JS::RootedObject vpObj(cx, &vp.toObject());
 		CStr eventName (CStr(propName.substr(2)).LowerCase());
-		e->SetScriptHandler(eventName, &vp.toObject());
+		e->SetScriptHandler(eventName, vpObj);
 
 		return JS_TRUE;
 	}
@@ -626,9 +626,12 @@ void JSI_IGUIObject::init(ScriptInterface& scriptInterface)
 JSBool JSI_IGUIObject::toString(JSContext* cx, uint argc, jsval* vp)
 {
 	UNUSED2(argc);
+	JSAutoRequest rq(cx);
 	JS::CallReceiver rec = JS::CallReceiverFromVp(vp);
 
-	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, JS_THIS_OBJECT(cx, vp), &JSI_IGUIObject::JSI_class, NULL);
+	JS::RootedObject thisObj(cx, JS_THIS_OBJECT(cx, vp));
+	
+	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, thisObj, &JSI_IGUIObject::JSI_class, NULL);
 	if (!e)
 		return JS_FALSE;
 
@@ -642,9 +645,12 @@ JSBool JSI_IGUIObject::toString(JSContext* cx, uint argc, jsval* vp)
 JSBool JSI_IGUIObject::focus(JSContext* cx, uint argc, jsval* vp)
 {
 	UNUSED2(argc);
+	JSAutoRequest rq(cx);
 	JS::CallReceiver rec = JS::CallReceiverFromVp(vp);
 
-	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, JS_THIS_OBJECT(cx, vp), &JSI_IGUIObject::JSI_class, NULL);
+	JS::RootedObject thisObj(cx, JS_THIS_OBJECT(cx, vp));
+	
+	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, thisObj, &JSI_IGUIObject::JSI_class, NULL);
 	if (!e)
 		return JS_FALSE;
 
@@ -657,9 +663,12 @@ JSBool JSI_IGUIObject::focus(JSContext* cx, uint argc, jsval* vp)
 JSBool JSI_IGUIObject::blur(JSContext* cx, uint argc, jsval* vp)
 {
 	UNUSED2(argc);
+	JSAutoRequest rq(cx);
 	JS::CallReceiver rec = JS::CallReceiverFromVp(vp);
 
-	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, JS_THIS_OBJECT(cx, vp), &JSI_IGUIObject::JSI_class, NULL);
+	JS::RootedObject thisObj(cx, JS_THIS_OBJECT(cx, vp));
+ 
+	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, thisObj, &JSI_IGUIObject::JSI_class, NULL);
 	if (!e)
 		return JS_FALSE;
 
@@ -672,9 +681,12 @@ JSBool JSI_IGUIObject::blur(JSContext* cx, uint argc, jsval* vp)
 JSBool JSI_IGUIObject::getComputedSize(JSContext* cx, uint argc, jsval* vp)
 {
 	UNUSED2(argc);
+	JSAutoRequest rq(cx);
 	JS::CallReceiver rec = JS::CallReceiverFromVp(vp);
 	
-	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, JS_THIS_OBJECT(cx, vp), &JSI_IGUIObject::JSI_class, NULL);
+	JS::RootedObject thisObj(cx, JS_THIS_OBJECT(cx, vp));
+	
+	IGUIObject* e = (IGUIObject*)JS_GetInstancePrivate(cx, thisObj, &JSI_IGUIObject::JSI_class, NULL);
 	if (!e)
 		return JS_FALSE;
 

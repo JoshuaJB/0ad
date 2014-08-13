@@ -485,7 +485,7 @@ static void InitVfs(const CmdLineArgs& args, int flags)
 }
 
 
-static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcScriptInterface, CScriptVal initData)
+static void InitPs(bool setup_gui, const CStrW& gui_page, ScriptInterface* srcScriptInterface, JS::HandleValue initData)
 {
 	{
 		// console
@@ -1020,14 +1020,16 @@ void InitGraphics(const CmdLineArgs& args, int flags)
 		{
 			const bool setup_gui = ((flags & INIT_NO_GUI) == 0);
 			// We only want to display the splash screen at startup
-			CScriptValRooted data;
+			shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetScriptInterface();
+			JSContext* cx = scriptInterface->GetContext();
+			JSAutoRequest rq(cx);
+			JS::RootedValue data(cx);
 			if (g_GUI)
 			{
-				shared_ptr<ScriptInterface> scriptInterface = g_GUI->GetScriptInterface();
-				scriptInterface->Eval("({})", data);
-				scriptInterface->SetProperty(data.get(), "isStartup", true);
+				scriptInterface->Eval("({})", &data);
+				scriptInterface->SetProperty(data, "isStartup", true);
 			}
-			InitPs(setup_gui, L"page_pregame.xml", g_GUI->GetScriptInterface().get(), data.get());
+			InitPs(setup_gui, L"page_pregame.xml", g_GUI->GetScriptInterface().get(), data);
 		}
 	}
 	catch (PSERROR_Game_World_MapLoadFailed& e)
@@ -1035,7 +1037,7 @@ void InitGraphics(const CmdLineArgs& args, int flags)
 		// Map Loading failed
 
 		// Start the engine so we have a GUI
-		InitPs(true, L"page_pregame.xml", NULL, JSVAL_VOID);
+		InitPs(true, L"page_pregame.xml", NULL, JS::UndefinedHandleValue);
 
 		// Call script function to do the actual work
 		//	(delete game data, switch GUI page, show error, etc.)
@@ -1142,13 +1144,15 @@ bool Autostart(const CmdLineArgs& args)
 	g_Game = new CGame();
 
 	ScriptInterface& scriptInterface = g_Game->GetSimulation2()->GetScriptInterface();
+	JSContext* cx = scriptInterface.GetContext();
+	JSAutoRequest rq(cx);
 
-	CScriptValRooted attrs;
-	scriptInterface.Eval("({})", attrs);
-	CScriptVal settings;
-	scriptInterface.Eval("({})", settings);
-	CScriptVal playerData;
-	scriptInterface.Eval("([])", playerData);
+	JS::RootedValue attrs(cx);
+	scriptInterface.Eval("({})", &attrs);
+	JS::RootedValue settings(cx);
+	scriptInterface.Eval("({})", &settings);
+	JS::RootedValue playerData(cx);
+	scriptInterface.Eval("([])", &playerData);
 
 	// The directory in front of the actual map name indicates which type
 	// of map is being loaded. Drawback of this approach is the association
@@ -1180,13 +1184,14 @@ bool Autostart(const CmdLineArgs& args)
 		
 		// Random map definition will be loaded from JSON file, so we need to parse it
 		std::wstring scriptPath = L"maps/" + autoStartName.FromUTF8() + L".json";
-		CScriptValRooted scriptData = scriptInterface.ReadJSONFile(scriptPath);
-		if (!scriptData.undefined() && scriptInterface.GetProperty(scriptData.get(), "settings", settings))
+		JS::RootedValue scriptData(cx);
+		scriptInterface.ReadJSONFile(scriptPath, &scriptData);
+		if (!scriptData.isUndefined() && scriptInterface.GetProperty(scriptData, "settings", &settings))
 		{
 			// JSON loaded ok - copy script name over to game attributes
 			std::wstring scriptFile;
-			scriptInterface.GetProperty(settings.get(), "Script", scriptFile);
-			scriptInterface.SetProperty(attrs.get(), "script", scriptFile);				// RMS filename
+			scriptInterface.GetProperty(settings, "Script", scriptFile);
+			scriptInterface.SetProperty(attrs, "script", scriptFile);				// RMS filename
 		}
 		else
 		{
@@ -1203,8 +1208,8 @@ bool Autostart(const CmdLineArgs& args)
 			mapSize = size.ToUInt();
 		}
 
-		scriptInterface.SetProperty(settings.get(), "Seed", seed);									// Random seed
-		scriptInterface.SetProperty(settings.get(), "Size", mapSize);								// Random map size (in patches)
+		scriptInterface.SetProperty(settings, "Seed", seed);		// Random seed
+		scriptInterface.SetProperty(settings, "Size", mapSize);		// Random map size (in patches)
 
 		// Get optional number of players (default 2)
 		size_t numPlayers = 2;
@@ -1217,13 +1222,13 @@ bool Autostart(const CmdLineArgs& args)
 		// Set up player data
 		for (size_t i = 0; i < numPlayers; ++i)
 		{
-			CScriptVal player;
-			scriptInterface.Eval("({})", player);
+			JS::RootedValue player(cx);
+			scriptInterface.Eval("({})", &player);
 
 			// We could load player_defaults.json here, but that would complicate the logic
 			//	even more and autostart is only intended for developers anyway
-			scriptInterface.SetProperty(player.get(), "Civ", std::string("athen"));
-			scriptInterface.SetPropertyInt(playerData.get(), i, player);
+			scriptInterface.SetProperty(player, "Civ", std::string("athen"));
+			scriptInterface.SetPropertyInt(playerData, i, player);
 		}
 		mapType = "random";
 	}
@@ -1235,9 +1240,7 @@ bool Autostart(const CmdLineArgs& args)
 		// (Omitting this may cause the loading screen to display "Loading (undefined)",
 		// for example...)
 		CStr8 mapSettingsJSON = LoadSettingsOfScenarioMap("maps/" + autoStartName + ".xml");
-		CScriptValRooted mapSettings = scriptInterface.ParseJSON(mapSettingsJSON);
-
-		settings = mapSettings.get();
+		scriptInterface.ParseJSON(mapSettingsJSON, &settings);
 		mapType = "scenario";
 	}
 	else if (mapDirectory == L"skirmishes")
@@ -1249,13 +1252,12 @@ bool Autostart(const CmdLineArgs& args)
 		// To prevent this, we mimic the behavior of the game setup screen by
 		// retrieving the map settings from the actual map xml...
 		CStr8 mapSettingsJSON = LoadSettingsOfScenarioMap("maps/" + autoStartName + ".xml");
-		CScriptValRooted mapSettings = scriptInterface.ParseJSON(mapSettingsJSON);
-
-		settings = mapSettings.get();
+		scriptInterface.ParseJSON(mapSettingsJSON, &settings);
+		
 		// ...and initialize the playerData array being edited by
 		// autostart-civ et.al. with the real map data, so sensible values
 		// are always present:
-		scriptInterface.GetProperty(settings.get(), "PlayerData", playerData);
+		scriptInterface.GetProperty(settings, "PlayerData", &playerData);
 		mapType = "skirmish";
 	}
 	if (mapType.empty())
@@ -1263,10 +1265,10 @@ bool Autostart(const CmdLineArgs& args)
 		LOGERROR(L"Unrecognized map type '%ls' detected", mapType.c_str());
 		throw PSERROR_Game_World_MapLoadFailed("Unrecognized map type.\nConsult GameSetup.cpp for the currently supported types.");
 	}
-	scriptInterface.SetProperty(attrs.get(), "mapType", mapType);
-	scriptInterface.SetProperty(attrs.get(), "map", std::string("maps/" + autoStartName));
+	scriptInterface.SetProperty(attrs, "mapType", mapType);
+	scriptInterface.SetProperty(attrs, "map", std::string("maps/" + autoStartName));
 
-	scriptInterface.SetProperty(settings.get(), "mapType", mapType);
+	scriptInterface.SetProperty(settings, "mapType", mapType);
 
 	// Set player data for AIs
 	//		attrs.settings = { PlayerData: [ { AI: ... }, ... ] }:
@@ -1276,18 +1278,18 @@ bool Autostart(const CmdLineArgs& args)
 		for (size_t i = 0; i < aiArgs.size(); ++i)
 		{
 			// Instead of overwriting existing player data, modify the array
-			CScriptVal player;
-			if (!scriptInterface.GetPropertyInt(playerData.get(), i, player) || player.undefined())
+			JS::RootedValue player(cx);
+			if (!scriptInterface.GetPropertyInt(playerData, i, &player) || player.isUndefined())
 			{
-				scriptInterface.Eval("({})", player);
+				scriptInterface.Eval("({})", &player);
 			}
 
 			int playerID = aiArgs[i].BeforeFirst(":").ToInt();
 			CStr name = aiArgs[i].AfterFirst(":");
 
-			scriptInterface.SetProperty(player.get(), "AI", std::string(name));
-			scriptInterface.SetProperty(player.get(), "AIDiff", 2);
-			scriptInterface.SetPropertyInt(playerData.get(), playerID-1, player);
+			scriptInterface.SetProperty(player, "AI", std::string(name));
+			scriptInterface.SetProperty(player, "AIDiff", 2);
+			scriptInterface.SetPropertyInt(playerData, playerID-1, player);
 		}
 	}
 	// Set AI difficulty
@@ -1297,17 +1299,17 @@ bool Autostart(const CmdLineArgs& args)
 		for (size_t i = 0; i < civArgs.size(); ++i)
 		{
 			// Instead of overwriting existing player data, modify the array
-			CScriptVal player;
-			if (!scriptInterface.GetPropertyInt(playerData.get(), i, player) || player.undefined())
+			JS::RootedValue player(cx);
+			if (!scriptInterface.GetPropertyInt(playerData, i, &player) || player.isUndefined())
 			{
-				scriptInterface.Eval("({})", player);
+				scriptInterface.Eval("({})", &player);
 			}
 			
 			int playerID = civArgs[i].BeforeFirst(":").ToInt();
 			int difficulty = civArgs[i].AfterFirst(":").ToInt();
 			
-			scriptInterface.SetProperty(player.get(), "AIDiff", difficulty);
-			scriptInterface.SetPropertyInt(playerData.get(), playerID-1, player);
+			scriptInterface.SetProperty(player, "AIDiff", difficulty);
+			scriptInterface.SetPropertyInt(playerData, playerID-1, player);
 		}
 	}
 	// Set player data for Civs
@@ -1317,29 +1319,29 @@ bool Autostart(const CmdLineArgs& args)
 		for (size_t i = 0; i < civArgs.size(); ++i)
 		{
 			// Instead of overwriting existing player data, modify the array
-			CScriptVal player;
-			if (!scriptInterface.GetPropertyInt(playerData.get(), i, player) || player.undefined())
+			JS::RootedValue player(cx);
+			if (!scriptInterface.GetPropertyInt(playerData, i, &player) || player.isUndefined())
 			{
-				scriptInterface.Eval("({})", player);
+				scriptInterface.Eval("({})", &player);
 			}
 			
 			int playerID = civArgs[i].BeforeFirst(":").ToInt();
 			CStr name = civArgs[i].AfterFirst(":");
 			
-			scriptInterface.SetProperty(player.get(), "Civ", std::string(name));
-			scriptInterface.SetPropertyInt(playerData.get(), playerID-1, player);
+			scriptInterface.SetProperty(player, "Civ", std::string(name));
+			scriptInterface.SetPropertyInt(playerData, playerID-1, player);
 		}
 	}
 
 	// Add player data to map settings
-	scriptInterface.SetProperty(settings.get(), "PlayerData", playerData);
+	scriptInterface.SetProperty(settings, "PlayerData", playerData);
 
 	// Add map settings to game attributes
-	scriptInterface.SetProperty(attrs.get(), "settings", settings);
+	scriptInterface.SetProperty(attrs, "settings", settings);
 
-	CScriptVal mpInitData;
-	scriptInterface.Eval("({isNetworked:true, playerAssignments:{}})", mpInitData);
-	scriptInterface.SetProperty(mpInitData.get(), "attribs", attrs);
+	JS::RootedValue mpInitData(cx);
+	scriptInterface.Eval("({isNetworked:true, playerAssignments:{}})", &mpInitData);
+	scriptInterface.SetProperty(mpInitData, "attribs", attrs);
 
 	// Get optional playername
 	CStrW userName = L"anonymous";
@@ -1350,7 +1352,7 @@ bool Autostart(const CmdLineArgs& args)
 
 	if (args.Has("autostart-host"))
 	{
-		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData.get());
+		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData);
 
 		size_t maxPlayers = 2;
 		if (args.Has("autostart-players"))
@@ -1360,7 +1362,7 @@ bool Autostart(const CmdLineArgs& args)
 
 		g_NetServer = new CNetServer(maxPlayers);
 
-		g_NetServer->UpdateGameAttributes(attrs.get(), scriptInterface);
+		g_NetServer->UpdateGameAttributes(&attrs, scriptInterface);
 
 		bool ok = g_NetServer->SetupConnection();
 		ENSURE(ok);
@@ -1371,7 +1373,7 @@ bool Autostart(const CmdLineArgs& args)
 	}
 	else if (args.Has("autostart-client"))
 	{
-		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData.get());
+		InitPs(true, L"page_loading.xml", &scriptInterface, mpInitData);
 
 		g_NetClient = new CNetClient(g_Game);
 		g_NetClient->SetUserName(userName);
@@ -1388,14 +1390,14 @@ bool Autostart(const CmdLineArgs& args)
 	else
 	{
 		g_Game->SetPlayerID(1);
-		g_Game->StartGame(attrs, "");
+		g_Game->StartGame(CScriptValRooted(cx, attrs), "");
 
 		LDR_NonprogressiveLoad();
 
 		PSRETURN ret = g_Game->ReallyStartGame();
 		ENSURE(ret == PSRETURN_OK);
 
-		InitPs(true, L"page_session.xml", NULL, JSVAL_VOID);
+		InitPs(true, L"page_session.xml", NULL, JS::UndefinedHandleValue);
 	}
 
 	return true;
@@ -1403,6 +1405,11 @@ bool Autostart(const CmdLineArgs& args)
 
 void CancelLoad(const CStrW& message)
 {
+	shared_ptr<ScriptInterface> pScriptInterface = g_GUI->GetActiveGUI()->GetScriptInterface();
+	JSContext* cx = pScriptInterface->GetContext();
+	JSAutoRequest rq(cx);
+	
+	JS::RootedValue global(cx, pScriptInterface->GetGlobalObject());
 	// Cancel loader
 	LDR_Cancel();
 
@@ -1410,8 +1417,8 @@ void CancelLoad(const CStrW& message)
 	// So all GUI pages that load games should include this script
 	if (g_GUI && g_GUI->HasPages())
 	{
-		if (g_GUI->GetActiveGUI()->GetScriptInterface()->HasProperty(g_GUI->GetActiveGUI()->GetGlobalObject(), "cancelOnError" ))
-			g_GUI->GetActiveGUI()->GetScriptInterface()->CallFunctionVoid(g_GUI->GetActiveGUI()->GetGlobalObject(), "cancelOnError", message);
+		if (pScriptInterface->HasProperty(global, "cancelOnError" ))
+			pScriptInterface->CallFunctionVoid(global, "cancelOnError", message);
 	}
 }
 

@@ -23,6 +23,9 @@
 #include "ICmpTerrain.h"
 #include "simulation2/system/EntityMap.h"
 #include "simulation2/MessageTypes.h"
+#include "simulation2/components/ICmpFogging.h"
+#include "simulation2/components/ICmpMirage.h"
+#include "simulation2/components/ICmpOwnership.h"
 #include "simulation2/components/ICmpPosition.h"
 #include "simulation2/components/ICmpTerritoryManager.h"
 #include "simulation2/components/ICmpVision.h"
@@ -135,7 +138,7 @@ static std::map<entity_id_t, EntityParabolicRangeOutline> ParabolicRangesOutline
  */
 struct EntityData
 {
-	EntityData() : retainInFog(0), owner(-1), inWorld(0), flags(1) { }
+	EntityData() : visibilities(0), retainInFog(0), owner(-1), inWorld(0), flags(1) { }
 	entity_pos_t x, z;
 	entity_pos_t visionRange;
 	u32 visibilities; // 2-bit visibility, per player
@@ -197,8 +200,8 @@ struct SerializeEntityData
 		serialize.NumberFixed_Unbounded("x", value.x);
 		serialize.NumberFixed_Unbounded("z", value.z);
 		serialize.NumberFixed_Unbounded("vision", value.visionRange);
-		serialize.NumberU8("retain in fog", value.retainInFog, 0, 1);
 		serialize.NumberU32_Unbounded("visibilities", value.visibilities);
+		serialize.NumberU8("retain in fog", value.retainInFog, 0, 1);
 		serialize.NumberI8_Unbounded("owner", value.owner);
 		serialize.NumberU8("in world", value.inWorld, 0, 1);
 		serialize.NumberU8_Unbounded("flags", value.flags);
@@ -288,7 +291,7 @@ public:
 	
 	// Cache for visibility tracking (not serialized)
 	i32 m_LosTilesPerSide;
-	bool* m_DirtyVisibility;
+	std::vector<u8> m_DirtyVisibility;
 	std::vector<std::set<entity_id_t> > m_LosTiles;
 	// List of entities that must be updated, regardless of the status of their tile
 	std::vector<entity_id_t> m_ModifiedEntities;
@@ -341,14 +344,11 @@ public:
 		m_LosCircular = false;
 		m_TerrainVerticesPerSide = 0;
 
-		m_DirtyVisibility = NULL;
-
 		m_TerritoriesDirtyID = 0;
 	}
 
 	virtual void Deinit()
 	{
-		delete[] m_DirtyVisibility;
 	}
 
 	template<typename S>
@@ -567,9 +567,8 @@ public:
 		case MT_Update:
 		{
 			m_DebugOverlayDirty = true;
-			UpdateVisibilityData();
-			UpdateTerritoriesLos();
 			ExecuteActiveQueries();
+			UpdateVisibilityData();
 			break;
 		}
 		case MT_RenderSubmit:
@@ -674,8 +673,8 @@ public:
 		m_LosStateRevealed.clear();
 		m_LosStateRevealed.resize(m_TerrainVerticesPerSide*m_TerrainVerticesPerSide);
 		
-		delete[] m_DirtyVisibility;
-		m_DirtyVisibility = new bool[m_LosTilesPerSide*m_LosTilesPerSide]();
+		m_DirtyVisibility.clear();
+		m_DirtyVisibility.resize(m_LosTilesPerSide*m_LosTilesPerSide, 1);
 		m_LosTiles.clear();
 		m_LosTiles.resize(m_LosTilesPerSide*m_LosTilesPerSide);
 
@@ -982,10 +981,10 @@ public:
 			CFixedVector3D pos3d = cmpSourcePosition->GetPosition()+
 			    CFixedVector3D(entity_pos_t::Zero(), q.elevationBonus, entity_pos_t::Zero()) ;
 			// Get a quick list of entities that are potentially in range, with a cutoff of 2*maxRange
-			SpatialQueryArray ents;
+			std::vector<entity_id_t> ents;
 			m_Subdivision.GetNear(ents, pos, q.maxRange*2);
 
-			for (int i = 0; i < ents.size(); ++i)
+			for (size_t i = 0; i < ents.size(); ++i)
 			{
 				EntityMap<EntityData>::const_iterator it = m_EntityData.find(ents[i]);
 				ENSURE(it != m_EntityData.end());
@@ -1019,10 +1018,10 @@ public:
 		else
 		{
 			// Get a quick list of entities that are potentially in range
-			SpatialQueryArray ents;
+			std::vector<entity_id_t> ents;
 			m_Subdivision.GetNear(ents, pos, q.maxRange);
 
-			for (int i = 0; i < ents.size(); ++i)
+			for (size_t i = 0; i < ents.size(); ++i)
 			{
 				EntityMap<EntityData>::const_iterator it = m_EntityData.find(ents[i]);
 				ENSURE(it != m_EntityData.end());
@@ -1379,7 +1378,9 @@ public:
 
 	virtual ELosVisibility GetLosVisibility(CEntityHandle ent, player_id_t player, bool forceRetainInFog)
 	{
-		// (We can't use m_EntityData since this needs to handle LOCAL entities too)
+		// This function provides the real visibility of any entity (even local ones) at any time.
+		// The m_EntityData visibility is updated at most once per turn with this function's return value
+		// and must not be used for rendering
 
 		// Entities not with positions in the world are never visible
 		if (ent.GetId() == INVALID_ENTITY)
@@ -1402,21 +1403,50 @@ public:
 				return VIS_VISIBLE;
 		}
 
+		// Mirage entities, whatever their position, are visible for one specific player
+		CmpPtr<ICmpMirage> cmpMirage(ent);
+		if (cmpMirage && cmpMirage->GetPlayer() != player)
+			return VIS_HIDDEN;
+
 		// Visible if within a visible region
 		CLosQuerier los(GetSharedLosMask(player), m_LosState, m_TerrainVerticesPerSide);
 
 		if (los.IsVisible(i, j))
 			return VIS_VISIBLE;
 
+		if (!los.IsExplored(i, j))			
+			return VIS_HIDDEN;
+			
 		// Fogged if the 'retain in fog' flag is set, and in a non-visible explored region
-		if (los.IsExplored(i, j))
-		{
-			CmpPtr<ICmpVision> cmpVision(ent);
-			if (forceRetainInFog || (cmpVision && cmpVision->GetRetainInFog()))
-				return VIS_FOGGED;
-		}
+		CmpPtr<ICmpVision> cmpVision(ent);
+		if (!forceRetainInFog && !(cmpVision && cmpVision->GetRetainInFog()))
+			return VIS_HIDDEN;
 
-		// Otherwise not visible
+		if (cmpMirage && cmpMirage->GetPlayer() == player)
+			return VIS_FOGGED;
+
+		CmpPtr<ICmpOwnership> cmpOwnership(ent);
+		if (!cmpOwnership)
+			return VIS_VISIBLE;
+		
+		if (cmpOwnership->GetOwner() == player)
+		{
+			CmpPtr<ICmpFogging> cmpFogging(ent);
+			if (!cmpFogging)
+				return VIS_VISIBLE;
+			
+			// Fogged entities must not disappear while the mirage is not ready
+			if (!cmpFogging->IsMiraged(player))
+				return VIS_FOGGED;
+
+			return VIS_HIDDEN;
+		}
+	
+		// Fogged entities must not disappear while the mirage is not ready
+		CmpPtr<ICmpFogging> cmpFogging(ent);
+		if (cmpFogging && cmpFogging->WasSeen(player) && !cmpFogging->IsMiraged(player))
+			return VIS_FOGGED;
+				
 		return VIS_HIDDEN;
 	}
 
@@ -1464,7 +1494,7 @@ public:
 		
 		for (i32 n = 0; n < m_LosTilesPerSide*m_LosTilesPerSide; ++n)
 		{
-			if (m_DirtyVisibility[n])
+			if (m_DirtyVisibility[n] == 1)
 			{
 				for (std::set<entity_id_t>::iterator it = m_LosTiles[n].begin();
 					it != m_LosTiles[n].end();
@@ -1472,7 +1502,7 @@ public:
 				{
 					UpdateVisibility(*it);
 				}
-				m_DirtyVisibility[n] = false;
+				m_DirtyVisibility[n] = 0;
 			}
 		}
 
@@ -1488,18 +1518,29 @@ public:
 		EntityMap<EntityData>::iterator itEnts = m_EntityData.find(ent);
 		if (itEnts == m_EntityData.end())
 			return;
+
+		std::vector<u8> oldVisibilities;
+		std::vector<u8> newVisibilities;
 		
-		for (player_id_t player = 1; player <= MAX_LOS_PLAYER_ID; ++player)
+		for (player_id_t player = 1; player < MAX_LOS_PLAYER_ID+1; ++player)
 		{
-			u8 oldVis = (itEnts->second.visibilities >> (2*player)) & 0x3;
+			u8 oldVis = (itEnts->second.visibilities >> (2*(player-1))) & 0x3;
 			u8 newVis = GetLosVisibility(itEnts->first, player, false);
+			
+			oldVisibilities.push_back(oldVis);
+			newVisibilities.push_back(newVis);
 
 			if (oldVis != newVis)
-			{
-				CMessageVisibilityChanged msg(player, ent, oldVis, newVis);
-				GetSimContext().GetComponentManager().PostMessage(ent, msg);
-				itEnts->second.visibilities = (itEnts->second.visibilities & ~(0x3 << 2*player)) | (newVis << 2*player);
-			}
+				itEnts->second.visibilities = (itEnts->second.visibilities & ~(0x3 << 2*(player-1))) | (newVis << 2*(player-1));
+		}
+
+		for (player_id_t player = 1; player < MAX_LOS_PLAYER_ID+1; ++player)
+		{
+			if (oldVisibilities[player-1] == newVisibilities[player-1])
+				continue;
+			
+			CMessageVisibilityChanged msg(player, ent, oldVisibilities[player-1], newVisibilities[player-1]);
+			GetSimContext().GetComponentManager().PostMessage(ent, msg);
 		}
 	}
 
@@ -1650,7 +1691,7 @@ public:
 					explored += !(m_LosState[idx] & (LOS_EXPLORED << (2*(owner-1))));
 					m_LosState[idx] |= ((LOS_VISIBLE | LOS_EXPLORED) << (2*(owner-1)));
 				}
-				m_DirtyVisibility[(j/LOS_TILES_RATIO)*m_LosTilesPerSide + i/LOS_TILES_RATIO] = true;
+				m_DirtyVisibility[(j/LOS_TILES_RATIO)*m_LosTilesPerSide + i/LOS_TILES_RATIO] = 1;
 			}
 
 			ASSERT(counts[idx] < 65535);
@@ -1680,7 +1721,7 @@ public:
 				m_LosState[idx] &= ~(LOS_VISIBLE << (2*(owner-1)));
 
 				i32 i = i0 + idx - idx0;
-				m_DirtyVisibility[(j/LOS_TILES_RATIO)*m_LosTilesPerSide + i/LOS_TILES_RATIO] = true;
+				m_DirtyVisibility[(j/LOS_TILES_RATIO)*m_LosTilesPerSide + i/LOS_TILES_RATIO] = 1;
 			}
 		}
 	}

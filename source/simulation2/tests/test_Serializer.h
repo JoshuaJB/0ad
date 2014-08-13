@@ -267,13 +267,16 @@ public:
 	void test_script_basic()
 	{
 		ScriptInterface script("Test", "Test", g_ScriptRuntime);
-		CScriptVal obj;
-		TS_ASSERT(script.Eval("({'x': 123, 'y': [1, 1.5, '2', 'test', undefined, null, true, false]})", obj));
+		JSContext* cx = script.GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue obj(cx);
+		TS_ASSERT(script.Eval("({'x': 123, 'y': [1, 1.5, '2', 'test', undefined, null, true, false]})", &obj));
 
 		{
 			std::stringstream stream;
 			CDebugSerializer serialize(script, stream);
-			serialize.ScriptVal("script", obj);
+			serialize.ScriptVal("script", &obj);
 			TS_ASSERT_STR_EQUALS(stream.str(),
 					"script: {\n"
 					"  \"x\": 123,\n"
@@ -294,7 +297,7 @@ public:
 			std::stringstream stream;
 			CStdSerializer serialize(script, stream);
 
-			serialize.ScriptVal("script", obj);
+			serialize.ScriptVal("script", &obj);
 
 			TS_ASSERT_STREAM(stream, 119,
 					"\x03" // SCRIPT_TYPE_OBJECT
@@ -326,8 +329,8 @@ public:
 
 			CStdDeserializer deserialize(script, stream);
 
-			jsval newobj;
-			deserialize.ScriptVal("script", newobj);
+			JS::RootedValue newobj(cx);
+			deserialize.ScriptVal("script", &newobj);
 			TS_ASSERT(stream.good());
 			TS_ASSERT_EQUALS(stream.peek(), EOF);
 
@@ -340,13 +343,16 @@ public:
 	void helper_script_roundtrip(const char* msg, const char* input, const char* expected, size_t expstreamlen = 0, const char* expstream = NULL)
 	{
 		ScriptInterface script("Test", "Test", g_ScriptRuntime);
-		CScriptVal obj;
-		TSM_ASSERT(msg, script.Eval(input, obj));
+		JSContext* cx = script.GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue obj(cx);
+		TSM_ASSERT(msg, script.Eval(input, &obj));
 
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
-		serialize.ScriptVal("script", obj);
+		serialize.ScriptVal("script", &obj);
 
 		if (expstream)
 		{
@@ -355,8 +361,8 @@ public:
 
 		CStdDeserializer deserialize(script, stream);
 
-		jsval newobj;
-		deserialize.ScriptVal("script", newobj);
+		JS::RootedValue newobj(cx);
+		deserialize.ScriptVal("script", &newobj);
 		TSM_ASSERT(msg, stream.good());
 		TSM_ASSERT_EQUALS(msg, stream.peek(), EOF);
 
@@ -567,15 +573,18 @@ public:
 	void test_script_exceptions()
 	{
 		ScriptInterface script("Test", "Test", g_ScriptRuntime);
-		CScriptVal obj;
+		JSContext* cx = script.GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue obj(cx);
 
 		std::stringstream stream;
 		CStdSerializer serialize(script, stream);
 
 		TestLogger logger;
 
-		TS_ASSERT(script.Eval("([1, 2, function () { }])", obj));
-		TS_ASSERT_THROWS(serialize.ScriptVal("script", obj), PSERROR_Serialize_InvalidScriptValue);
+		TS_ASSERT(script.Eval("([1, 2, function () { }])", &obj));
+		TS_ASSERT_THROWS(serialize.ScriptVal("script", &obj), PSERROR_Serialize_InvalidScriptValue);
 	}
 
 	void test_script_splice()
@@ -599,20 +608,23 @@ public:
 		const char* input = "var x = {}; for (var i=0;i<256;++i) x[i]=Math.pow(i, 2); x";
 
 		ScriptInterface script("Test", "Test", g_ScriptRuntime);
-		CScriptVal obj;
-		TS_ASSERT(script.Eval(input, obj));
+		JSContext* cx = script.GetContext();
+		JSAutoRequest rq(cx);
+		
+		JS::RootedValue obj(cx);
+		TS_ASSERT(script.Eval(input, &obj));
 
 		for (size_t i = 0; i < 256; ++i)
 		{
 			std::stringstream stream;
 			CStdSerializer serialize(script, stream);
 
-			serialize.ScriptVal("script", obj);
+			serialize.ScriptVal("script", &obj);
 
 			CStdDeserializer deserialize(script, stream);
 
-			jsval newobj;
-			deserialize.ScriptVal("script", newobj);
+			JS::RootedValue newobj(cx);
+			deserialize.ScriptVal("script", &newobj);
 			TS_ASSERT(stream.good());
 			TS_ASSERT_EQUALS(stream.peek(), EOF);
 

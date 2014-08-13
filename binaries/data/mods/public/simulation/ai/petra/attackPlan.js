@@ -59,7 +59,7 @@ m.AttackPlan = function(gameState, Config, uniqueID, type, data)
 	}
 	this.rallyPoint = rallyPoint;
 
-	this.overseas = false;
+	this.overseas = undefined;
 	this.paused = false;
 	this.maxCompletingTurn = 0;	
 
@@ -236,13 +236,16 @@ m.AttackPlan.prototype.getEnemyPlayer = function(gameState)
 			return enemyWonder.owner();
 	}
 
-	// then let's find our prefered target enemy, basically counting our enemies units.
+	// then let's find our prefered target enemy, basically counting our enemies units
+	// with priority to enemies with civ center
 	var enemyCount = {};
 	var enemyDefense = {};
+	var enemyCivCentre = {};
 	for (var i = 1; i < gameState.sharedScript.playersData.length; ++i)
 	{
 		enemyCount[i] = 0;
 		enemyDefense[i] = 0;
+		enemyCivCentre[i] = false;
 	}
 	gameState.getEntities().forEach(function(ent) { 
 		if (gameState.isEntityEnemy(ent) && ent.owner() !== 0)
@@ -250,6 +253,8 @@ m.AttackPlan.prototype.getEnemyPlayer = function(gameState)
 			enemyCount[ent.owner()]++;
 			if (ent.hasClass("Tower") || ent.hasClass("Fortress"))
 				enemyDefense[ent.owner()]++;
+			if (ent.hasClass("CivCentre"))
+				enemyCivCentre[ent.owner()] = true;
 		}
 	});
 	var max = 0;
@@ -257,10 +262,13 @@ m.AttackPlan.prototype.getEnemyPlayer = function(gameState)
 	{
 		if (this.type === "Rush" && enemyDefense[i] > 6)  // No rush if enemy too well defended (iberians)
 			continue;
-		if (enemyCount[i] > max)
+		var count = enemyCount[i];
+		if (enemyCivCentre[i])
+			count += 500;
+		if (count > max)
 		{
 			enemyPlayer = +i;
-			max = enemyCount[i];
+			max = count;
 		}
 	}
 	return enemyPlayer;
@@ -423,11 +431,12 @@ m.AttackPlan.prototype.updatePreparation = function(gameState, events)
 				this.rallyPoint = rallySame;
 			else if (rallyDiff)
 			{
-				this.overseas = true;
 				this.rallyPoint = rallyDiff;
-				var sea = gameState.ai.HQ.getSeaIndex(gameState, rallyIndex, targetIndex);
-				if (sea !== undefined)
-					gameState.ai.HQ.navalManager.setMinimalTransportShips(gameState, sea, this.neededShips);
+				this.overseas = gameState.ai.HQ.getSeaIndex(gameState, rallyIndex, targetIndex);
+				if (this.overseas)
+					gameState.ai.HQ.navalManager.setMinimalTransportShips(gameState, this.overseas, this.neededShips);
+				else
+					return 0;
 			}
 		}
 	}
@@ -444,12 +453,10 @@ m.AttackPlan.prototype.updatePreparation = function(gameState, events)
 	}
 
 	// if we need a transport, wait for some transport ships
-	if (this.overseas && !gameState.ai.HQ.navalManager.seaTransportShips.length)
+	if (this.overseas && !gameState.ai.HQ.navalManager.seaTransportShips[this.overseas].length)
 		return 1;
 
-	// if we add units to this plan, wait next turn for the collections to be updated
-	if (this.assignUnits(gameState))
-		return 1;
+	this.assignUnits(gameState);
 
 	// special case: if we've reached max pop, and we can start the plan, start it.
 	if (gameState.getPopulationMax() - gameState.getPopulation() < 10)
@@ -623,8 +630,8 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 {
 	var plan = this.name;
 	var added = false;
-
-	// If we can not build units, assign all available except those affcted to allied defnse to the current attack
+	var self = this;
+	// If we can not build units, assign all available except those affected to allied defense to the current attack
 	if (!this.canBuildUnits)
 	{
 		gameState.getOwnUnits().forEach(function(ent) {
@@ -637,6 +644,7 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 			if (ent.getMetadata(PlayerID, "allied"))
 				return;
 			ent.setMetadata(PlayerID, "plan", plan);
+			self.unitCollection.updateEnt(ent);
 			added = true; 
 		});
 		return added;
@@ -657,6 +665,7 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 			if (num++ < 2)
 				return;
 			ent.setMetadata(PlayerID, "plan", plan);
+			self.unitCollection.updateEnt(ent);
 			added = true;
 		});
 		return added;
@@ -673,6 +682,7 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 		if (ent.hasClass("Ship") || ent.hasClass("Support") || ent.attackTypes() === undefined)
 			return;
 		ent.setMetadata(PlayerID, "plan", plan);
+		self.unitCollection.updateEnt(ent);
 		added = true;
 	});
 	// Add units previously in a plan, but which left it because needed for defense or attack finished
@@ -682,6 +692,7 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 		if (ent.getMetadata(PlayerID, "transport") !== undefined || ent.getMetadata(PlayerID, "transporter") !== undefined)
 			return;
 		ent.setMetadata(PlayerID, "plan", plan);
+		self.unitCollection.updateEnt(ent);
 		added = true;
 	});
 
@@ -703,6 +714,7 @@ m.AttackPlan.prototype.assignUnits = function(gameState)
 		if (num++ < 9)
 			return;
 		ent.setMetadata(PlayerID, "plan", plan);
+		self.unitCollection.updateEnt(ent);
 		added = true;
 	});
 	return added;
@@ -992,7 +1004,7 @@ m.AttackPlan.prototype.StartAttack = function(gameState)
 	else
 	{
 		gameState.ai.gameFinished = true;
-		m.debug ("I do not have any target. So I'll just assume I won the game.");
+		API3.warn("I do not have any target. So I'll just assume I won the game.");
 		return false;
 	}
 	return true;
@@ -1438,16 +1450,12 @@ m.AttackPlan.prototype.Abort = function(gameState)
 		// If the attack was started, and we are on the same land as the rallyPoint, go back there
 		var rallyPoint = this.rallyPoint;
 		var withdrawal = (this.isStarted() && !this.overseas);
+		var self = this;
 		this.unitCollection.forEach(function(ent) {
 			ent.stopMoving();
 			if (withdrawal)
 				ent.move(rallyPoint[0], rallyPoint[1]);
-			if (ent.hasClass("CitizenSoldier") && ent.getMetadata(PlayerID, "role") !== "worker")
-			{
-				ent.setMetadata(PlayerID, "role", "worker");
-				ent.setMetadata(PlayerID, "subrole", undefined);
-			}
-			ent.setMetadata(PlayerID, "plan", -1);
+			self.removeUnit(ent);
 		});
 	}
 
@@ -1459,6 +1467,17 @@ m.AttackPlan.prototype.Abort = function(gameState)
 	gameState.ai.queueManager.removeQueue("plan_" + this.name);
 	gameState.ai.queueManager.removeQueue("plan_" + this.name + "_champ");
 	gameState.ai.queueManager.removeQueue("plan_" + this.name + "_siege");
+};
+
+m.AttackPlan.prototype.removeUnit = function(ent)
+{
+	if (ent.hasClass("CitizenSoldier") && ent.getMetadata(PlayerID, "role") !== "worker")
+	{
+		ent.setMetadata(PlayerID, "role", "worker");
+		ent.setMetadata(PlayerID, "subrole", undefined);
+	}
+	ent.setMetadata(PlayerID, "plan", -1);
+	this.unitCollection.updateEnt(ent);
 };
 
 m.AttackPlan.prototype.checkEvents = function(gameState, events)

@@ -27,7 +27,7 @@ m.GarrisonManager.prototype.update = function(gameState, queues)
 			for (var entId of this.holders[id])
 			{
 				var ent = gameState.getEntityById(entId);
-				if (ent && ent.getMetadata(PlayerID, "garrisonHolder") === id)
+				if (ent && ent.getMetadata(PlayerID, "garrisonHolder") == +id)
 					this.leaveGarrison(ent);
 			}
 			this.holders[id] = undefined;
@@ -69,7 +69,7 @@ m.GarrisonManager.prototype.update = function(gameState, queues)
 			for (var entId of holder._entity.garrisoned)
 			{
 				var ent = gameState.getEntityById(entId);
-				if (!this.keepGarrisoned(ent, holder, enemiesAround))
+				if (ent.owner() === PlayerID && !this.keepGarrisoned(ent, holder, enemiesAround))
 					holder.unload(entId);
 			}
 			for (var j = 0; j < list.length; ++j)
@@ -77,7 +77,7 @@ m.GarrisonManager.prototype.update = function(gameState, queues)
 				var ent = gameState.getEntityById(list[j]);
 				if (this.keepGarrisoned(ent, holder, enemiesAround))
 					continue;
-				if (ent.getMetadata(PlayerID, "garrisonHolder") === id)
+				if (ent.getMetadata(PlayerID, "garrisonHolder") == +id)
 					this.leaveGarrison(ent);
 				list.splice(j--, 1);
 			}

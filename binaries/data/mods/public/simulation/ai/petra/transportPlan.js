@@ -42,7 +42,7 @@ m.TransportPlan = function(gameState, units, startIndex, endIndex, endPos)
 			API3.warn("transport plan with bad path: startIndex " + startIndex + " endIndex " + endIndex);
 		return false;
 	}
-	
+
 	this.units = gameState.getOwnUnits().filter(API3.Filters.byMetadata(PlayerID, "transport", this.ID));
 	this.units.registerUpdates();
 
@@ -67,10 +67,6 @@ m.TransportPlan = function(gameState, units, startIndex, endIndex, endPos)
 	this.state = "boarding";
 	this.boardingPos = {};
 	this.needTransportShips = true;
-	if (units.length)
-		this.assignShip(gameState, units[0].position());
-	else
-		this.assignShip(gameState);
 	this.nTry = {};
 	return true;
 };
@@ -123,11 +119,18 @@ m.TransportPlan.prototype.assignUnitToShip = function(gameState, ent)
 		gameState.ai.HQ.navalManager.splitTransport(gameState, this);
 };
 
-// Assign a ship to this plan. If pos is given, take the nearest from this position
-m.TransportPlan.prototype.assignShip = function(gameState, pos)
+m.TransportPlan.prototype.assignShip = function(gameState)
 {
 	var distmin = Math.min();
 	var nearest = undefined;
+	var pos = undefined;
+	// choose a unit of this plan not yet assigned to a ship
+	this.units.forEach(function (ent) {
+		if (pos || ent.getMetadata(PlayerID, "onBoard") !== undefined || !ent.position())
+			return;
+		pos = ent.position();
+	});
+	// and choose the nearest available ship from this unit
 	for each (var ship in gameState.ai.HQ.navalManager.seaTransportShips[this.sea]._entities)
 	{
 		if (ship.getMetadata(PlayerID, "transporter"))
@@ -146,15 +149,14 @@ m.TransportPlan.prototype.assignShip = function(gameState, pos)
 			break;
 		}
 	}
-	if (nearest)
-	{
-		nearest.setMetadata(PlayerID, "transporter", this.ID);
-		this.ships.updateEnt(nearest);
-		this.transportShips.updateEnt(nearest);
-		this.needTransportShips = false;
-		return true;
-	}
-	return false;
+	if (!nearest)
+		return false;
+
+	nearest.setMetadata(PlayerID, "transporter", this.ID);
+	this.ships.updateEnt(nearest);
+	this.transportShips.updateEnt(nearest);
+	this.needTransportShips = false;
+	return true;
 };
 
 // add a unit to this plan
@@ -271,7 +273,7 @@ m.TransportPlan.prototype.onBoarding = function(gameState)
 					{
 						self.nTry[shipId] = 0;
 						if (self.debug > 0)
-							API3.warn(shipId + " new attempt for a landing point ");
+							API3.warn("ship " + shipId + " new attempt for a landing point ");
 						self.boardingPos[shipId] = self.getBoardingPos(gameState, self.startIndex, self.sea, undefined, false);
 					}
 					ship.move(self.boardingPos[shipId][0], self.boardingPos[shipId][1]);
@@ -281,7 +283,6 @@ m.TransportPlan.prototype.onBoarding = function(gameState)
 				{
 					var oldPos = ent.getMetadata(PlayerID, "posGarrison");
 					var newPos = ent.position();
-					var distEnt = API3.SquareVectorDistance(self.boardingPos[shipId], ent.position());
 					if (oldPos[0] === newPos[0] && oldPos[1] === newPos[1])
 					{
 						if (distShip < 225)	// looks like we are blocked ... try to go out of this trap
@@ -294,6 +295,7 @@ m.TransportPlan.prototype.onBoarding = function(gameState)
 							{
 								if (self.debug > 0)
 									API3.warn("unit blocked, but no ways out of the trap ... destroy it");
+								self.resetUnit(gameState, ent);
 								ent.destroy();
 								return;
 							}
@@ -316,8 +318,8 @@ m.TransportPlan.prototype.onBoarding = function(gameState)
 	if (!ready)
 		return;
 
-	this.ships.forEach(function (ship) { self.boardingPos[ship.id()] = undefined; });
 	this.ships.forEach(function (ship) {
+		self.boardingPos[ship.id()] = undefined;
 		self.boardingPos[ship.id()] = self.getBoardingPos(gameState, self.endIndex, self.sea, self.endPos, true);
 		ship.move(self.boardingPos[ship.id()][0], self.boardingPos[ship.id()][1]);
 	});
@@ -331,19 +333,11 @@ m.TransportPlan.prototype.onBoarding = function(gameState)
 m.TransportPlan.prototype.isOnBoard = function(ent)
 {
 	var ret = false;
-	var self = this;
 	this.transportShips.forEach(function (ship) {
 		if (ret || ship._entity.garrisoned.indexOf(ent.id()) === -1)
 			return;
 		ret = true;
 		ent.setMetadata(PlayerID, "onBoard", "onBoard");
-		if (self.debug > 0)
-		{
-			if (ent.getMetadata(PlayerID, "role") === "attack")
-				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [ent.id()], "rgb": [0,0,2]});
-			else
-				Engine.PostCommand(PlayerID,{"type": "set-shading-color", "entities": [ent.id()], "rgb": [1,1,1]});
-		}
 	});
 	return ret;
 };
@@ -406,27 +400,29 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 			continue;
 		}
 		if (gameState.ai.HQ.Config.debug > 0)
-			API3.warn(">>> reloading failed ... <<<");
-		// destroy the unit if inaccessible otherwise leave it 
+			API3.warn(">>> transport " + this.ID + " reloading failed ... <<<");
+		// destroy the unit if inaccessible otherwise leave it there
 		var index = gameState.ai.accessibility.getAccessValue(ent.position());
 		if (gameState.ai.HQ.allowedRegions[index])
 		{
-			ent.setMetadata(PlayerID, "transport", undefined);
-			ent.setMetadata(PlayerID, "onBoard", undefined);
-			ent.setMetadata(PlayerID, "endPos", undefined);
 			if (gameState.ai.HQ.Config.debug > 0)
-				API3.warn("recovered entity kept " + ent.id());
+				API3.warn(" recovered entity kept " + ent.id());
+			this.resetUnit(gameState, ent);
+			// TODO we should not destroy it, but now the unit could still be reloaded on the next turn
+			// and mess everything
+			ent.destroy();
 		}
 		else
 		{
 			if (gameState.ai.HQ.Config.debug > 0)
 				API3.warn("recovered entity destroyed " + ent.id());
+			this.resetUnit(gameState, ent);
 			ent.destroy();
 		}
 	}
 	this.recovered = [];
 
-	// Check that the units unloaded on the previous turn have been really unloaded
+	// Check that the units unloaded on the previous turn have been really unloaded and in the right position
 	var shipsToMove = {};
 	for (var entId of this.unloaded)
 	{
@@ -443,12 +439,14 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 				else
 				{
 					API3.warn("Petra transportPlan problem: unit not on ship without position ???");
+					this.resetUnit(gameState, ent);
 					ent.destroy();
 				}
 			}
 			else
 			{
 				API3.warn("Petra transportPlan problem: unit on ship, but no ship ???");
+				this.resetUnit(gameState, ent);
 				ent.destroy();
 			}
 		}
@@ -469,6 +467,7 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 			{
 				if (gameState.ai.HQ.Config.debug > 0)
 					API3.warn("no way ... we destroy it");
+				this.resetUnit(gameState, ent);
 				ent.destroy();
 			}
 		}
@@ -488,14 +487,15 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 
 	if (this.canceled)
 	{
-		this.ships.forEach(function (ship) { self.boardingPos[ship.id()] = undefined; });
 		this.ships.forEach(function (ship) {
+			self.boardingPos[ship.id()] = undefined;
 			self.boardingPos[ship.id()] = self.getBoardingPos(gameState, self.endIndex, self.sea, self.endPos, true);
 			ship.move(self.boardingPos[ship.id()][0], self.boardingPos[ship.id()][1]);
 		});
 		this.canceled = undefined;
 	}
 
+	var self = this;
 	this.transportShips.forEach(function (ship) {
 		if (ship.unitAIState() === "INDIVIDUAL.WALKING")
 			return;
@@ -516,7 +516,12 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 			}
 		}
 
-		if (remaining === 0)   // when empty, release the ship and move apart to leave room for other ships. TODO fight
+		var recovering = 0;
+		for (var recov of self.recovered)
+			if (recov.shipId === shipId)
+				recovering++;
+
+		if (!remaining && !recovering)   // when empty, release the ship and move apart to leave room for other ships. TODO fight
 		{
 			ship.moveApart(self.boardingPos[shipId], 15);
 			ship.setMetadata(PlayerID, "transporter", undefined);
@@ -540,6 +545,26 @@ m.TransportPlan.prototype.onSailing = function(gameState)
 		}
 	});
 };
+
+m.TransportPlan.prototype.resetUnit = function(gameState, ent)
+{
+	ent.setMetadata(PlayerID, "transport", undefined);
+	ent.setMetadata(PlayerID, "onBoard", undefined);
+	ent.setMetadata(PlayerID, "endPos", undefined);
+	// if from an army or attack, remove it
+	if (ent.getMetadata(PlayerID, "plan") >= 0)
+	{
+		var plan = gameState.ai.HQ.attackManager.getPlan(ent.getMetadata(PlayerID, "plan"));
+		if (plan)
+			plan.removeUnit(ent);
+	}
+	if (ent.getMetadata(PlayerID, "PartOfArmy"))
+	{
+		var army = gameState.ai.HQ.defenseManager.getArmy(ent.getMetadata(PlayerID, "PartOfArmy"));
+		if (army)
+			army.removeOwn(gameState, ent.id());
+	}
+}
 
 return m;
 }(PETRA);

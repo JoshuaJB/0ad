@@ -163,7 +163,7 @@ var unitActions =
 		},
 		"getActionInfo": function(entState, targetState)
 		{
-			if (targetState.foundation && entState.buildEntities && playerCheck(entState, targetState, ["Player"]))
+			if (targetState.foundation && entState.buildEntities && playerCheck(entState, targetState, ["Player", "Ally"]))
 				return {"possible": true};
 			return false;
 		},
@@ -186,7 +186,7 @@ var unitActions =
 		},
 		"getActionInfo": function(entState, targetState)
 		{
-			if (entState.buildEntities && targetState.needsRepair && playerCheck(entState, targetState, ["Player"]))
+			if (entState.buildEntities && targetState.needsRepair && playerCheck(entState, targetState, ["Player", "Ally"]))
 				return {"possible": true};
 			return false;
 		},
@@ -656,6 +656,12 @@ var g_EntityCommands =
 	"delete": {
 		"getInfo": function(entState)
 		{
+			if (entState.mirage)
+				return {
+					"tooltip": translate("You cannot destroy this entity because it is in the fog-of-war"),
+					"icon": "kill_small.png"
+				};
+
 			return {
 				"tooltip": translate("Delete"),
 				"icon": "kill_small.png"
@@ -663,6 +669,9 @@ var g_EntityCommands =
 		},
 		"execute": function(entState)
 		{
+			if (entState.mirage)
+				return;
+
 			var selection = g_Selection.toList();
 			if (selection.length < 1)
 				return;
