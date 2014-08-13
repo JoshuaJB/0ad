@@ -95,7 +95,7 @@ void SkyManager::LoadSkyTextures()
 	
 	glGenTextures(1, &m_SkyCubeMap);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyCubeMap);
-	
+
 	int types[] = {
 		GL_TEXTURE_CUBE_MAP_POSITIVE_X,
 		GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
@@ -104,7 +104,7 @@ void SkyManager::LoadSkyTextures()
 		GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
 		GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
 	};
-	
+
 	const wchar_t* images[numTextures+1] = {
 		L"front",
 		L"back",
@@ -113,11 +113,11 @@ void SkyManager::LoadSkyTextures()
 		L"top",
 		L"top"
 	};
-	
+
 	for (size_t i = 0; i < numTextures+1; ++i)
 	{
 		VfsPath path = VfsPath("art/textures/skies") / m_SkySet / (Path::String(images[i])+L".dds");
-		
+
 		shared_ptr<u8> file;
 		size_t fileSize;
 		if (g_VFS->LoadFile(path, file, fileSize) < 0)
@@ -130,24 +130,24 @@ void SkyManager::LoadSkyTextures()
 				return;
 			}
 		}
-		
+
 		Tex tex;
 		tex.decode(file, fileSize);
-		
+
 		tex.transform_to((tex.m_Flags | TEX_BOTTOM_UP | TEX_ALPHA) & ~(TEX_DXT | TEX_MIPMAPS));
-		
+
 		u8* data = tex.get_data();
-		
+
 		if (types[i] == GL_TEXTURE_CUBE_MAP_NEGATIVE_Y || types[i] == GL_TEXTURE_CUBE_MAP_POSITIVE_Y)
 		{
 			std::vector<u8> rotated(tex.m_DataSize);
-		
+
 			for (size_t y = 0; y < tex.m_Height; ++y)
 			{
 				for (size_t x = 0; x < tex.m_Width; ++x)
 				{
 					size_t invx = y, invy = tex.m_Width-x-1;
-					
+
 					rotated[(y*tex.m_Width + x) * 4 + 0] = data[(invy*tex.m_Width + invx) * 4 + 0];
 					rotated[(y*tex.m_Width + x) * 4 + 1] = data[(invy*tex.m_Width + invx) * 4 + 1];
 					rotated[(y*tex.m_Width + x) * 4 + 2] = data[(invy*tex.m_Width + invx) * 4 + 2];
@@ -183,13 +183,13 @@ void SkyManager::SetSkySet( const CStrW& newSet )
 {
 	if(newSet == m_SkySet)
 		return;
-	
+
 	if (m_SkyCubeMap)
 	{
 		glDeleteTextures(1, &m_SkyCubeMap);
 		m_SkyCubeMap = 0;
 	}
-	
+
 	m_SkySet = newSet;
 
 	LoadSkyTextures();
@@ -233,8 +233,8 @@ void SkyManager::RenderSky()
 	if (m_SkySet.empty())
 		return;
 
-	glDepthMask( GL_FALSE );
-	
+	glDepthMask(GL_FALSE);
+
 	pglActiveTextureARB(GL_TEXTURE0_ARB);
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
@@ -284,19 +284,19 @@ void SkyManager::RenderSky()
 		glTexCoord3f( -1, +1, +1 );  glVertex3f( +D, FH, -D );
 		glTexCoord3f( -1, -1, +1 );  glVertex3f( +D, +H, -D );
 		glTexCoord3f( -1, -1, -1 );  glVertex3f( +D, +H, +D );
-	
+
 	// GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
 		glTexCoord3f( -1, +1, +1 );  glVertex3f( +D, FH, -D );
 		glTexCoord3f( -1, +1, -1 );  glVertex3f( +D, FH, +D );
 		glTexCoord3f( +1, +1, -1 );  glVertex3f( -D, FH, +D );
 		glTexCoord3f( +1, +1, +1 );  glVertex3f( -D, FH, -D );
-		
+
 	// GL_TEXTURE_CUBE_MAP_POSITIVE_Y
 		glTexCoord3f( +1, -1, +1 );  glVertex3f( -D, +H, -D );
 		glTexCoord3f( +1, -1, -1 );  glVertex3f( -D, +H, +D );
 		glTexCoord3f( -1, -1, -1 );  glVertex3f( +D, +H, +D );
 		glTexCoord3f( -1, -1, +1 );  glVertex3f( +D, +H, -D );
-	
+
 	// GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
 		glTexCoord3f( -1, +1, +1 );  glVertex3f( +D, FH, -D );
 		glTexCoord3f( +1, +1, +1 );  glVertex3f( -D, FH, -D );

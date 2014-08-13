@@ -82,11 +82,11 @@ CMiniMap::CMiniMap() :
 	m_AttributePos.type = GL_FLOAT;
 	m_AttributePos.elems = 2;
 	m_VertexArray.AddAttribute(&m_AttributePos);
-	
+
 	m_AttributeColor.type = GL_UNSIGNED_BYTE;
 	m_AttributeColor.elems = 4;
 	m_VertexArray.AddAttribute(&m_AttributeColor);
-	
+
 	m_VertexArray.SetNumVertices(MAX_ENTITIES_DRAWN);
 	m_VertexArray.Layout();
 
@@ -268,7 +268,7 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	// expected height - how can we make it better without the view rect wobbling in
 	// size while the player scrolls?
 	const float h = 16384.f * HEIGHT_SCALE;
-	const int LINE_WIDTH = 5;
+	const int LINE_WIDTH = 3;
 	const float width = m_CachedActualSize.GetWidth();
 	const float height = m_CachedActualSize.GetHeight();
 	const float invTileMapSize = 1.0f / float(TERRAIN_TILE_SIZE * m_MapSize);
@@ -283,21 +283,47 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	// Convert to minimap space
 	for (int i = 0; i < 4; i++)
 	{
-		// Outer X vertex coordinate
+		// Inner X vertex coordinate
 		viewVerts[i * 4] = width * hitPt[i].X * invTileMapSize;
-		// Outer Y vertex coordinate
+		// Inner Y vertex coordinate
 		viewVerts[i * 4 + 1] = -1 * height * hitPt[i].Z * invTileMapSize;
-		// Inner X vertex coordinate
-		viewVerts[i * 4 + 2] = viewVerts[i * 4] + cos(-GetAngle() - 5 * M_PI / 4 - i * M_PI / 2) * LINE_WIDTH * sqrt(2);
-		// Inner Y vertex coordinate
-		viewVerts[i * 4 + 3] = viewVerts[i * 4 + 1] + sin(-GetAngle() - 5 * M_PI / 4 - i * M_PI / 2) * LINE_WIDTH * sqrt(2);
-		// Inner X vertex coordinate
-		LOGWARNING(L"%f", atan((viewVerts[(3 - i) * 4 + 1] - viewVerts[i * 4 + 1]) / (viewVerts[i * 4] - viewVerts[(3 - i) * 4])) * 180 / M_PI);
-		double angleAdjustment = + 5 * M_PI / 4 - 0 * M_PI / 2 + atan((viewVerts[(3 - i) * 4 + 1] - viewVerts[i * 4 + 1]) / (viewVerts[i * 4] - viewVerts[(3 - i) * 4])) / 2.f;
-		viewVerts[i * 4 + 2] = viewVerts[i * 4] + cos(-GetAngle() + angleAdjustment) * LINE_WIDTH * sqrt(2);
-		// Inner Y vertex coordinate
-		viewVerts[i * 4 + 3] = viewVerts[i * 4 + 1] + sin(-GetAngle() + angleAdjustment) * LINE_WIDTH * sqrt(2);
 	}
+
+	/* Maths *** IGNORE ME ***
+		Given λ as the number of degrees clockwise about the inner vertex
+		from the transformed +Y vector to the vector formed between the
+		inner and outer vertices of the given corner.
+			λ = 270° + arctan((v0.y - v3.y) / (v3.x - v0.x)) / 2
+		In radians:
+			λ = 3π / 2 + arctan((v0.y - v3.y) / (v3.x - v0.x)) / 2
+	*/
+	const double bottomViewportLength = sqrt(pow(viewVerts[5] - viewVerts[1], 2) + pow(viewVerts[4] - viewVerts[0], 2));
+	const double topViewportLength = sqrt(pow(viewVerts[9] - viewVerts[13], 2) + pow(viewVerts[8] - viewVerts[12], 2));
+	const double hypotenuseLength = sqrt(pow(viewVerts[1] - viewVerts[13], 2) + pow(viewVerts[0] - viewVerts[12], 2));
+	const double adjacentLength = (topViewportLength - bottomViewportLength) / 2.f;
+	const double theta = acos(adjacentLength / hypotenuseLength);
+	double lambda = theta / 2.f;
+
+	// Outer X vertex coordinate
+	viewVerts[2] = viewVerts[0] + cos(lambda + M_PI / 2.f - GetAngle()) * LINE_WIDTH;
+	// Outer Y vertex coordinate
+	viewVerts[3] = viewVerts[1] + sin(lambda + M_PI / 2.f - GetAngle()) * LINE_WIDTH;
+
+	// Outer X vertex coordinate
+	viewVerts[6] = viewVerts[4] - cos(lambda + M_PI / 2.f + GetAngle()) * LINE_WIDTH;
+	// Outer Y vertex coordinate
+	viewVerts[7] = viewVerts[5] + sin(lambda + M_PI / 2.f + GetAngle()) * LINE_WIDTH;
+
+	// Outer X vertex coordinate
+	viewVerts[10] = viewVerts[8] + cos(lambda + GetAngle()) * LINE_WIDTH;
+	// Outer Y vertex coordinate
+	viewVerts[11] = viewVerts[9] - sin(lambda + GetAngle()) * LINE_WIDTH;
+
+	// Outer X vertex coordinate
+	viewVerts[14] = viewVerts[12] - cos(lambda - GetAngle()) * LINE_WIDTH;
+	// Outer Y vertex coordinate
+	viewVerts[15] = viewVerts[13] - sin(lambda - GetAngle()) * LINE_WIDTH;
+
 	// Copy and append the first set of vertices to the end of the vertex array so as to draw a loop.
 	viewVerts[16] = viewVerts[0];
 	viewVerts[17] = viewVerts[1];
@@ -307,7 +333,6 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	// Enable Scissoring to restrict the rectangle to only the minimap.
 	glScissor((int)m_CachedActualSize.left, g_Renderer.GetHeight() - (int)m_CachedActualSize.bottom, (int)width, (int)height);
 	glEnable(GL_SCISSOR_TEST);
-	//glLineWidth(2.0f);
 
 	CShaderDefines lineDefines;
 	lineDefines.Add(str_MINIMAP_LINE, str_1);
@@ -325,7 +350,6 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 
 	tech->EndPass();
 
-	//glLineWidth(1.0f);
 	glDisable(GL_SCISSOR_TEST);
 }
 
@@ -406,6 +430,7 @@ void CMiniMap::Draw()
 	ENSURE(cmpRangeManager);
 
 	// Set our globals in case they hadn't been set before
+	// TODO: Don't calculate these every frame.
 	m_Camera = g_Game->GetView()->GetCamera();
 	m_Terrain = g_Game->GetWorld()->GetTerrain();
 	m_Width  = (u32)(m_CachedActualSize.right - m_CachedActualSize.left);
@@ -413,6 +438,7 @@ void CMiniMap::Draw()
 	m_MapSize = m_Terrain->GetVerticesPerSide();
 	m_TextureSize = (GLsizei)round_up_to_pow2((size_t)m_MapSize);
 	m_MapScale = (cmpRangeManager->GetLosCircular() ? 1.f : 1.414f);
+	m_UnitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
 
 	if (!m_TerrainTexture || g_GameRestarted)
 		CreateTextures();
@@ -426,18 +452,19 @@ void CMiniMap::Draw()
 	const double cur_time = timer_Time();
 	const bool doUpdate = cur_time - last_time > 0.5;
 	if (doUpdate)
-	{	
+	{
 		last_time = cur_time;
 		if (m_TerrainDirty)
 			RebuildTerrainTexture();
 	}
 
-	const float x = m_CachedActualSize.left, y = m_CachedActualSize.bottom;
-	const float x2 = m_CachedActualSize.right, y2 = m_CachedActualSize.top;
+	const float x = m_CachedActualSize.left;
+	const float x2 = m_CachedActualSize.right;
+	const float y = m_CachedActualSize.bottom;
+	const float y2 = m_CachedActualSize.top;
 	const float z = GetBufferedZ();
 	const float texCoordMax = (float)(m_MapSize - 1) / (float)m_TextureSize;
 	const float angle = GetAngle();
-	const float unitScale = (cmpRangeManager->GetLosCircular() ? 1.f : m_MapScale/2.f);
 
 	// Disable depth updates to prevent apparent z-fighting-related issues
 	//  with some drivers causing units to get drawn behind the texture.
@@ -512,7 +539,7 @@ void CMiniMap::Draw()
 	// Rotate the map.
 	unitMatrix.RotateZ(angle);
 	// Scale square maps to fit.
-	unitMatrix.Scale(unitScale, unitScale, 1.f);
+	unitMatrix.Scale(m_UnitScale, m_UnitScale, 1.f);
 	// Move the minimap back to it's starting position.
 	unitMatrix.Translate((x2 - x) / 2.f, (y2 - y) / 2.f, 0.f);
 	// Move the minimap to it's final location.

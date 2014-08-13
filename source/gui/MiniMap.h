@@ -84,7 +84,8 @@ protected:
 
 	// 1.f if map is circular or 1.414f if square (to shrink it inside the circle)
 	float m_MapScale;
-	
+	float m_UnitScale;
+
 	// maximal water height to allow the passage of a unit (for underwater shallows).
 	float m_ShallowPassageHeight;
 
