@@ -4,6 +4,12 @@
     <Hack>2</Hack>
     <Pierce>4</Pierce>
   </Armour>
+  <Cost>
+    <Resources>
+      <food>0</food>
+      <metal>80</metal>
+    </Resources>
+  </Cost>
   <Identity>
     <Civ>celt</Civ>
     <GenericName>Naked Fanatic</GenericName>
@@ -12,7 +18,7 @@
     <Icon>units/celt_fanatic.png</Icon>
   </Identity>
   <UnitMotion>
-    <WalkSpeed>11.0</WalkSpeed>
+    <WalkSpeed>12.5</WalkSpeed>
     <Run>
       <Speed>22.0</Speed>
     </Run>

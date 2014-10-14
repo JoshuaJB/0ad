@@ -31,7 +31,7 @@
   <Identity>
     <GenericName>Fishing Boat</GenericName>
     <Tooltip>Fish the waters for Food. Garrison a support or infantry unit inside to boost fishing rate.</Tooltip>
-    <VisibleClasses datatype="tokens">FishingBoat</VisibleClasses>
+    <Classes datatype="tokens">FishingBoat</Classes>
   </Identity>
   <Obstruction>
     <Unit radius="2.0"/>
@@ -54,7 +54,7 @@
     <CanGuard>false</CanGuard>
   </UnitAI>
   <UnitMotion>
-    <WalkSpeed>8.5</WalkSpeed>
+    <WalkSpeed>10</WalkSpeed>
   </UnitMotion>
   <Vision>
     <Range>24</Range>

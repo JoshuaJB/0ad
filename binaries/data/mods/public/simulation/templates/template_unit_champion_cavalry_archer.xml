@@ -1,49 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_unit_champion_cavalry">
   <Armour>
-    <Hack>4</Hack>
-    <Pierce>5</Pierce>
+    <Hack>6</Hack>
+    <Pierce>4</Pierce>
     <Crush>6</Crush>
   </Armour>
   <Attack>
     <Ranged>
-      <Hack>0.0</Hack>
-      <Pierce>20.0</Pierce>
-      <Crush>0.0</Crush>
-      <MaxRange>60</MaxRange>
+      <Hack>0</Hack>
+      <Pierce>26.5</Pierce>
+      <Crush>0</Crush>
+      <MaxRange>58</MaxRange>
       <MinRange>0.0</MinRange>
       <ProjectileSpeed>75.0</ProjectileSpeed>
-      <PrepareTime>1200</PrepareTime>
-      <RepeatTime>2000</RepeatTime>
-      <Spread>1.5</Spread>
-	  <Bonuses>
-		<BonusPrimary>
-		  <Classes>Infantry Melee</Classes>
-		  <Multiplier>1.5</Multiplier>
-		</BonusPrimary>
-		<ElephantStench>
-		  <Classes>Elephant</Classes>
-		  <Multiplier>0.5</Multiplier>
-		</ElephantStench>
-		<CamelStench>
-		  <Classes>Camel</Classes>
-		  <Multiplier>0.5</Multiplier>
-		</CamelStench>
-	  </Bonuses>
+      <PrepareTime>1000</PrepareTime>
+      <RepeatTime>1000</RepeatTime>
+      <Spread>1.2</Spread>
       <PreferredClasses datatype="tokens">Organic</PreferredClasses>
     </Ranged>
   </Attack>
   <Cost>
     <Resources>
-      <food>100</food>
-      <wood>80</wood>
+      <wood>100</wood>
     </Resources>
   </Cost>
   <Identity>
     <VisibleClasses datatype="tokens">Ranged Archer</VisibleClasses>
     <GenericName>Champion Cavalry Archer.</GenericName>
-    <Tooltip>Counters: 1.5x vs. Melee Infantry.
-Countered by: Javelin Infantry, Sword Cavalry, and Elephants.</Tooltip>
     <Formations datatype="tokens">
       formations/skirmish
     </Formations>
@@ -58,7 +41,7 @@ Countered by: Javelin Infantry, Sword Cavalry, and Elephants.</Tooltip>
     </SoundGroups>
   </Sound>
   <UnitMotion>
-    <WalkSpeed>14.0</WalkSpeed>
+    <WalkSpeed>17.5</WalkSpeed>
     <Run>
       <Speed>28.0</Speed>
       <Range>1000.0</Range>

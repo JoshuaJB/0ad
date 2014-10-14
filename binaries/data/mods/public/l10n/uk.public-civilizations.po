@@ -7,13 +7,15 @@
 # Andrii Puzan <doctrina.90@mail.ru>, 2013
 # Andriy Nahirnjak <andriy.nagirnjak@gmail.com>, 2014
 # Bohdan Lepky <ntrxhm@gmail.com>, 2013
+# Dimaver <dimaver@ukr.net>, 2014
 # Сергій Дубик <dubyk@ukr.net>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: 0 A.D.\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2014-06-19 19:38+0200\n"
-"PO-Revision-Date: 2014-06-19 17:44+0000\n"
+"POT-Creation-Date: 2014-09-26 18:59+0200\n"
+"PO-Revision-Date: 2014-09-12 09:51+0000\n"
+"Last-Translator: Adrián Chaves Fernández <adriyetichaves@gmail.com>\n"
 "Language-Team: Ukrainian (http://www.transifex.com/projects/p/0ad/language/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -93,11 +95,11 @@ msgstr "Перікл"
 
 #: civs/athen.jsonAINames[2]
 msgid "Cimon"
-msgstr ""
+msgstr "Кімон"
 
 #: civs/athen.jsonAINames[3]
 msgid "Aristides"
-msgstr ""
+msgstr "Аристид"
 
 #: civs/athen.jsonAINames[4] civs/hele.jsonFactions[0].Heroes[2].Name
 msgid "Xenophon"
@@ -105,35 +107,35 @@ msgstr "Ксенофонт"
 
 #: civs/athen.jsonAINames[5]
 msgid "Hippias"
-msgstr ""
+msgstr "Гіппій"
 
 #: civs/athen.jsonAINames[6]
 msgid "Cleisthenes"
-msgstr ""
+msgstr "Клісфен"
 
 #: civs/athen.jsonAINames[7]
 msgid "Thucydides"
-msgstr ""
+msgstr "Фукідід"
 
 #: civs/athen.jsonAINames[8]
 msgid "Alcibiades"
-msgstr ""
+msgstr "Алківіад"
 
 #: civs/athen.jsonAINames[9]
 msgid "Miltiades"
-msgstr ""
+msgstr "Мільтіад"
 
 #: civs/athen.jsonAINames[10]
 msgid "Cleon"
-msgstr ""
+msgstr "Клеон"
 
 #: civs/athen.jsonAINames[11]
 msgid "Cleophon"
-msgstr ""
+msgstr "Клеофон"
 
 #: civs/athen.jsonAINames[12]
 msgid "Thrasybulus"
-msgstr ""
+msgstr "Фрасибул"
 
 #: civs/athen.jsonAINames[13] civs/athen.jsonFactions[0].Heroes[2].Name
 msgid "Iphicrates"
@@ -141,7 +143,7 @@ msgstr "Іфікрат"
 
 #: civs/athen.jsonAINames[14]
 msgid "Demosthenes"
-msgstr ""
+msgstr "Демосфен"
 
 #: civs/athen.jsonFactions[0].Technologies[0].Description
 msgid "Athenian triremes can train Marines (Epibastes Athenaikos)."
@@ -441,41 +443,38 @@ msgid ""
 msgstr ""
 
 #: civs/brit.jsonFactions[0].Heroes[1].History
-#: civs/celt.jsonFactions[0].Heroes[1].History
 msgid ""
-"Kunobelinos, perhaps better known by the latinized form of Cunobelin, was a "
-"powerful ruler centered in the territory around modern day Colchester. "
-"Ruling the Catuvellauni from Kamulodunon(better known as Camulodunum), he "
-"was a warrior king who conquered a neighboring tribe, the Trinovantes, and "
-"was referred to by the Romans as the King of the Britons. The Trinovantes, "
-"while having been Roman allies, were not able to call for Roman aide, as "
-"they were conquered shortly after the Roman's own disaster in Germania. "
-"Kunobelinos died of disease after subjugating the great majority of the "
-"southern half of Britain (his coins were being minted as far as the borders "
-"of what would become Wales). When he died, his son Togdumnos replaced him, "
-"who died in battle with the Romans, and was subsequently replaced by his "
-"brother, Karatakos. It is an irony that it was his third son that initially "
-"invited this Roman reprisal. Kunobelinos seems to have been indifferent to "
-"the Romans. He traded with them freely, but had few qualms subjugating known"
-" Roman allies, and even sent Adminius as a fosterling to be educated in "
-"Roman Gaul. This accounted for Adminius's friendships among the Romans, and "
-"he was given lordship over the Cantaci, who inhabited Kent, by his father. "
-"This area was the prime area of Roman influence and trade in Britain, and he"
-" shrewdly observed his youngest son's friendship with powerful Roman and "
-"Gallo-Roman politicians and traders would be of use administrating the "
-"region. His other sons though had no love for the Romans, and when "
-"Kunobelinos died, Togdumnos, now king, arrested, executed, or expelled "
-"numerous Roman sympathizers, including his own brother Adminius, and the "
-"deposed Atrebates king, Verica, who appealed to their connections in the "
-"Roman Empire for aide in recovering their lands. Kunobelinos in his own time"
-" though was possibly one of the greatest of all British kings. He conquered "
-"huge portions of land from originally ruling over only four minor tribes in "
-"a confederation, the Catuvellauni, and achieved recognition as king of "
-"Britain. This recognition was so great that tribes in Cambria even came to "
-"assist his sons against the Romans and their British allies, and Kunobelinos"
-" was held up by the post-Roman Britons as one of their great heroes; a "
-"conqueror and uniter of petty kingdoms, something the post-Roman Britons or "
-"Romano-British sorely needed."
+"Kunobelinos (perhaps better known by the latinized form of Cunobelin) was a "
+"powerful ruler of the Catuvellauni. He was referred to by Romans as the King"
+" of the Britons. His domains extended around the city of Kamulodunon (known "
+"as Camulodunum), modern day Colchester. The Roman defeat in the battle of "
+"Teutoburg Forest (Germania) allowed Kunobelinos to conquer a neighboring "
+"tribe, the Trinovantes, who were Roman allies and couldn't receive Roman "
+"aide. Kunobelinos seems to have been indifferent to the Romans. He traded "
+"with them freely, but had few qualms subjugating known Roman allies, and "
+"even sent his youngest son Adminius as a fosterling to be educated in Roman "
+"Gaul. This accounted for Adminius's friendships among the Romans. Adminius "
+"was given lordship over the Cantaci, who inhabited Kent, by his father. This"
+" area was the prime area of Roman influence and trade in Britain, and "
+"Kunobelinos shrewdly observed his youngest son's friendship with powerful "
+"Roman and Gallo-Roman politicians and traders would be of use administrating"
+" the region. His other sons though had no love for the Romans. When "
+"Kunobelinos died of disease, he was replaced by his son Togdumnos, who "
+"arrested, executed, or expelled numerous Roman sympathizers. These included "
+"his own brother Adminius, and the deposed Atrebates king, Verica, who "
+"appealed to their connections in the Roman Empire for aide in recovering "
+"their lands. Togdumnos died in battle with the Romans, and was subsequently "
+"replaced by his brother, Karatakos. It is an irony that it was his third son"
+" that initially invited this Roman reprisal. Kunobelinos in his own time "
+"though was possibly one of the greatest of all British kings. He conquered "
+"the great majority of the southern half of Britain (his coins were being "
+"minted as far as the borders of what would become Wales). He started ruling "
+"over only four minor tribes in a confederation, the Catuvellauni, and ended "
+"up achieving recognition as king of Britain. This recognition was so great "
+"that tribes in Cambria even came to assist his sons against the Romans and "
+"their British allies, and Kunobelinos was held up by the post-Roman Britons "
+"as one of their great heroes; a conqueror and uniter of petty kingdoms, "
+"something the post-Roman Britons or Romano-British sorely needed."
 msgstr ""
 
 #: civs/brit.jsonFactions[0].Heroes[2].History
@@ -780,6 +779,43 @@ msgstr ""
 #: civs/celt.jsonName
 msgid "Celts"
 msgstr "Кельти"
+
+#: civs/celt.jsonFactions[0].Heroes[1].History
+msgid ""
+"Kunobelinos, perhaps better known by the latinized form of Cunobelin, was a "
+"powerful ruler centered in the territory around modern day Colchester. "
+"Ruling the Catuvellauni from Kamulodunon(better known as Camulodunum), he "
+"was a warrior king who conquered a neighboring tribe, the Trinovantes, and "
+"was referred to by the Romans as the King of the Britons. The Trinovantes, "
+"while having been Roman allies, were not able to call for Roman aide, as "
+"they were conquered shortly after the Roman's own disaster in Germania. "
+"Kunobelinos died of disease after subjugating the great majority of the "
+"southern half of Britain (his coins were being minted as far as the borders "
+"of what would become Wales). When he died, his son Togdumnos replaced him, "
+"who died in battle with the Romans, and was subsequently replaced by his "
+"brother, Karatakos. It is an irony that it was his third son that initially "
+"invited this Roman reprisal. Kunobelinos seems to have been indifferent to "
+"the Romans. He traded with them freely, but had few qualms subjugating known"
+" Roman allies, and even sent Adminius as a fosterling to be educated in "
+"Roman Gaul. This accounted for Adminius's friendships among the Romans, and "
+"he was given lordship over the Cantaci, who inhabited Kent, by his father. "
+"This area was the prime area of Roman influence and trade in Britain, and he"
+" shrewdly observed his youngest son's friendship with powerful Roman and "
+"Gallo-Roman politicians and traders would be of use administrating the "
+"region. His other sons though had no love for the Romans, and when "
+"Kunobelinos died, Togdumnos, now king, arrested, executed, or expelled "
+"numerous Roman sympathizers, including his own brother Adminius, and the "
+"deposed Atrebates king, Verica, who appealed to their connections in the "
+"Roman Empire for aide in recovering their lands. Kunobelinos in his own time"
+" though was possibly one of the greatest of all British kings. He conquered "
+"huge portions of land from originally ruling over only four minor tribes in "
+"a confederation, the Catuvellauni, and achieved recognition as king of "
+"Britain. This recognition was so great that tribes in Cambria even came to "
+"assist his sons against the Romans and their British allies, and Kunobelinos"
+" was held up by the post-Roman Britons as one of their great heroes; a "
+"conqueror and uniter of petty kingdoms, something the post-Roman Britons or "
+"Romano-British sorely needed."
+msgstr ""
 
 #: civs/celt.jsonFactions[0].Description
 msgid "British Isles"
@@ -2464,7 +2500,7 @@ msgstr ""
 
 #: civs/sele.jsonAINames[0]
 msgid "Seleucus I Nicator"
-msgstr ""
+msgstr "Селевк I Нікатор"
 
 #: civs/sele.jsonAINames[1]
 msgid "Antiochus I Soter"

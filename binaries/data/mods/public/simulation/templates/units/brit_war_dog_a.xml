@@ -7,7 +7,7 @@
   </Armour>
   <Attack>
     <Melee>
-      <Hack>17.0</Hack>
+      <Hack>12</Hack>
     </Melee>
     <Charge>
       <Hack>51.0</Hack>
@@ -19,6 +19,12 @@
   <Promotion>
     <Entity>units/brit_war_dog_e</Entity>
   </Promotion>
+  <UnitMotion>
+    <WalkSpeed>14</WalkSpeed>
+    <Run>
+      <Speed>25</Speed>
+    </Run>
+  </UnitMotion>
   <VisualActor>
     <Actor>units/celts/cavalry_spearman_a.xml</Actor>
   </VisualActor>

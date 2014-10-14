@@ -7,6 +7,11 @@
       structures/{civ}_wonder
     </Entities>
   </Builder>
+  <Cost>
+    <Resources>
+      <metal>60</metal>
+    </Resources>
+  </Cost>
   <Identity>
     <Civ>maur</Civ>
 	<SelectionGroupName>units/maur_infantry_swordsman_b</SelectionGroupName>

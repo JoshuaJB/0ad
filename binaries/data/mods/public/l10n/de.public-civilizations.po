@@ -19,6 +19,7 @@
 # hunzel <nurmaguggen@hotmail.com>, 2014
 # J5lx <j5lx@fmail.co.uk>, 2014
 # jonnius <jonatan_zeidler@gmx.de>, 2014
+# santa41116, 2014
 # Mansent, 2013
 # Marcel Haring, 2013-2014
 # mathias.n.graf <mathias.n.graf@gmail.com>, 2013
@@ -27,6 +28,7 @@
 # Patrick Kohan <patrick.kohan@gmail.com>, 2014
 # pointhi, 2014
 # raymond_de, 2014
+# Raymond Vetter, 2014
 # Raymond Vetter, 2014
 # santa41116, 2014
 # sdos77, 2014
@@ -47,8 +49,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0 A.D.\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2014-06-19 19:38+0200\n"
-"PO-Revision-Date: 2014-06-19 17:44+0000\n"
+"POT-Creation-Date: 2014-09-26 18:59+0200\n"
+"PO-Revision-Date: 2014-09-24 12:51+0000\n"
+"Last-Translator: santa41116\n"
 "Language-Team: German (http://www.transifex.com/projects/p/0ad/language/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -73,7 +76,7 @@ msgstr "Silbereulen"
 msgid ""
 "The mines at Laureion in Attica provided Athens with a wealth of silver from"
 " which to mint her famous and highly prized coin, The Athenian Owl."
-msgstr "Durch die Minen von Laureion in Attika hatten die Athener Zugriff auf Silber, welches sie zu zur Prägung ihrer bekannten und hochwertigen Münzen, der Athenischen Eulen, verwendeten."
+msgstr "Durch die Minen von Laureion in Attika hatten die Athener Zugriff auf Silber, welches sie zur Prägung ihrer bekannten und hochwertigen Münzen, der Athenischen Eule, verwendeten."
 
 #: civs/athen.jsonCivBonuses[1].Description
 #: civs/hele.jsonCivBonuses[1].Description
@@ -115,7 +118,7 @@ msgid ""
 "city-states instituted the so-called Delian League in 478 B.C., whose "
 "purpose was to push the Persians out of the Aegean region. The allied states"
 " contributed ships and money, while the Athenians offered their entire navy."
-msgstr "Kurz nach den großen Seeschlachten in Salamis und Mykale, erschufen die Griechischen Stadtstaaten 487 v.Chr. den sogenannten Attischen Seebund, dessen Aufgabe es war, die Perser aus der Ägäis zu vertreiben. Die verbündeten Staaten stellten Schiffe und Geld zur Verfügung, während Athen seine Ganze Flotte anbot."
+msgstr "Kurz nach den großen Seeschlachten bei Salamis und Mykale, schlossen die griechischen Stadtstaaten 478 v.Chr. den sogenannten Attischen Seebund, dessen Aufgabe es war, die Perser aus der Ägäis zu vertreiben. Die verbündeten Staaten stellten Schiffe und Geld zur Verfügung, während Athen seine komplette Flotte anbot."
 
 #: civs/athen.jsonAINames[0] civs/athen.jsonFactions[0].Heroes[0].Name
 #: civs/hele.jsonFactions[0].Heroes[0].Name
@@ -190,7 +193,7 @@ msgstr "Reformen des Iphikrates"
 msgid ""
 "Stone walls can be built in neutral territory. Construction time for walls "
 "is reduced by 50%."
-msgstr "Steinmauern können in neutralem Gebiet gebaut werden. Die Bauzeit von Wällen wird um 50% reduziert."
+msgstr "Steinmauern können in neutralem Gebiet errichtet werden. Die Bauzeit von Wällen wird um 50% reduziert."
 
 #: civs/athen.jsonFactions[0].Technologies[1].Name
 msgid "Long Walls"
@@ -237,7 +240,7 @@ msgstr "Der General, der die Athener davon überzeugte, die gesamten Einnahmen d
 
 #: civs/athen.jsonFactions[0].Heroes[1].History
 msgid "Pericles was the foremost Athenian politician of the 5th Century B.C."
-msgstr "Perikles war der führende athenische Politiker im 5. Jhd. v. Chr."
+msgstr "Perikles war der führende athenische Politiker im 5. Jh. v. Chr."
 
 #: civs/athen.jsonFactions[0].Heroes[2].History
 #: civs/maur.jsonFactions[0].Technologies[0].History
@@ -476,42 +479,39 @@ msgid ""
 msgstr "Caratacus ist die römische Form von Karatakos, seinem richtigen Namen, welcher auf seine vielen Münzen geprägt war. Unter diesem Namen ist er als großer Verteidiger gegen die römische Invasion 43 n.Chr. noch heute bekannt. Als Sohn von König Cunobelinus aus dem Stamm der Catuvellanuen kämpfte er neun Jahre mit wenig Erfolg gegen die Römer, floh aber letzten Endes zu den Stämmen in Wales, wo er entscheidend geschlagen wurde. Zum Schluss wandte er sich nach Nordbritanien, wo er an die Römer ausgeliefert wurde. Nach Rom gebracht, lebte Karatakos bei Kaiser Claudius und starb in Italien. Aus Überlieferungen geht hervor, dass er zum christlichen Glauben übergetreten sei, nachdem seine Frau dies auch Tat, aber diese Behauptungen sind nicht gesichert. Bemerkenswerter ist die Tatsache, dass er leben durfte nachdem er von Rom gefangen wurde. Grundsätzlich wurden solche Leute in öffentlichen Inszenierungen hingerichtet. Karatakos wurde auf eigenen Wunsch vor den Kaiser und den Senat gebracht, um sich zu erklären. Was gesagt wurde ist nicht genau bekannt, jedoch sagt Tacitus, dass es eine geniale Rede gewesen sei...."
 
 #: civs/brit.jsonFactions[0].Heroes[1].History
-#: civs/celt.jsonFactions[0].Heroes[1].History
 msgid ""
-"Kunobelinos, perhaps better known by the latinized form of Cunobelin, was a "
-"powerful ruler centered in the territory around modern day Colchester. "
-"Ruling the Catuvellauni from Kamulodunon(better known as Camulodunum), he "
-"was a warrior king who conquered a neighboring tribe, the Trinovantes, and "
-"was referred to by the Romans as the King of the Britons. The Trinovantes, "
-"while having been Roman allies, were not able to call for Roman aide, as "
-"they were conquered shortly after the Roman's own disaster in Germania. "
-"Kunobelinos died of disease after subjugating the great majority of the "
-"southern half of Britain (his coins were being minted as far as the borders "
-"of what would become Wales). When he died, his son Togdumnos replaced him, "
-"who died in battle with the Romans, and was subsequently replaced by his "
-"brother, Karatakos. It is an irony that it was his third son that initially "
-"invited this Roman reprisal. Kunobelinos seems to have been indifferent to "
-"the Romans. He traded with them freely, but had few qualms subjugating known"
-" Roman allies, and even sent Adminius as a fosterling to be educated in "
-"Roman Gaul. This accounted for Adminius's friendships among the Romans, and "
-"he was given lordship over the Cantaci, who inhabited Kent, by his father. "
-"This area was the prime area of Roman influence and trade in Britain, and he"
-" shrewdly observed his youngest son's friendship with powerful Roman and "
-"Gallo-Roman politicians and traders would be of use administrating the "
-"region. His other sons though had no love for the Romans, and when "
-"Kunobelinos died, Togdumnos, now king, arrested, executed, or expelled "
-"numerous Roman sympathizers, including his own brother Adminius, and the "
-"deposed Atrebates king, Verica, who appealed to their connections in the "
-"Roman Empire for aide in recovering their lands. Kunobelinos in his own time"
-" though was possibly one of the greatest of all British kings. He conquered "
-"huge portions of land from originally ruling over only four minor tribes in "
-"a confederation, the Catuvellauni, and achieved recognition as king of "
-"Britain. This recognition was so great that tribes in Cambria even came to "
-"assist his sons against the Romans and their British allies, and Kunobelinos"
-" was held up by the post-Roman Britons as one of their great heroes; a "
-"conqueror and uniter of petty kingdoms, something the post-Roman Britons or "
-"Romano-British sorely needed."
-msgstr "Kunobelinos, im Lateinischen bekannt als Cunobelin, war ein mächtiger Herrscher. Er regierte die Catuvellaunen von Camulodunum (dem heutigen Colchester) aus und war ein Kriegerkönig, der die Trinovanten unterwarf. Er wurde von den Römern laut Sueton als König der Britonen anerkannt. Die Trinovanten, obgleich ebenfalls Alliierte der Römer, erhielten von diesen jedoch keine militärische Hilfe, da ihre Unterwerfung kurz nach dem römischen Disaster im Teutoburger Wald stattfand. Kunobelinos starb an einer Krankheit, nachdem er den Großteil Südenglands bezwungen hatte (Münzen mit seinem Abbild wurden an die Grenzen des heutigen Wales gefunden). Nach seinem Tode regierte sein Sohn Togodumnus, der in einer Schlacht mit den Römern fiel, und sein Bruder Karatakos übernahm seinen Platz. Es ist eine Ironie des Schicksals, dass es Kunobelinos' dritter Sohn war, der diesen römischen Vergeltungsschlag herausforderte. Kunobelinos verhielt sich den Römern gegenüber neutral. Er trieb regen Handel mit ihnen, aber forderte auch Ärger heraus, indem er römische Alliierte unterwarf. Schließlich schickte er seinen Pflegesohn Adminius zur Ausbildung ins römische Gallien. Dies trug zu Adminius' Freundschaft mit den Römern bei und ihm wurde von seinem Vater die Herrschaft über die Cantaci übertragen, die Kent bewohnten. Diese Gegend war das Haupthandels- und Einflussgebiet der Römer in Britannien und er bemerkte scharfsinnig, das die Freundschaft seines jüngsten Sohnes mit mächtigen römischen und gallo-römischen Politikern und Händlern nützlich für das Regieren dieser Region sein würde. Seine anderen Söhne jedoch mochten die Römer nicht und als Kunobelinos starb, verhaftete, exekutierte und vertrieb der neue König Togodumnus zahlreiche römische Sympatisanten, unter ihnen seinen eigenen Bruder Adminius und den enttrohnten Atrebatenkönig Verica, welche ihre römischen Beziehungen  hatten spielen lassen, um ihre Länder zurückzuerlangen.\nKunobelinos war zu seiner Zeit wahrscheinlich einer der größten Könige Britanniens. Er eroberte große Ländereien, obwohl er ursprünglich nur vier kleine verbündete Stämme, die Catuvellauni, anführte und erlangte die Anerkennung als König der Briten. Sein Ruf war so groß, dass sogar Stämme aus Wales zur Unterstützung seiner Söhne gegen die Römer und ihre örtlichen Alliierten herbeieilten und Kunobelinos wurde von den nachrömischen Briten als einer ihrer größten Helden verehrt; ein Eroberer und Vereiniger unbedeutender Königreiche, als jemand, dessen Hilfe die nachrömischen und späteren Briten dringend bedurften."
+"Kunobelinos (perhaps better known by the latinized form of Cunobelin) was a "
+"powerful ruler of the Catuvellauni. He was referred to by Romans as the King"
+" of the Britons. His domains extended around the city of Kamulodunon (known "
+"as Camulodunum), modern day Colchester. The Roman defeat in the battle of "
+"Teutoburg Forest (Germania) allowed Kunobelinos to conquer a neighboring "
+"tribe, the Trinovantes, who were Roman allies and couldn't receive Roman "
+"aide. Kunobelinos seems to have been indifferent to the Romans. He traded "
+"with them freely, but had few qualms subjugating known Roman allies, and "
+"even sent his youngest son Adminius as a fosterling to be educated in Roman "
+"Gaul. This accounted for Adminius's friendships among the Romans. Adminius "
+"was given lordship over the Cantaci, who inhabited Kent, by his father. This"
+" area was the prime area of Roman influence and trade in Britain, and "
+"Kunobelinos shrewdly observed his youngest son's friendship with powerful "
+"Roman and Gallo-Roman politicians and traders would be of use administrating"
+" the region. His other sons though had no love for the Romans. When "
+"Kunobelinos died of disease, he was replaced by his son Togdumnos, who "
+"arrested, executed, or expelled numerous Roman sympathizers. These included "
+"his own brother Adminius, and the deposed Atrebates king, Verica, who "
+"appealed to their connections in the Roman Empire for aide in recovering "
+"their lands. Togdumnos died in battle with the Romans, and was subsequently "
+"replaced by his brother, Karatakos. It is an irony that it was his third son"
+" that initially invited this Roman reprisal. Kunobelinos in his own time "
+"though was possibly one of the greatest of all British kings. He conquered "
+"the great majority of the southern half of Britain (his coins were being "
+"minted as far as the borders of what would become Wales). He started ruling "
+"over only four minor tribes in a confederation, the Catuvellauni, and ended "
+"up achieving recognition as king of Britain. This recognition was so great "
+"that tribes in Cambria even came to assist his sons against the Romans and "
+"their British allies, and Kunobelinos was held up by the post-Roman Britons "
+"as one of their great heroes; a conqueror and uniter of petty kingdoms, "
+"something the post-Roman Britons or Romano-British sorely needed."
+msgstr "Kunobelinos (vielleicht besser als der lateinischen Form von Cunobelin bekannt) war ein mächtiger Herrscher der Catuvellauni. Er wurde von den Römern als der König der Briten bezeichnet. Sein Herrschaftsbereich lag um die Stadt Kamulodunon (als Camulodunum bekannt), des modernen Colchester. Die römische Niederlage in der Schlacht im Teutoburger Wald (Germania) erlaubt Kunobelinos einen benachbarten Stamm zu erobern, die Trinovantes, den römischen Verbündeten und konnte Roman aide nicht erhalten. Kunobelinos scheint zu den Römern gleichgültig gewesen zu sein. Er tauschte mit ihnen frei, hatte aber einige Bedenken zu unterwerfen bekannten römischen Verbündeten und schickte sogar seinen jüngsten Sohn als Pflegekind Adminius in römischen Gallien erzogen werden. Diese entfielen Adminius Freundschaften unter den Römern. Adminius wurde Herrschaft über die Cantaci, die Kent bewohnt, von seinem Vater. Dieses Gebiet war der wichtigste Bereich des römischen Einflusses und Handel in Großbritannien und scharfsinnig beobachtet Kunobelinos Freundschaft sein jüngster Sohn mit mächtigen römischen und gallo-römischen Politiker und Händler von Nutzen Verwaltung der Region sein. Seine anderen Söhne hatte aber keine Liebe für die Römer. Als Kunobelinos an einer Krankheit starb, wurde er von seinem Sohn Togdumnos ersetzt, welcher verhaftet, hingerichtet oder zahlreichen römischen Sympathisanten vertrieben hatte. Dazu gehörten sein eigenen Bruder Adminius und den abgesetzten Atrebates König, Verica, der seine Verbindungen in das Römische Reich für Berater bei der Wiederherstellung ihres Landes Berufung eingelegt. Togdumnos starb in der Schlacht mit den Römern und wurde anschließend von seinem Bruder, Karatakos, ersetzt. Es ist eine Ironie, dass es sein dritter Sohn war, der ursprünglich diesen Römer-Vergeltung initiierte. Kunobelinos in seiner eigenen Zeit war aber möglicherweise einer der größten aller britischen Könige. Er eroberte die große Mehrheit der südlichen Hälfte von Großbritannien (seine Münzen wurden so weit wie die Grenzen von dem, was Wales werden würde geprägt). Er begann Herrschaft über nur vier kleinere Stämme in einer Konföderation, der Catuvellauni, und am Ende um die Anerkennung als König von Großbritannien. Diese Anerkennung war so groß, dass selbst Stämme in Cambria sogar zur Hilfe, seinen Söhnen gegen die Römer und ihre britischen Verbündeten zu unterstützen und Kunobelinos wurde von den post-römischen Briten als einen ihrer großen Helden gehalten; ein Eroberer und Einiger der kleine Königreiche, etwas, das die post-römischen Briten oder Romano-Briten bitter nötig hatten."
 
 #: civs/brit.jsonFactions[0].Heroes[2].History
 #: civs/celt.jsonFactions[0].Heroes[2].History
@@ -816,6 +816,43 @@ msgstr "Karthago, ein Stadt-Staat im heutigen Tunesien, wer eine beeindruckende 
 msgid "Celts"
 msgstr "Kelten"
 
+#: civs/celt.jsonFactions[0].Heroes[1].History
+msgid ""
+"Kunobelinos, perhaps better known by the latinized form of Cunobelin, was a "
+"powerful ruler centered in the territory around modern day Colchester. "
+"Ruling the Catuvellauni from Kamulodunon(better known as Camulodunum), he "
+"was a warrior king who conquered a neighboring tribe, the Trinovantes, and "
+"was referred to by the Romans as the King of the Britons. The Trinovantes, "
+"while having been Roman allies, were not able to call for Roman aide, as "
+"they were conquered shortly after the Roman's own disaster in Germania. "
+"Kunobelinos died of disease after subjugating the great majority of the "
+"southern half of Britain (his coins were being minted as far as the borders "
+"of what would become Wales). When he died, his son Togdumnos replaced him, "
+"who died in battle with the Romans, and was subsequently replaced by his "
+"brother, Karatakos. It is an irony that it was his third son that initially "
+"invited this Roman reprisal. Kunobelinos seems to have been indifferent to "
+"the Romans. He traded with them freely, but had few qualms subjugating known"
+" Roman allies, and even sent Adminius as a fosterling to be educated in "
+"Roman Gaul. This accounted for Adminius's friendships among the Romans, and "
+"he was given lordship over the Cantaci, who inhabited Kent, by his father. "
+"This area was the prime area of Roman influence and trade in Britain, and he"
+" shrewdly observed his youngest son's friendship with powerful Roman and "
+"Gallo-Roman politicians and traders would be of use administrating the "
+"region. His other sons though had no love for the Romans, and when "
+"Kunobelinos died, Togdumnos, now king, arrested, executed, or expelled "
+"numerous Roman sympathizers, including his own brother Adminius, and the "
+"deposed Atrebates king, Verica, who appealed to their connections in the "
+"Roman Empire for aide in recovering their lands. Kunobelinos in his own time"
+" though was possibly one of the greatest of all British kings. He conquered "
+"huge portions of land from originally ruling over only four minor tribes in "
+"a confederation, the Catuvellauni, and achieved recognition as king of "
+"Britain. This recognition was so great that tribes in Cambria even came to "
+"assist his sons against the Romans and their British allies, and Kunobelinos"
+" was held up by the post-Roman Britons as one of their great heroes; a "
+"conqueror and uniter of petty kingdoms, something the post-Roman Britons or "
+"Romano-British sorely needed."
+msgstr "Kunobelinos, im Lateinischen bekannt als Cunobelin, war ein mächtiger Herrscher. Er regierte die Catuvellaunen von Camulodunum (dem heutigen Colchester) aus und war ein Kriegerkönig, der die Trinovanten unterwarf. Er wurde von den Römern laut Sueton als König der Britonen anerkannt. Die Trinovanten, obgleich ebenfalls Alliierte der Römer, erhielten von diesen jedoch keine militärische Hilfe, da ihre Unterwerfung kurz nach dem römischen Disaster im Teutoburger Wald stattfand. Kunobelinos starb an einer Krankheit, nachdem er den Großteil Südenglands bezwungen hatte (Münzen mit seinem Abbild wurden an die Grenzen des heutigen Wales gefunden). Nach seinem Tode regierte sein Sohn Togodumnus, der in einer Schlacht mit den Römern fiel, und sein Bruder Karatakos übernahm seinen Platz. Es ist eine Ironie des Schicksals, dass es Kunobelinos' dritter Sohn war, der diesen römischen Vergeltungsschlag herausforderte. Kunobelinos verhielt sich den Römern gegenüber neutral. Er trieb regen Handel mit ihnen, aber forderte auch Ärger heraus, indem er römische Alliierte unterwarf. Schließlich schickte er seinen Pflegesohn Adminius zur Ausbildung ins römische Gallien. Dies trug zu Adminius' Freundschaft mit den Römern bei und ihm wurde von seinem Vater die Herrschaft über die Cantaci übertragen, die Kent bewohnten. Diese Gegend war das Haupthandels- und Einflussgebiet der Römer in Britannien und er bemerkte scharfsinnig, das die Freundschaft seines jüngsten Sohnes mit mächtigen römischen und gallo-römischen Politikern und Händlern nützlich für das Regieren dieser Region sein würde. Seine anderen Söhne jedoch mochten die Römer nicht und als Kunobelinos starb, verhaftete, exekutierte und vertrieb der neue König Togodumnus zahlreiche römische Sympatisanten, unter ihnen seinen eigenen Bruder Adminius und den enttrohnten Atrebatenkönig Verica, welche ihre römischen Beziehungen  hatten spielen lassen, um ihre Länder zurückzuerlangen.\nKunobelinos war zu seiner Zeit wahrscheinlich einer der größten Könige Britanniens. Er eroberte große Ländereien, obwohl er ursprünglich nur vier kleine verbündete Stämme, die Catuvellauni, anführte und erlangte die Anerkennung als König der Briten. Sein Ruf war so groß, dass sogar Stämme aus Wales zur Unterstützung seiner Söhne gegen die Römer und ihre örtlichen Alliierten herbeieilten und Kunobelinos wurde von den nachrömischen Briten als einer ihrer größten Helden verehrt; ein Eroberer und Vereiniger unbedeutender Königreiche, als jemand, dessen Hilfe die nachrömischen und späteren Briten dringend bedurften."
+
 #: civs/celt.jsonFactions[0].Description
 msgid "British Isles"
 msgstr "Britische Inseln"
@@ -981,13 +1018,13 @@ msgstr "Valetiacos"
 #: civs/gaul.jsonFactions[0].Technologies[0].Description
 msgid ""
 "A set amount of metal and food from every structure destroyed or captured."
-msgstr ""
+msgstr "Eine bestimmte Menge an Eisen und Nahrung, die von jedem zerstörten oder eingenommenen Gebäude abgenommen wird."
 
 #: civs/gaul.jsonFactions[0].Technologies[0].History
 msgid ""
 "Means Woe to the Defeated. It was the words that the Gallic Leader, Brennos,"
 " spoke at the Capitol at Rome after they took their plunder."
-msgstr ""
+msgstr " „Wehe den Besiegten!“ sagte der gallische Heerführer Brennus am römischen Kapitol, nachdem sie ihre Beute an sich nahmen."
 
 #: civs/gaul.jsonFactions[0].Description
 msgid "The Celts of mainland Europe."
@@ -1035,7 +1072,7 @@ msgid ""
 "sanctuaries by Hellenes and foreigners alike. The Lydian king Croesus, for "
 "example, consulted the advice of the god before going to war with Cyrus the "
 "Great of Persia."
-msgstr "Das Heilige Orakel von Apollo in Delphi war eines der am stärksten in ehren gehaltene Heiligtum der Hellenen und nicht-Hellenen. Zum Beispiel befragte der Lydische König Krösus den Gott bevor gegen Kyros den Großen in den zog."
+msgstr "Das Heilige Orakel von Apollo in Delphi war eines der am stärksten in ehren gehaltene Heiligtum der Hellenen und nicht-Hellenen. Zum Beispiel befragte der Lydische König Krösus den Gott bevor er gegen Kyros den Großen in den Krieg zog."
 
 #: civs/hele.jsonFactions[0].Technologies[0].Description
 msgid "The player gains the Phalanx formation."
@@ -1137,7 +1174,7 @@ msgid ""
 " Greek world. Greatly enlarged the size of Macedonia by conquering much of "
 "Thrace and subduing the Greeks. Murdered in Aegae while planning a campaign "
 "against Persia."
-msgstr "Der König von Makedonien (359-336 v.Chr.), große finanzielle und militärische Reformen um sein Königreich das Stärkste in der Griechischen Welt nennen zu können, wurden von ihm gemacht. ER vergrößerte Makedonien, indem er Thrakien einnahm und die Griechen unterwarf. Er wurde in Aigeai ermordet, als er einen Feldzug gegen Persien plante."
+msgstr "Der König von Makedonien (359-336 v.Chr.), große finanzielle und militärische Reformen um sein Königreich das Stärkste in der Griechischen Welt nennen zu können, wurden von ihm gemacht. Er vergrößerte Makedonien, indem er Thrakien einnahm und die Griechen unterwarf. Er wurde in Aigeai ermordet, als er einen Feldzug gegen Persien plante."
 
 #: civs/hele.jsonFactions[1].Heroes[0].Name civs/mace.jsonAINames[1]
 msgid "Philip II"
@@ -1197,7 +1234,7 @@ msgid ""
 " (431-404 B.C.), and the conquests of Alexander the Great (4th Century "
 "B.C.). Their civilization would endure until their final absorption by Rome "
 "in 146 B.C."
-msgstr "Die Hellenen waren ein Volk das heute bekannt für seine  Architektur, Kämpferischen Fähigkeiten und Kultur ist. Die Hellenischen Völker der Dorer, Ionier und Aiolier überrollten im heutigen Griechenland von 3000 v.Chr. bis um 1100 v.Chr. in aufeinander folgenden Wellen die bestehenden Kulturen der Mykene und der Minoischen Kreter. am aktivsten waren sie in ihrer Zeit der Kolonisation, die 7. und 6. Jahrhundert v.Chr. stattfand, die Perserkriege, (499-449 v.Chr.), der Peleponesische Krieg (431-404 v.Chr.) und den Eroberungen Alexanders des Großen (4. Jahrhundert n.Chr.). Ihre Zivilisation dauerte bis zur Übernahme durch Rom 146 v.Chr. fort."
+msgstr "Die Hellenen waren ein Volk das heute bekannt für seine  Architektur, Kämpferischen Fähigkeiten und Kultur ist. Die Hellenischen Völker der Dorer, Ionier und Aiolier überrollten im heutigen Griechenland von 3000 v.Chr. bis um 1100 v.Chr. in aufeinander folgenden Wellen die bestehenden Kulturen der Mykene und der Minoischen Kreter. am aktivsten waren sie in ihrer Zeit der Kolonisation, die 7. und 6. Jahrhundert v.Chr. stattfand, die Perserkriege, (499-449 v.Chr.), der Peleponesische Krieg (431-404 v.Chr.) und den Eroberungen Alexanders des Großen (4. Jahrhundert v.Chr.). Ihre Zivilisation dauerte bis zur Übernahme durch Rom 146 v.Chr. fort."
 
 #: civs/iber.jsonName
 msgid "Iberians"
@@ -1327,7 +1364,7 @@ msgid ""
 "losses in some requiring retreat). He succumbed instead to another treachery"
 " arranged by a later Roman commander, Q. Servilius Caepio, to have him "
 "assassinated by three comrades that were close to him."
-msgstr "Viriathus war, wie Vercingetorix bei den Galliern, der berühmteste iberische Stammesfürst, der mindestens sieben Feldzüge gegen die Römer in der südlichen Halbinsel während der Zeit der lusitanischen Kriege von 147 bis 139 v. Chr. anführte. Er erschien als Überlebender eines treulosen Massakers an 9000 Männern und dem Verkauf von 21 000 Alten, Frauen und Kindern der Lusitanier in die Sklaverei. Sie hatten einen Friedensvertrag mit den Römern unter Leitung von Servius Sulpicius Galba, Statthalter von Hispania ulterior, als Lösung für das „Lusitanierproblem“ unterschrieben. Viriathus stieg 151 v. Chr. aus ärmlichen Verhältnissen zum Kriegsfürst der Lusitanier auf. Er war intelligent und ein ausgezeichneter Taktiker, der niemals wirklich besiegt wurde (auch wenn er Verluste erlitt). Er erlag stattdessen einem weiteren Verrat, der von einem späteren römischen Befehlshaber, Quintus Servilius Caepio, in Auftrag gegeben wurde und den drei enge Kameraden von Viriathus ausführten."
+msgstr "Viriathus war, wie Vercingetorix bei den Galliern, der berühmteste iberische Stammesfürst, der mindestens sieben Feldzüge gegen die Römer in der südlichen Halbinsel während der Zeit der lusitanischen Kriege von 147 bis 139 v. Chr. anführte. Er erschien als Überlebender eines treulosen Massakers an 9.000 Männern und dem Verkauf von 21 .000 Alten, Frauen und Kindern der Lusitanier in die Sklaverei. Sie hatten einen Friedensvertrag mit den Römern unter Leitung von Servius Sulpicius Galba, Statthalter von Hispania ulterior, als Lösung für das „Lusitanierproblem“ unterschrieben. Viriathus stieg 151 v. Chr. aus ärmlichen Verhältnissen zum Kriegsfürst der Lusitanier auf. Er war intelligent und ein ausgezeichneter Taktiker, der niemals wirklich besiegt wurde (auch wenn er Verluste erlitt). Er erlag stattdessen einem weiteren Verrat, der von einem späteren römischen Befehlshaber, Quintus Servilius Caepio, in Auftrag gegeben wurde und den drei enge Kameraden von Viriathus ausführten."
 
 #: civs/iber.jsonFactions[0].Heroes[1].History
 msgid ""

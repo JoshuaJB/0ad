@@ -2,17 +2,17 @@
 <Entity parent="units/cart_infantry_slinger_b">
   <Armour>
     <Hack>2</Hack>
-    <Pierce>3</Pierce>
+    <Pierce>2</Pierce>
     <Crush>4</Crush>
   </Armour>
   <Attack>
     <Ranged>
-      <Spread>1.25</Spread>
-      <MaxRange>44</MaxRange>
+      <Spread>0.9</Spread>
+      <MaxRange>52.0</MaxRange>
     </Ranged>
   </Attack>
   <Health>
-    <Max>90</Max>
+    <Max>100</Max>
   </Health>
   <Identity>
     <Rank>Advanced</Rank>
@@ -24,7 +24,7 @@
     <BaseSpeed>0.75</BaseSpeed>
   </ResourceGatherer>
   <UnitMotion>
-    <WalkSpeed>7.5</WalkSpeed>
+    <WalkSpeed>9</WalkSpeed>
     <Run>
       <Speed>21.6</Speed>
     </Run>

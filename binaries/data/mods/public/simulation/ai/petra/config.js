@@ -4,11 +4,14 @@ var PETRA = function(m)
 // this defines the medium difficulty
 m.Config = function() {
 	this.difficulty = 2;	// 0 is sandbox, 1 is easy, 2 is medium, 3 is hard, 4 is very hard.
+	// debug level: 0=none, 1=sanity checks, 2=debug; 3=detailed debug
 	this.debug = 0;
+
+	this.popScaling = 1;  // scale factor depending on the max population
 
 	this.Military = {
 		"towerLapseTime" : 90, // Time to wait between building 2 towers
-		"fortressLapseTime" : 420, // Time to wait between building 2 fortresses
+		"fortressLapseTime" : 390, // Time to wait between building 2 fortresses
 		"popForBarracks1" : 25,
 		"popForBarracks2" : 95,
 		"popForBlacksmith" : 65
@@ -90,7 +93,8 @@ m.Config = function() {
 	this.personality =
 	{
 		"aggressive": 0.5,
-		"cooperative": 0.5
+		"cooperative": 0.5,
+		"defensive": 0.5
 	};
 
 	this.resources = ["food", "wood", "stone", "metal"];
@@ -102,7 +106,7 @@ m.Config.prototype.updateDifficulty = function(difficulty)
 {
 	this.difficulty = difficulty;
 	// changing settings based on difficulty.
-	this.targetNumTraders = 2 * this.difficulty;
+	this.Economy.targetNumTraders = 2 * this.difficulty;
 	if (this.difficulty === 1)
 	{
 		this.Military.popForBarracks1 = 35;

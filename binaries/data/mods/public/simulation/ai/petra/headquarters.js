@@ -46,6 +46,7 @@ m.HQ = function(Config)
 	this.tradeManager = new m.TradeManager(this.Config);
 	this.navalManager = new m.NavalManager(this.Config);
 	this.researchManager = new m.ResearchManager(this.Config);
+	this.diplomacyManager = new m.DiplomacyManager(this.Config);
 	this.garrisonManager = new m.GarrisonManager();
 };
 
@@ -93,7 +94,7 @@ m.HQ.prototype.init = function(gameState, queues)
 				this.navalRegions.push(i);
 		}
 	}
-	if (this.Config.debug > 1)
+	if (this.Config.debug > 2)
 	{
 		for (var region in this.allowedRegions)
 			API3.warn(" >>> zone " + region + " taille " + gameState.ai.accessibility.regionSize[region]);
@@ -129,7 +130,8 @@ m.HQ.prototype.init = function(gameState, queues)
 		var self = this;
 		var width = gameState.getMap().width;
 		gameState.getOwnEntities().forEach( function (ent) {
-			if (ent.hasClass("Trader"))
+			// do not affect merchant ship immediately to trade as they may-be useful for transport
+			if (ent.hasClass("Trader") && !ent.hasClass("Ship"))
 				self.tradeManager.assignTrader(ent);
 			var pos = ent.position();
 			if (!pos)
@@ -203,7 +205,7 @@ m.HQ.prototype.init = function(gameState, queues)
 			break;
 		}
 	}
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("starting size " + startingSize + "(cut at 1500 for fish pushing)");
 	if (startingSize < 1500)
 	{
@@ -227,7 +229,7 @@ m.HQ.prototype.init = function(gameState, queues)
 			}
 		}
 	}
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("startingWood: " + startingWood + "(cut at 8500 for no rush and 6000 for saveResources)");
 	if (startingWood < 6000)
 	{
@@ -242,7 +244,7 @@ m.HQ.prototype.init = function(gameState, queues)
 		var template = gameState.getTemplate(this.bBase[0]);
 		if (!template.available(gameState))
 		{
-			if (this.Config.debug > 0)
+			if (this.Config.debug > 1)
 				API3.warn(" this AI is unable to produce any units");
 			this.canBuildUnits = false;
 			var allycc = gameState.getExclusiveAllyEntities().filter(API3.Filters.byClass("CivCentre")).toEntityArray();
@@ -250,7 +252,7 @@ m.HQ.prototype.init = function(gameState, queues)
 			{
 				// if we have some allies, keep a fraction of our units to defend them
 				// and devote the rest to atacks
-				if (this.Config.debug > 0)
+				if (this.Config.debug > 1)
 					API3.warn(" We have allied cc " + allycc.length + " and " + gameState.getOwnUnits().length + " units ");
 				var units = gameState.getOwnUnits();
 				var num = Math.max(Math.min(Math.round(0.08*(1+this.Config.personality.cooperative)*units.length), 20), 5);
@@ -340,7 +342,7 @@ m.HQ.prototype.getSeaIndex = function (gameState, index1, index2)
 		return path[1];
 	else
 	{
-		if (this.Config.debug > 0)
+		if (this.Config.debug > 1)
 		{
 			API3.warn("bad path from " + index1 + " to " + index2 + " ??? " + uneval(path));
 			API3.warn(" regionLinks start " + uneval(gameState.ai.accessibility.regionLinks[index1]));
@@ -417,7 +419,6 @@ m.HQ.prototype.checkEvents = function (gameState, events, queues)
 				this.baseManagers[base].buildings.updateEnt(ent);
 				this.updateTerritories(gameState);
 				// let us hope this new base will fix our resource shortage
-				// TODO check it really does so
 				this.saveResources = undefined;
 			}
 			else if (ent.hasTerritoryInfluence())
@@ -564,7 +565,10 @@ m.HQ.prototype.trainMoreWorkers = function(gameState, queues)
 // picks the best template based on parameters and classes
 m.HQ.prototype.findBestTrainableUnit = function(gameState, classes, requirements)
 {
-	var units = gameState.findTrainableUnits(classes);
+	if (classes.indexOf("Hero") !== -1)
+		var units = gameState.findTrainableUnits(classes, []);
+	else
+		var units = gameState.findTrainableUnits(classes, ["Hero"]);
 	
 	if (units.length === 0)
 		return undefined;
@@ -852,7 +856,7 @@ m.HQ.prototype.findEconomicCCLocation = function(gameState, template, resource, 
 	var cut = 60;
 	if (fromStrategic)  // be less restrictive
 		cut = 30;
-	if (this.Config.debug)
+	if (this.Config.debug > 1)
 		API3.warn("we have found a base for " + resource + " with best (cut=" + cut + ") = " + bestVal);
 	// not good enough.
 	if (bestVal < cut)
@@ -984,7 +988,7 @@ m.HQ.prototype.findStrategicCCLocation = function(gameState, template)
 		bestIdx = j;
 	}
 
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("We've found a strategic base with bestVal = " + bestVal);	
 
 	Engine.ProfileStop();
@@ -1021,7 +1025,7 @@ m.HQ.prototype.findMarketLocation = function(gameState, template)
 		markets = gameState.getOwnStructures().filter(API3.Filters.byClass("Market")).toEntityArray();
 
 	if (!markets.length)	// this is the first market. For the time being, place it arbitrarily by the ConstructionPlan
-		return [-1, -1, -1];
+		return [-1, -1, -1, 0];
 
 	// obstruction map
 	var obstructions = m.createObstructionMap(gameState, 0, template);
@@ -1069,22 +1073,23 @@ m.HQ.prototype.findMarketLocation = function(gameState, template)
 		bestIdx = j;
 	}
 
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("We found a market position with bestVal = " + bestVal);	
 
 	if (bestVal === undefined)  // no constraints. For the time being, place it arbitrarily by the ConstructionPlan
-		return [-1, -1, -1];
+		return [-1, -1, -1, 0];
 
 	var expectedGain = Math.round(bestVal / this.Config.distUnitGain);
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("this would give a trading gain of " + expectedGain);
 	// do not keep it if gain is too small, except if this is our first BarterMarket 
-	if (expectedGain < 6 && (!template.hasClass("BarterMarket") || gameState.getOwnStructures().filter(API3.Filters.byClass("BarterMarket")).length > 0))
+	if (expectedGain < 3 ||
+		(expectedGain < 8 && (!template.hasClass("BarterMarket") || gameState.getOwnStructures().filter(API3.Filters.byClass("BarterMarket")).length > 0)))
 		return false;
 
 	var x = (bestIdx%width + 0.5) * gameState.cellSize;
 	var z = (Math.floor(bestIdx/width) + 0.5) * gameState.cellSize;
-	return [x, z, this.basesMap.map[bestIdx]];
+	return [x, z, this.basesMap.map[bestIdx], expectedGain];
 };
 
 // Returns the best position to build defensive buildings (fortress and towers)
@@ -1284,7 +1289,7 @@ m.HQ.prototype.buildMoreHouses = function(gameState,queues)
 		var index = this.stopBuilding.indexOf(gameState.applyCiv("structures/{civ}_house"));
 		if (count < 5 && index !== -1)
 		{
-			if (this.Config.debug > 0)
+			if (this.Config.debug > 1)
 				API3.warn("no room to place a house ... try to be less restrictive");
 			this.stopBuilding.splice(index, 1);
 			this.requireHouses = true;
@@ -1317,7 +1322,7 @@ m.HQ.prototype.buildMoreHouses = function(gameState,queues)
 		var index = this.stopBuilding.indexOf(gameState.applyCiv("structures/{civ}_house"));
 		if (index !== -1)
 		{
-			if (this.Config.debug > 0)
+			if (this.Config.debug > 1)
 				API3.warn("no room to place a house ... try to improve with technology");
 			this.researchManager.researchPopulationBonus(gameState, queues);
 		}
@@ -1331,14 +1336,14 @@ m.HQ.prototype.buildMoreHouses = function(gameState,queues)
 };
 
 // checks the status of the territory expansion. If no new economic bases created, build some strategic ones.
-m.HQ.prototype.checkBaseExpansion = function(gameState,queues)
+m.HQ.prototype.checkBaseExpansion = function(gameState, queues)
 {
 	if (queues.civilCentre.length() > 0)
 		return;
 	// first expand if we have not enough room available for buildings
 	if (this.stopBuilding.length > 1)
 	{
-		if (this.Config.debug > 1)
+		if (this.Config.debug > 2)
 			API3.warn("try to build a new base because not enough room to build " + uneval(this.stopBuilding));
 		this.buildNewBase(gameState, queues);
 		return;
@@ -1350,7 +1355,7 @@ m.HQ.prototype.checkBaseExpansion = function(gameState,queues)
 		popForBase = this.Config.Economy.popForTown + 5;
 	if (Math.floor(numUnits/popForBase) >= gameState.getOwnStructures().filter(API3.Filters.byClass("CivCentre")).length)
 	{
-		if (this.Config.debug > 1)
+		if (this.Config.debug > 2)
 			API3.warn("try to build a new base because of population " + numUnits + " for " + numCCs + " CCs");
 		this.buildNewBase(gameState, queues);
 	}
@@ -1366,7 +1371,7 @@ m.HQ.prototype.buildNewBase = function(gameState, queues, type)
 		return false;
 
 	// base "-1" means new base.
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 		API3.warn("new base planned with type " + type);
 	queues.civilCentre.addItem(new m.ConstructionPlan(gameState, this.bBase[0], { "base": -1, "type": type }));
 	return true;
@@ -1417,9 +1422,9 @@ m.HQ.prototype.buildDefenses = function(gameState, queues)
 			var attack = undefined;
 			// There can only be one upcoming attack
 			if (this.attackManager.upcomingAttacks["Attack"].length !== 0)
-				var attack = this.attackManager.upcomingAttacks["Attack"][0];
+				attack = this.attackManager.upcomingAttacks["Attack"][0];
 			else if (this.attackManager.upcomingAttacks["HugeAttack"].length !== 0)
-				var attack = this.attackManager.upcomingAttacks["HugeAttack"][0];
+				attack = this.attackManager.upcomingAttacks["HugeAttack"][0];
 
 			if (attack && !attack.unitStat["Siege"])
 				attack.addSiegeUnits(gameState);
@@ -1689,7 +1694,13 @@ m.HQ.prototype.canBuild = function(gameState, structure)
 
 	// build limits
 	var template = gameState.getTemplate(type);
-	if (!template.available(gameState))
+	if (!template)
+	{
+		this.stopBuilding.push(type);
+		if (this.Config.debug > 0)
+			API3.warn("Petra error: trying to build " + structure + " for civ " + gameState.civ() + " but no template found.");
+	}
+	if (!template || !template.available(gameState))
 		return false;
 	var limits = gameState.getEntityLimits();
 	for (var limitedClass in limits)
@@ -1707,7 +1718,7 @@ m.HQ.prototype.updateTerritories = function(gameState)
 	this.lastTerritoryUpdate = gameState.ai.playedTurn;
 
 	var width = this.territoryMap.width;
-	var expansion = false;
+	var expansion = 0;
 	for (var j = 0; j < this.territoryMap.length; ++j)
 	{
 		if (this.borderMap.map[j] === 2)
@@ -1751,7 +1762,7 @@ m.HQ.prototype.updateTerritories = function(gameState)
 				continue;
 			this.baseManagers[baseID].territoryIndices.push(j);
 			this.basesMap.map[j] = baseID;
-			expansion = true;
+			expansion++;
 		}
 	}
 
@@ -1761,6 +1772,9 @@ m.HQ.prototype.updateTerritories = function(gameState)
 		return;
 	// We've increased our territory, so we may have some new room to build
 	this.stopBuilding = [];
+	// And if sufficient expansion, check if building a new market would improve our present trade routes
+	if (expansion > 200)
+		this.tradeManager.routeProspection = true;
 };
 
 // TODO: use pop(). Currently unused as this is too gameable.
@@ -1833,7 +1847,7 @@ m.HQ.prototype.update = function(gameState, queues, events)
 	
 	this.territoryMap = m.createTerritoryMap(gameState);
 
-	if (this.Config.debug > 0)
+	if (this.Config.debug > 1)
 	{
 		gameState.getOwnUnits().forEach (function (ent) {
 			if (!ent.hasClass("CitizenSoldier") || ent.hasClass("Cavalry"))
@@ -1850,15 +1864,7 @@ m.HQ.prototype.update = function(gameState, queues, events)
 			if (gameState.ai.playedTurn - ent.getMetadata(PlayerID, "idleTim") < 50)
 				return;
 			API3.warn(" unit idle since " + (gameState.ai.playedTurn-ent.getMetadata(PlayerID, "idleTim")) + " turns");
-			API3.warn(" unitai state " + ent.unitAIState());
-			API3.warn(" >>> base " + ent.getMetadata(PlayerID, "base"));
-			API3.warn(" >>> role " + ent.getMetadata(PlayerID, "role"));
-			API3.warn(" >>> subrole " + ent.getMetadata(PlayerID, "subrole"));
-			API3.warn(" >>> gather-type " + ent.getMetadata(PlayerID, "gather-type"));
-			API3.warn(" >>> target-foundation " + ent.getMetadata(PlayerID, "target-foundation"));
-			API3.warn(" >>> PartOfArmy " + ent.getMetadata(PlayerID, "PartOfArmy"));
-			API3.warn(" >>> plan " + ent.getMetadata(PlayerID, "plan"));
-			API3.warn(" >>> transport " + ent.getMetadata(PlayerID, "transport"));
+			m.dumpEntity(ent);
 			ent.setMetadata(PlayerID, "idleTim", gameState.ai.playedTurn);
 		});
 	}
@@ -1907,7 +1913,7 @@ m.HQ.prototype.update = function(gameState, queues, events)
 		}
 
 		if (this.Config.difficulty > 1)
-			this.tradeManager.update(gameState, queues);
+			this.tradeManager.update(gameState, events, queues);
 	}
 
 	this.garrisonManager.update(gameState, events);
@@ -1932,19 +1938,9 @@ m.HQ.prototype.update = function(gameState, queues, events)
 	if (this.Config.difficulty > 0)
 		this.attackManager.update(gameState, queues, events);
 
-	Engine.ProfileStop();
-};
+	this.diplomacyManager.update(gameState, events);
 
-m.HQ.prototype.getHolder = function(gameState, ent)
-{
-	var found = undefined;
-	gameState.getEntities().forEach(function (holder) {
-		if (found || !holder.isGarrisonHolder())
-			return;
-		if (holder._entity.garrisoned.indexOf(ent.id()) !== -1)
-			found = holder;
-	});
-	return found;
+	Engine.ProfileStop();
 };
 
 return m;

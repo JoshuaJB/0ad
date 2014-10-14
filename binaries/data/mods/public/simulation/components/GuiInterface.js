@@ -22,6 +22,7 @@ GuiInterface.prototype.Init = function()
 	this.placementWallLastAngle = 0;
 	this.notifications = [];
 	this.renamedEntities = [];
+	this.miragedEntities = [];
 	this.timeNotificationID = 1;
 	this.timeNotifications = [];
 	this.entsRallyPointsDisplayed = [];
@@ -148,12 +149,24 @@ GuiInterface.prototype.GetExtendedSimulationState = function(player)
 
 GuiInterface.prototype.GetRenamedEntities = function(player)
 {
-	return this.renamedEntities;
+	if (this.miragedEntities[player])
+		return this.renamedEntities.concat(this.miragedEntities[player]);
+	else
+		return this.renamedEntities;
 };
 
 GuiInterface.prototype.ClearRenamedEntities = function(player)
 {
 	this.renamedEntities = [];
+	this.miragedEntities = [];
+};
+
+GuiInterface.prototype.AddMiragedEntity = function(player, entity, mirage)
+{
+	if (!this.miragedEntities[player])
+		this.miragedEntities[player] = [];
+
+	this.miragedEntities[player].push({"entity": entity, "newentity": mirage});
 };
 
 /**
@@ -185,6 +198,7 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		"position": null,
 		"production": null,
 		"rallyPoint": null,
+		"resourceCarrying": null,
 		"rotation": null,
 		"trader": null,
 		"unitAI": null,
@@ -332,6 +346,12 @@ GuiInterface.prototype.GetEntityState = function(player, ent)
 		};
 	}
 
+	var cmpResourceGatherer = Engine.QueryInterface(ent, IID_ResourceGatherer);
+	if (cmpResourceGatherer)
+	{
+		ret.resourceCarrying = cmpResourceGatherer.GetCarryingStatus();
+	}
+
 	var cmpGate = Engine.QueryInterface(ent, IID_Gate);
 	if (cmpGate)
 	{
@@ -371,7 +391,6 @@ GuiInterface.prototype.GetExtendedEntityState = function(player, ent)
 		"obstruction": null,
 		"turretParent":null,
 		"promotion": null,
-		"resourceCarrying": null,
 		"resourceDropsite": null,
 		"resourceGatherRates": null,
 		"resourceSupply": null,
@@ -489,7 +508,6 @@ GuiInterface.prototype.GetExtendedEntityState = function(player, ent)
 	if (cmpResourceGatherer)
 	{
 		ret.resourceGatherRates = cmpResourceGatherer.GetGatherRates();
-		ret.resourceCarrying = cmpResourceGatherer.GetCarryingStatus();
 	}
 	
 	var cmpResourceDropsite = Engine.QueryInterface(ent, IID_ResourceDropsite);

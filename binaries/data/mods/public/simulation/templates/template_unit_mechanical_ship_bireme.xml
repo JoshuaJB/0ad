@@ -33,8 +33,8 @@
   <GarrisonHolder>
     <Max>20</Max>
     <EjectHealth>0</EjectHealth>
-    <EjectClassesOnDestroy datatype="tokens">Female Infantry</EjectClassesOnDestroy>
-    <List datatype="tokens">Support Infantry Cavalry</List>
+    <EjectClassesOnDestroy datatype="tokens">Female Infantry Dog</EjectClassesOnDestroy>
+    <List datatype="tokens">Support Infantry Cavalry Dog</List>
     <BuffHeal>1</BuffHeal>
     <LoadingRange>10</LoadingRange>
     <Pickup>true</Pickup>
@@ -44,8 +44,7 @@
   </Health>
   <Identity>
     <GenericName>Light Warship</GenericName>
-    <Tooltip>Light Warship, good for harassing enemy coastlines and trade routes.</Tooltip>
-    <VisibleClasses datatype="tokens">Warship Light Bow Ranged</VisibleClasses>
+    <Classes datatype="tokens">Warship Light Bow Ranged</Classes>
 	<RequiredTechnology>phase_town</RequiredTechnology>
   </Identity>
   <ResourceGatherer disable=""/>
@@ -61,7 +60,7 @@
     <HeightOffset>6.0</HeightOffset>
   </StatusBars>
   <UnitMotion>
-    <WalkSpeed>12.5</WalkSpeed>
+    <WalkSpeed>14</WalkSpeed>
     <Run>
       <Speed>18.0</Speed>
     </Run>

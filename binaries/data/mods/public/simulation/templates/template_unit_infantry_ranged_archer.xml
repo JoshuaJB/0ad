@@ -2,30 +2,19 @@
 <Entity parent="template_unit_infantry_ranged">
   <Armour>
     <Hack>1</Hack>
-    <Pierce>2</Pierce>
-    <Crush>1</Crush>
+    <Pierce>1</Pierce>
+    <Crush>3</Crush>
   </Armour>
   <Attack>
     <Ranged>
-      <Hack>0.0</Hack>
-      <Pierce>10.0</Pierce>
-      <Crush>0.0</Crush>
+      <Hack>0</Hack>
+      <Pierce>13.5</Pierce>
+      <Crush>0</Crush>
       <MaxRange>50.0</MaxRange>
       <MinRange>0.0</MinRange>
       <ProjectileSpeed>75.0</ProjectileSpeed>
-      <PrepareTime>1200</PrepareTime>
-      <RepeatTime>2000</RepeatTime>
-      <Spread>2.0</Spread>
-	  <Bonuses>
-		<BonusSwordsmen>
-		  <Classes>Infantry Sword</Classes>
-		  <Multiplier>1.5</Multiplier>
-		</BonusSwordsmen>
-		<BonusSpearmen>
-		  <Classes>Infantry Spear</Classes>
-		  <Multiplier>1.25</Multiplier>
-		</BonusSpearmen>
-	  </Bonuses>
+      <PrepareTime>1000</PrepareTime>
+      <RepeatTime>1000</RepeatTime>
     </Ranged>
   </Attack>
   <Cost>
@@ -38,8 +27,6 @@
     <VisibleClasses datatype="tokens">Archer</VisibleClasses>
     <GenericName>Archer</GenericName>
     <History>They tended to be lightly armored. They usually only participated in the first stage of a battle, sending a volley of arrows raining down the enemy. Of course they would have to stop shooting once the melee units closed in. This means their job was largely over once the 'true battle' was underway. They spent hours training with a bow, but if you were hit by an arrow it was more likely an act of random chance than being specifically targeted by an archer.</History>
-    <Tooltip>Counters: 1.5x vs. Sword Infantry, 1.25x vs Spear Infantry.
-Countered by: Melee Cavalry.</Tooltip>
   </Identity>
   <Loot>
     <wood>6</wood>
@@ -50,7 +37,7 @@ Countered by: Melee Cavalry.</Tooltip>
     </SoundGroups>
   </Sound>
   <UnitMotion>
-    <WalkSpeed>8.5</WalkSpeed>
+    <WalkSpeed>11</WalkSpeed>
     <Run>
       <Speed>17.0</Speed>
     </Run>

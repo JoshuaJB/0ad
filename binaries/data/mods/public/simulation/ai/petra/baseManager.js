@@ -78,6 +78,13 @@ m.BaseManager.prototype.setAnchor = function(gameState, anchorEntity)
 	this.anchor.setMetadata(PlayerID, "baseAnchor", true);
 	this.buildings.updateEnt(this.anchor);
 	this.accessIndex = gameState.ai.accessibility.getAccessValue(this.anchor.position());
+	// in case all our other bases were destroyed, reaffect these destroyed bases to this base
+	for each (var base in gameState.ai.HQ.baseManagers)
+	{
+		if (base.anchor || base.newbase)
+			continue;
+		base.newbase = this.ID;
+	}
 	return true;
 };
 
@@ -109,13 +116,31 @@ m.BaseManager.prototype.checkEvents = function (gameState, events, queues)
 				this.removeDropsite(gameState, ent);
 			if (evt.metadata[PlayerID]["baseAnchor"] && evt.metadata[PlayerID]["baseAnchor"] == true)
 			{
-				// sounds like we lost our anchor. Let's try rebuilding it.
-				// TODO: currently the HQ manager sets us as initgathering, we probably ouht to do it
+				// sounds like we lost our anchor. Let's reaffect our units and buildings
 				this.anchor = undefined;
-
-				this.constructing = true;	// let's switch mode.
-				this.workers.forEach( function (worker) { worker.stopMoving(); });
-				queues.civilCentre.addItem(new m.ConstructionPlan(gameState, gameState.ai.HQ.bBase[0], { "base": this.ID, "baseAnchor": true }, ent.position()));
+				var distmin = Math.min();
+				var basemin = undefined;
+				for each (var base in gameState.ai.HQ.baseManagers)
+				{
+					if (!base.anchor)
+						continue;
+					var dist = API3.SquareVectorDistance(base.anchor.position(), ent.position());
+					if (base.accessIndex !== this.accessIndex)
+						dist += 100000000;
+					if (dist > distmin)
+						continue;
+					distmin = dist;
+					basemin = base;
+				}
+				if (!basemin)
+				{
+					if (this.Config.debug > 1)
+						API3.warn(" base " + this.ID + " destroyed and no other bases found");
+					continue;
+				}
+				this.newbase = basemin.ID;
+				this.units.forEach( function (ent) { ent.setMetadata(PlayerID, "base", basemin.ID); });
+				this.buildings.forEach( function (ent) { ent.setMetadata(PlayerID, "base", basemin.ID); });
 			}
 			
 		}
@@ -158,7 +183,7 @@ m.BaseManager.prototype.assignResourceToDropsite = function (gameState, dropsite
 {
 	if (this.dropsites[dropsite.id()])
 	{
-		if (this.Config.debug)
+		if (this.Config.debug > 1)
 			warn("assignResourceToDropsite: dropsite already in the list. Should never happen");
 		return;
 	}
@@ -362,7 +387,7 @@ m.BaseManager.prototype.findBestDropsiteLocation = function(gameState, resource)
 		bestIdx = j;
 	}
 
-	if (this.Config.debug == 2)
+	if (this.Config.debug > 2)
 		warn(" for dropsite best is " + bestVal);
 
 	if (bestVal <= 0)
@@ -645,11 +670,13 @@ m.BaseManager.prototype.gatherersByType = function(gameState, type)
 m.BaseManager.prototype.pickBuilders = function(gameState, workers, number)
 {
 	var availableWorkers = this.workers.filter(function (ent) {
+		if (!ent.position())
+			return false;
 		if (ent.getMetadata(PlayerID, "plan") === -2 || ent.getMetadata(PlayerID, "plan") === -3)
 			return false;
-		if (ent.getMetadata(PlayerID, "transport") !== undefined)
+		if (ent.getMetadata(PlayerID, "transport"))
 			return false;
-		if (ent.hasClass("Cavalry") || ent.hasClass("Ship") || ent.position() === undefined)
+		if (ent.hasClass("Cavalry") || ent.hasClass("Ship"))
 			return false;
 		return true;
 	}).toEntityArray();
@@ -775,7 +802,17 @@ m.BaseManager.prototype.assignToFoundations = function(gameState, noRepair)
 				});
 				if (assigned + addedToThis < targetNB)
 				{
-					var nonBuilderWorkers = workers.filter(function(ent) { return (ent.getMetadata(PlayerID, "subrole") !== "builder" && ent.position() !== undefined); }).toEntityArray();
+					var nonBuilderWorkers = workers.filter(function(ent) {
+						if (ent.getMetadata(PlayerID, "subrole") === "builder")
+							return false;
+						if (!ent.position())
+							return false;
+						if (ent.getMetadata(PlayerID, "plan") === -2 || ent.getMetadata(PlayerID, "plan") === -3)
+							return false;
+						if (ent.getMetadata(PlayerID, "transport"))
+							return false;
+						return true;
+					}).toEntityArray();
 					var time = target.buildTime();
 					nonBuilderWorkers.sort(function (workerA,workerB)
 					{
@@ -823,8 +860,18 @@ m.BaseManager.prototype.assignToFoundations = function(gameState, noRepair)
 		if (assigned < targetNB/3)
 		{
 			if (builderWorkers.length + addedWorkers < targetNB*2)
-			{	
-				var nonBuilderWorkers = workers.filter(function(ent) { return (ent.getMetadata(PlayerID, "subrole") !== "builder" && ent.position() !== undefined && ent.getMetadata(PlayerID, "transport") === undefined); });
+			{
+				var nonBuilderWorkers = workers.filter(function(ent) {
+					if (ent.getMetadata(PlayerID, "subrole") === "builder")
+						return false;
+					if (!ent.position())
+						return false;
+					if (ent.getMetadata(PlayerID, "plan") === -2 || ent.getMetadata(PlayerID, "plan") === -3)
+						return false;
+					if (ent.getMetadata(PlayerID, "transport"))
+						return false;
+					return true;
+				});
 				var nearestNonBuilders = nonBuilderWorkers.filterNearest(target.position(), targetNB/3 - assigned);
 				
 				nearestNonBuilders.forEach(function(ent) {
@@ -840,9 +887,21 @@ m.BaseManager.prototype.assignToFoundations = function(gameState, noRepair)
 
 m.BaseManager.prototype.update = function(gameState, queues, events)
 {
+	if (!this.anchor)   // this base has been destroyed
+	{
+		// transfer possible remaining units (probably they were in training during previous transfers)
+		if (this.newbase)
+		{
+			var newbase = this.newbase;
+			this.units.forEach( function (ent) { ent.setMetadata(PlayerID, "base", newbase); });
+			this.buildings.forEach( function (ent) { ent.setMetadata(PlayerID, "base", newbase); });
+		}
+		return;
+	}
+
 	if (this.anchor && this.anchor.getMetadata(PlayerID, "access") !== this.accessIndex)
-		warn("Petra baseManager problem with accessIndex " + this.accessIndex
-			+ " while metadata acess is " + this.anchor.getMetadata(PlayerID, "access"));
+		API3.warn("Petra baseManager " + this.ID + " problem with accessIndex " + this.accessIndex
+			+ " while metadata access is " + this.anchor.getMetadata(PlayerID, "access"));
 
 	Engine.ProfileStart("Base update - base " + this.ID);
 

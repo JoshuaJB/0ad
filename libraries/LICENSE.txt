@@ -8,8 +8,8 @@ win32/ contains headers and precompiled static libs for Windows builds.
   osx/build-osx-libs.sh
     MIT
 
-  source/cxxtest
-    LGPL v2.1 (see COPYING)
+  source/cxxtest-4.4
+    LGPL v3 - see COPYING
 
   source/fcollada
     MIT (see src/FCollada/Copyright.txt)
@@ -18,7 +18,7 @@ win32/ contains headers and precompiled static libs for Windows builds.
     BSD
 
   source/nvtt
-    MIT (see src/NVIDIA_Texture_Tools_LICENSE.txt)
+    MIT - see src/NVIDIA_Texture_Tools_LICENSE.txt
 
   source/spidermonkey
     MPL / GPL / LGPL
@@ -33,13 +33,13 @@ win32/ contains headers and precompiled static libs for Windows builds.
     MIT
 
   win32/gloox
-    GPL v2
+    GPL v3
 
   win32/iconv
-    LGPL v2.0
+    LGPL v2.0 (or later)
 
   win32/icu
-    MIT-X11 (see license.html)
+    MIT-X11 - see license.html
 
   win32/libcurl
     MIT
@@ -54,13 +54,13 @@ win32/ contains headers and precompiled static libs for Windows builds.
     MIT
 
   win32/openal
-    LGPL v2.0
+    LGPL v2.0 (or later)
 
   win32/opengl
     MIT
 
-  win32/sdl
-    LGPL v2.1
+  win32/sdl2
+    zlib license
 
   win32/vorbis
     BSD

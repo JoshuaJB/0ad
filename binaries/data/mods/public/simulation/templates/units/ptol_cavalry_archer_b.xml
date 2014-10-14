@@ -2,15 +2,13 @@
 <Entity parent="template_unit_cavalry_ranged_archer">
   <Identity>
     <Civ>ptol</Civ>
-    <VisibleClasses datatype="tokens">Camel</VisibleClasses>
+    <Classes datatype="tokens">Camel</Classes>
 	<SelectionGroupName>units/ptol_cavalry_archer_b</SelectionGroupName>
 	<GenericName>Nabataean Camel Archer</GenericName>
     <SpecificName>Mutsābiq Gamal Nabatu</SpecificName>
     <History>?</History>
 	<Icon>units/ptol_cavalry_archer.png</Icon>
-    <Tooltip>Counters: 1.5x vs. Melee Infantry.
-Countered by: Javelin Infantry, Cavalry Swordsmen, and Elephants.
-"Stench" Aura vs. Horse Cavalry.</Tooltip>
+    <Tooltip>Classes: Ranged Cavalry Camel Archer.</Tooltip>
     <RequiredTechnology>phase_village</RequiredTechnology>
   </Identity>
   <Promotion>
@@ -24,7 +22,7 @@ Countered by: Javelin Infantry, Cavalry Swordsmen, and Elephants.
     </SoundGroups>
   </Sound>
   <UnitMotion>
-    <WalkSpeed>10.0</WalkSpeed>
+    <WalkSpeed>13.5</WalkSpeed>
     <Run>
       <Speed>18.0</Speed>
     </Run>

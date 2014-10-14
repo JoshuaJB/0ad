@@ -66,9 +66,8 @@ var commands = {
 	"quit": function(player, cmd, data)
 	{
 		// Let the AI exit the game for testing purposes
-		// TODO broken, does this need a fix?
 		var cmpGuiInterface = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface);
-		cmpGuiInterface.PushNotification({"type": "quit"});
+		cmpGuiInterface.PushNotification({"type": "quit", "players": [player]});
 	},
 
 	"diplomacy": function(player, cmd, data)
@@ -130,7 +129,7 @@ var commands = {
 	"attack-walk": function(player, cmd, data)
 	{
 		GetFormationUnitAIs(data.entities, player).forEach(function(cmpUnitAI) {
-			cmpUnitAI.WalkAndFight(cmd.x, cmd.z, cmd.queued);
+			cmpUnitAI.WalkAndFight(cmd.x, cmd.z, cmd.targetClasses, cmd.queued);
 		});
 	},
 
@@ -913,8 +912,7 @@ function TryConstructBuilding(player, cmpPlayer, controlAllUnits, cmd)
 	
 	var cmpTechnologyManager = QueryPlayerIDInterface(player, IID_TechnologyManager);
 	
-	// TODO: Enable this check once the AI gets technology support 
-	if (!cmpTechnologyManager.CanProduce(cmd.template) && !cmpPlayer.IsAI()) 
+	if (!cmpTechnologyManager.CanProduce(cmd.template))
 	{
 		if (g_DebugCommands)
 		{
@@ -1264,9 +1262,10 @@ function GetFormationUnitAIs(ents, player, formationTemplate)
 	var nonformedUnitAIs = [];
 	for each (var ent in ents)
 	{
-		// Skip units with no UnitAI
+		// Skip units with no UnitAI or no position
 		var cmpUnitAI = Engine.QueryInterface(ent, IID_UnitAI);
-		if (!cmpUnitAI)
+		var cmpPosition = Engine.QueryInterface(ent, IID_Position);
+		if (!cmpUnitAI || !cmpPosition || !cmpPosition.IsInWorld())
 			continue;
 
 		var cmpIdentity = Engine.QueryInterface(ent, IID_Identity);
@@ -1388,11 +1387,6 @@ function ClusterEntities(ents, separationDistance)
 		matrix[i] = [];
 		clusters.push([ents[i]]);
 		var cmpPosition = Engine.QueryInterface(ents[i], IID_Position);
-		if (!cmpPosition)
-		{
-			error("Asked to cluster entities without position: "+ents[i]);
-			return clusters;
-		}
 		positions.push(cmpPosition.GetPosition2D());
 		for (var j = 0; j < i; j++)
 			matrix[i][j] = positions[i].distanceToSquared(positions[j]);

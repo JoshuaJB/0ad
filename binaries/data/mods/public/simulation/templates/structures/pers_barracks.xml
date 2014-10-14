@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Entity parent="template_structure_military_barracks">
-  <Cost>
-    <Resources>
-      <wood>200</wood>
-    </Resources>
-  </Cost>
   <Identity>
     <Civ>pers</Civ>
     <SpecificName>Padgan</SpecificName>
@@ -22,7 +17,6 @@
 	  persians/training_levy_infantry
 	  persians/training_conscription_infantry
 	  persians/special_archery_tradition
-	  -pair_levy_01
 	  -training_conscription
 	  -unlock_champion_units
     </Technologies>

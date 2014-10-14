@@ -7,25 +7,15 @@
   </Armour>
   <Attack>
     <Ranged>
-      <Hack>0.0</Hack>
-      <Pierce>20.0</Pierce>
-      <Crush>0.0</Crush>
+      <Hack>0</Hack>
+      <Pierce>17.5</Pierce>
+      <Crush>0</Crush>
       <MaxRange>60</MaxRange>
       <MinRange>0.0</MinRange>
       <ProjectileSpeed>75.0</ProjectileSpeed>
       <PrepareTime>1200</PrepareTime>
       <RepeatTime>2000</RepeatTime>
       <Spread>1.0</Spread>
-	  <Bonuses>
-		<BonusSwordsmen>
-		  <Classes>Infantry Sword</Classes>
-		  <Multiplier>1.5</Multiplier>
-		</BonusSwordsmen>
-		<BonusSpearmen>
-		  <Classes>Infantry Spear</Classes>
-		  <Multiplier>1.25</Multiplier>
-		</BonusSpearmen>
-	  </Bonuses>
     </Ranged>
   </Attack>
   <Cost>
@@ -37,8 +27,6 @@
   <Identity>
     <GenericName>Hero Archer</GenericName>
     <VisibleClasses datatype="tokens">Ranged Archer</VisibleClasses>
-    <Tooltip>Counters: 1.5x vs. Sword Infantry, 1.25x vs Spear Infantry.
-Countered by: Melee Cavalry.</Tooltip>
     <Formations datatype="tokens">
       formations/skirmish
     </Formations>

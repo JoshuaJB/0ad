@@ -2,19 +2,21 @@
 <Entity parent="units/pers_infantry_spearman_b">
   <Armour>
     <Hack>3</Hack>
-    <Pierce>3</Pierce>
+    <Pierce>5</Pierce>
     <Crush>4</Crush>
   </Armour>
   <Attack>
     <Melee>
-      <Hack>10.0</Hack>
+      <Hack>5</Hack>
+      <Pierce>10</Pierce>
     </Melee>
     <Charge>
-      <Hack>25.0</Hack>
+      <Hack>14.0</Hack>
+      <Pierce>28.0</Pierce>
     </Charge>
   </Attack>
   <Health>
-    <Max>90</Max>
+    <Max>130</Max>
   </Health>
   <Identity>
     <Rank>Advanced</Rank>
@@ -22,6 +24,12 @@
   <Promotion>
     <Entity>units/pers_infantry_spearman_e</Entity>
   </Promotion>
+  <UnitMotion>
+    <WalkSpeed>8.5</WalkSpeed>
+    <Run>
+      <Speed>21.0</Speed>
+    </Run>
+  </UnitMotion>
   <VisualActor>
     <Actor>units/persians/infantry_spearman_a.xml</Actor>
   </VisualActor>

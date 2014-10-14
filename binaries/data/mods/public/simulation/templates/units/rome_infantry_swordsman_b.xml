@@ -8,11 +8,6 @@
       structures/{civ}_wonder
     </Entities>
   </Builder>
-  <Cost>
-    <Resources>
-      <metal>60</metal>
-    </Resources>
-  </Cost>
   <Identity>
     <Civ>rome</Civ>
 	<SelectionGroupName>units/rome_infantry_swordsman_b</SelectionGroupName>
