@@ -366,7 +366,7 @@ struct SerializeSpatialSubdivision
 class FastSpatialSubdivision
 {
 private:
-	static const int SUBDIVISION_SIZE = 20; // bigger than most buildings and entities
+	static const uint SUBDIVISION_SIZE = 20; // bigger than most buildings and entities
 
 	std::vector<entity_id_t> m_OverSizedData;
 	std::vector<entity_id_t>* m_SpatialDivisionsData;	// fixed size array of subdivisions
@@ -374,12 +374,11 @@ private:
 
 	inline size_t Index(fixed position)
 	{
-		return Clamp((position / SUBDIVISION_SIZE).ToInt_RoundToZero(), 0, (int)m_ArrayWidth-1);
+		return Clamp((position / (int)SUBDIVISION_SIZE).ToInt_RoundToZero(), 0, (int)m_ArrayWidth-1);
 	}
 
 	inline size_t SubdivisionIdx(CFixedVector2D position)
-	{
-		return Index(position.X) + Index(position.Y)*m_ArrayWidth;
+	{ return Index(position.X) + Index(position.Y)*m_ArrayWidth;
 	}
 
 	/**
@@ -430,7 +429,7 @@ public:
 	void Reset(fixed w, fixed h)
 	{
 		ENSURE(w >= fixed::Zero() && h >= fixed::Zero());
-		size_t arrayWidth = std::max((w / SUBDIVISION_SIZE).ToInt_RoundToZero(), (h / SUBDIVISION_SIZE).ToInt_RoundToZero()) + 1;
+		size_t arrayWidth = std::max((w / (int)SUBDIVISION_SIZE).ToInt_RoundToZero(), (h / (int)SUBDIVISION_SIZE).ToInt_RoundToZero()) + 1;
 		Reset(arrayWidth);
 	}
 

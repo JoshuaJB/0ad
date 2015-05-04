@@ -65,7 +65,20 @@ actually supported).
 
 #if CONFIG2_GLES
 
-// no GLES extensions used yet
+#if 1
+//GL_OES_mapbuffer
+  FUNC(void*, glMapBufferOES, (int target, int access))
+  FUNC(GLboolean, glUnmapBufferOES, (int target))
+# define GL_WRITE_ONLY GL_WRITE_ONLY_OES
+#else
+# error Buffer mapping is required on GLES2 platforms. 
+#endif
+
+#ifdef GL_KHR_debug
+#if GL_KHR_debug
+  FUNC(void, glDebugMessageCallbackKHR, (GLDEBUGPROCKHR callback, const void* userParam));
+#endif
+#endif
 
 // some functions that are extensions in GL are core functions in GLES,
 // so we should use them without the function pointer indirection
@@ -106,8 +119,9 @@ actually supported).
 #define pglBufferSubDataARB glBufferSubData
 #define pglDeleteBuffersARB glDeleteBuffers
 #define pglGenBuffersARB glGenBuffers
-#define pglMapBufferARB glMapBuffer
-#define pglUnmapBufferARB glUnmapBuffer
+// Some functions are also extensions in GLES, but under a different name
+#define pglMapBufferARB pglMapBufferOES
+#define pglUnmapBufferARB pglUnmapBufferOES
 
 #define pglBindFramebufferEXT glBindFramebuffer
 #define pglCheckFramebufferStatusEXT glCheckFramebufferStatus

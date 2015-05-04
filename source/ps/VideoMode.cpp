@@ -202,7 +202,11 @@ bool CVideoMode::SetVideoMode(int w, int h, int bpp, bool fullscreen)
 
 	return true;
 }
-
+/* Not supported on RPi proprietary drivers
+static void on_gl_error(uint source, uint type, uint id, uint severity, int length, const char* message, const void *userParam) {
+	LOGWARNING("%s/n", message);
+}
+*/
 bool CVideoMode::InitSDL()
 {
 	ENSURE(!m_IsInitialised);
@@ -245,7 +249,11 @@ bool CVideoMode::InitSDL()
 	}
 
 	int bpp = GetBestBPP();
-
+#ifndef NDEBUG
+	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+	//glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_KHR);
+	//pglDebugMessageCallbackKHR(on_gl_error, NULL);
+#endif
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);

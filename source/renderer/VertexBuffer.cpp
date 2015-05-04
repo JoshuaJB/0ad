@@ -258,7 +258,7 @@ u8* CVertexBuffer::Bind()
 
 			while (true)
 			{
-				void* p = pglMapBufferARB(m_Target, GL_WRITE_ONLY);
+				void* p = pglMapBufferOES(m_Target, GL_WRITE_ONLY);
 				if (p == NULL)
 				{
 					// This shouldn't happen unless we run out of virtual address space
@@ -281,7 +281,7 @@ u8* CVertexBuffer::Bind()
 					if (chunk->m_Needed)
 						memcpy((u8 *)p + chunk->m_Index * m_VertexSize, chunk->m_BackingStore, chunk->m_Count * m_VertexSize);
 
-				if (pglUnmapBufferARB(m_Target) == GL_TRUE)
+				if (pglUnmapBufferOES(m_Target) == GL_TRUE)
 					break;
 
 				// Unmap might fail on e.g. resolution switches, so just try again

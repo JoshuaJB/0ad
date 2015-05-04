@@ -178,6 +178,7 @@ static void PumpEvents()
 	
 	PROFILE3("dispatch events");
 
+ogl_WarnIfError();
 	SDL_Event_ ev;
 	while (in_poll_event(&ev))
 	{
@@ -189,10 +190,14 @@ static void PumpEvents()
 			std::string data = g_GUI->GetScriptInterface()->StringifyJSON(&tmpVal);
 			PROFILE2_ATTR("%s", data.c_str());
 		}
+ogl_WarnIfError();
 		in_dispatch_event(&ev);
+ogl_WarnIfError();
 	}
 
+ogl_WarnIfError();
 	g_TouchInput.Frame();
+ogl_WarnIfError();
 }
 
 
@@ -305,16 +310,21 @@ static void Frame()
 	// get enough CPU time, but it's always nice for power+thermal management.
 
 
+ogl_WarnIfError();
 	// this scans for changed files/directories and reloads them, thus
 	// allowing hotloading (changes are immediately assimilated in-game).
 	ReloadChangedFiles();
 
+ogl_WarnIfError();
 	ProgressiveLoad();
 
+ogl_WarnIfError();
 	RendererIncrementalLoad();
 
+ogl_WarnIfError();
 	PumpEvents();
 
+ogl_WarnIfError();
 	// if the user quit by closing the window, the GL context will be broken and
 	// may crash when we call Render() on some drivers, so leave this loop
 	// before rendering

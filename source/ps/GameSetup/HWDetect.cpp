@@ -43,9 +43,10 @@
 #include "ps/GameSetup/Config.h"
 
 #ifdef SDL_VIDEO_DRIVER_X11
-#include <GL/glx.h>
 #include "SDL_syswm.h"
-
+#ifndef CONFIG2_GLES
+# include <GL/glx.h>
+#endif
 // Define the GLX_MESA_query_renderer macros if built with
 // an old Mesa (<10.0) that doesn't provide them
 #ifndef GLX_MESA_query_renderer
@@ -721,8 +722,16 @@ static void ReportGLLimits(ScriptInterface& scriptInterface, JS::HandleValue set
 #endif
 		int scrnum = DefaultScreen(dpy);
 
-		const char* glxexts = glXQueryExtensionsString(dpy, scrnum);
-
+		const char* glxexts;
+#if CONFIG2_GLES
+		glxexts = {
+			"GLX_ARB_create_context "
+			"GLX_ARB_create_context_profile "
+			"GLX_EXT_create_context_es2_profile "
+		};
+#else
+		glxexts = glXQueryExtensionsString(dpy, scrnum);
+#endif
 		scriptInterface.SetProperty(settings, "glx_extensions", glxexts);
 
 		if (strstr(glxexts, "GLX_MESA_query_renderer") && pglXQueryCurrentRendererIntegerMESA && pglXQueryCurrentRendererStringMESA)

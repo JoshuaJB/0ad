@@ -40,7 +40,7 @@ bool cpu_CAS(volatile intptr_t* location, intptr_t expected, intptr_t newValue)
 
 bool cpu_CAS64(volatile i64* location, i64 expected, i64 newValue)
 {
-	return __sync_bool_compare_and_swap(location, expected, newValue);
+return false;//	return __sync_bool_compare_and_swap(location, expected, newValue);
 }
 
 const char* cpu_IdentifierString()
