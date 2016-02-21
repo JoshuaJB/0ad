@@ -276,12 +276,59 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	const float height = m_CachedActualSize.GetHeight();
 	const float invTileMapSize = 1.0f / float(TERRAIN_TILE_SIZE * m_MapSize);
 
+	// Run inner edge intersections
 	CVector3D hitPt[4];
 	hitPt[0] = m_Camera->GetWorldCoordinates(0, g_Renderer.GetHeight(), h);
 	hitPt[1] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), g_Renderer.GetHeight(), h);
 	hitPt[2] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth(), 0, h);
 	hitPt[3] = m_Camera->GetWorldCoordinates(0, 0, h);
 
+	const int NUM_VERTS = 4;
+	CVector3D ptpVects[NUM_VERTS];
+	for (int i = 0; i < NUM_VERTS; i++)
+		ptpVects[i] = (hitPt[(i + 1) % NUM_VERTS] - hitPt[i % NUM_VERTS]).Normalized();
+
+	CVector3D outerPts[NUM_VERTS];
+	for (int i = 0; i < NUM_VERTS; i++)
+		outerPts[i] = hitPt[i] + ptpVects[(i + 1) % NUM_VERTS] * -100 + ptpVects[i % NUM_VERTS] * 100;
+
+	float viewVerts[20];
+	// Convert to minimap space
+	for (int i = 0; i < 4; i++)
+	{
+		// Inner X vertex coordinate
+		viewVerts[i * 4] = width * hitPt[i].X * invTileMapSize;
+		// Inner Y vertex coordinate
+		viewVerts[i * 4 + 1] = -1 * height * hitPt[i].Z * invTileMapSize;
+		// Outer X vertex coordinate
+		viewVerts[i * 4 + 2] = width * outerPts[i].X * invTileMapSize;
+		// Outer Y vertex coordinate
+		viewVerts[i * 4 + 3] = -1 * height * outerPts[i].Z * invTileMapSize;
+	}
+
+	// Run outer edge intersections
+/*	CVector3D outerHitPt[4];
+	outerHitPt[0] = m_Camera->GetWorldCoordinates(-100, g_Renderer.GetHeight() + 100, h);
+	outerHitPt[1] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth() + 100, g_Renderer.GetHeight() + 100, h);
+	outerHitPt[2] = m_Camera->GetWorldCoordinates(g_Renderer.GetWidth() + 100, -100, h);
+	outerHitPt[3] = m_Camera->GetWorldCoordinates(-100, -100, h);
+*/
+
+/*	float viewVerts[20];
+	// Convert to minimap space
+	for (int i = 0; i < 4; i++)
+	{
+		// Inner X vertex coordinate
+		viewVerts[i * 4] = width * hitPt[i].X * invTileMapSize;
+		// Inner Y vertex coordinate
+		viewVerts[i * 4 + 1] = -1 * height * hitPt[i].Z * invTileMapSize;
+		// Outer X vertex coordinate
+		viewVerts[i * 4 + 2] = width * hitPt[i].X * invTileMapSize + 10;
+		// Outer Y vertex coordinate
+		viewVerts[i * 4 + 3] = -1 * height * hitPt[i].Z * invTileMapSize + 10;
+	}*/
+
+/*
 	float viewVerts[20];
 	// Convert to minimap space
 	for (int i = 0; i < 4; i++)
@@ -292,14 +339,14 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 		viewVerts[i * 4 + 1] = -1 * height * hitPt[i].Z * invTileMapSize;
 	}
 
-	/* Maths *** IGNORE ME ***
+	* Maths *** IGNORE ME ***
 		Given λ as the number of degrees clockwise about the inner vertex
 		from the transformed +Y vector to the vector formed between the
 		inner and outer vertices of the given corner.
 			λ = 270° + arctan((v0.y - v3.y) / (v3.x - v0.x)) / 2
 		In radians:
 			λ = 3π / 2 + arctan((v0.y - v3.y) / (v3.x - v0.x)) / 2
-	*/
+	*
 	const double bottomViewportLength = sqrt(pow(viewVerts[5] - viewVerts[1], 2) + pow(viewVerts[4] - viewVerts[0], 2));
 	const double topViewportLength = sqrt(pow(viewVerts[9] - viewVerts[13], 2) + pow(viewVerts[8] - viewVerts[12], 2));
 	const double hypotenuseLength = sqrt(pow(viewVerts[1] - viewVerts[13], 2) + pow(viewVerts[0] - viewVerts[12], 2));
@@ -326,7 +373,7 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	viewVerts[14] = viewVerts[12] - cos(lambda - GetAngle()) * LINE_WIDTH;
 	// Outer Y vertex coordinate
 	viewVerts[15] = viewVerts[13] - sin(lambda - GetAngle()) * LINE_WIDTH;
-
+*/
 	// Copy and append the first set of vertices to the end of the vertex array so as to draw a loop.
 	viewVerts[16] = viewVerts[0];
 	viewVerts[17] = viewVerts[1];
@@ -348,9 +395,10 @@ void CMiniMap::DrawViewRect(const CMatrix3D& transform)
 	shader->VertexPointer(2, GL_FLOAT, 0, viewVerts);
 	shader->AssertPointersBound();
 
-	if (!g_Renderer.m_SkipSubmit)
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 10);
-
+	if (!g_Renderer.m_SkipSubmit) {
+		//glDrawArrays(GL_TRIANGLE_STRIP, 0, 10);
+		glDrawArrays(GL_LINE_STRIP, 0, 10);
+	}
 	tech->EndPass();
 
 	glDisable(GL_SCISSOR_TEST);
